@@ -20,6 +20,14 @@ from SacNetwork import SacNetwork
 import balance_configs as configs
 
 
+"""TODO: Make a Cell parent class that has generic methods, strip down DSGC
+-- setting params
+-- setting synapse onset times and success state (setting removed from Projector)
+-- updating noise seeds
+-- ...
+"""
+
+
 class DSGC:
     def __init__(self, params=None):
         self.set_default_params()

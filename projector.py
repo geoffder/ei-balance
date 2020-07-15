@@ -16,6 +16,11 @@ from modelUtils import (
 )
 import balance_configs as configs
 
+"""TODO: Remove need for cell to be linked to and accessed directly from here.
+-- instead, pass in the locations that sweep / etc need.
+-- return times / success for each synapse, so that setting methods within the
+   cell class can be called.
+"""
 
 class Projector:
     def __init__(self, cell, params=None):
@@ -96,6 +101,9 @@ class Projector:
         """
         Calculate onset times for each synapse randomly as though stimulus was
         a flash. Timing jitter is applied with pseudo-random number generators.
+
+        TODO: Move to using returned onset times, strip out SETTING of
+        syn.start times (move to cell class).
         """
         # distribution to pull mean onset times for each site from
         mOn = h.Random(self.seed)
@@ -183,6 +191,9 @@ class Projector:
         Calculate onset times for each synapse based on when the simulated bar
         would be passing over their location, modified by spatial offsets.
         Timing jitter is applied using pseudo-random number generators.
+
+        TODO: Move to using returned onset times, strip out SETTING of
+        syn.start times (move to cell class).
         """
         sac = self.cell.sac_net
 
@@ -261,6 +272,9 @@ class Projector:
         trial. Psuedo-random numbers generated for each synapse are compared
         against thresholds set by probability of release to determine if the
         "pre-synapse" succeeds or fails to release neurotransmitter.
+
+        TODO: Move to using returned onset times, strip out SETTING of
+        syn.start times (move to cell class).
         """
         sac = self.cell.sac_net
 
