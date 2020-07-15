@@ -10,7 +10,6 @@ import platform
 # local imports
 from modelUtils import (
     windows_gui_fix,
-    nrn_objref,
     build_stim,
     map_tree,
     find_origin,
@@ -21,6 +20,21 @@ from SacNetwork import SacNetwork
 from experiments import Rig
 import balance_configs as configs
 
+
+"""TODO: Split out the cell code from the sitmulus delivery
+-- In order for this to be more modular, split out the creation/config
+   of the DSGC into a separate class, so that the stimulus related code
+   can be more easily used with another cell setup (as long as it has the
+   same objects/methods that those functions expect it to have).
+-- To go along with this, the way that the configs are broken up, applied, and
+   recorded (get_params_dict, and where it is called) will also have to change.
+-- Rig class will have to take a little more responsibility in coordinating this
+   stuff, but it should make it a bit less tightly coupled.
+-- Seems like some of the stuff that Rig does with recording should already not
+   care about a cell lacking dendrites, since it is using enumeration.
+-- Rig will need to be updated to look in the appropriate place for parameters
+   (cell vs projector)
+"""
 
 class Model:
     def __init__(self, params=None):
@@ -287,8 +301,8 @@ class Model:
         h.celsius = self.celsius
 
     def load_DSGC(self):
-        self.RGC = nrn_objref("RGC")
-        self.RGC = h.DSGC(0, 0)  # h("RGC = new DSGC(0,0)")
+        h('load_file("RGCmodelGD.hoc")')
+        self.RGC = h.DSGC(0, 0)
         self.soma = self.RGC.soma
         self.all_dends = self.RGC.dend
 
@@ -629,9 +643,7 @@ class Model:
                 syn_rho = time_rho
             else:
                 # scale correlation of E and I by diff of their dend angles
-                delta = (sac.thetas["E"][s] - sac.thetas["I"][s]) % 360
-                delta = 360 - delta if delta > 180 else delta
-                syn_rho = time_rho - time_rho * delta / 180
+                syn_rho = time_rho - time_rho * sac.deltas[s] / 180
 
             # shared jitter
             jit_rand = h.Random(self.seed)
@@ -681,7 +693,7 @@ class Model:
             for s in locked_synapses["nums"]:
                 lock_times = self.bar_sweep(s, stim["dir"])
                 for t in ["E", "I"]:
-                    self.model.syns[t]["stim"][s][0].start = lock_times[t]
+                    self.syns[t]["stim"][s][0].start = lock_times[t]
 
         return onset_times
 
@@ -723,9 +735,7 @@ class Model:
             # scale correlation of E and I by prox of their dend angles
             for i in range(self.n_syn):
                 if sac.gaba_here[i]:
-                    delta = abs(sac.thetas["E"][i] - sac.thetas["I"][i]) % 360
-                    delta = 360 - delta if delta > 180 else delta
-                    syn_rho = rho - rho * delta / 180
+                    syn_rho = rho - rho * sac.deltas[i] / 180
                     picks["E"][i] = (
                         picks["I"][i] * syn_rho
                         + picks["E"][i] * np.sqrt(1 - syn_rho ** 2)
@@ -822,10 +832,8 @@ class Model:
 if __name__ == "__main__":
     plat = platform.system()
     if plat == "Linux":
-        h('load_file("RGCmodelGD.hoc")')
         basest = "/mnt/Data/NEURONoutput/"
     else:
-        h('load_file("RGCmodelGD.hoc")')
         basest = "D:\\NEURONoutput\\"
         windows_gui_fix()
 
@@ -837,7 +845,7 @@ if __name__ == "__main__":
     rig.synaptic_density()
     
     # rig.dir_run(3)
-    rig.sac_net_run(n_nets=5, n_trials=3, rho_steps=[0., 1.])
+    rig.sac_net_run(n_nets=1, n_trials=1, rho_steps=[0., 1.])
     # rig.vc_dir_run(10)
     # dsgc.sac_net.plot_dends(0)
     # locs = dsgc.get_recording_locations()

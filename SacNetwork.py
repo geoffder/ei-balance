@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 import json
 
-from modelUtils import rotate
+from modelUtils import rotate, wrap_180, wrap_360
 
 
 class SacNetwork:
@@ -95,6 +95,11 @@ class SacNetwork:
             self.bp_locs[t]["X"] = np.array(self.bp_locs[t]["X"])
             self.bp_locs[t]["Y"] = np.array(self.bp_locs[t]["Y"])
 
+        # theta difference used by DSGC model to scale down rho
+        self.deltas = np.vectorize(wrap_180)(
+            np.abs(self.thetas["E"] - self.thetas["I"])
+        )
+
     def theta_picker_PN(self):
         # determine whether there is GABA present at this synapse
         self.gaba_here.append(self.rand.uniform(0, 1) < self.gaba_coverage)
@@ -114,7 +119,7 @@ class SacNetwork:
                 continue
 
             base = 180 if self.gaba_here[-1] else 0
-            theta = self.wrap_360(
+            theta = wrap_360(
                 pick[t] * self.theta_vars[t] + shared + base + self.cell_pref)
 
             self.thetas[t].append(theta)
@@ -163,7 +168,7 @@ class SacNetwork:
                 self.thetas["I"].append(np.NaN)
                 continue
 
-            theta = self.wrap_360(
+            theta = wrap_360(
                 pick[t] * self.theta_vars[t] + base + self.cell_pref)
 
             self.thetas[t].append(theta)
@@ -177,7 +182,7 @@ class SacNetwork:
         pick = self.get_outer_picks(True)
 
         for t in ["E", "I"]:
-            theta = self.wrap_360(
+            theta = wrap_360(
                 pick[t] * self.theta_vars[t] + base + self.cell_pref)
 
             if t == "I":
@@ -297,13 +302,3 @@ class SacNetwork:
 
         return net
 
-    @staticmethod
-    def wrap_360(theta):
-        """Wrap degrees from -180 -> 180 scale and super 360 to 0 -> 360 scale.
-        """
-        theta %= 360
-        if theta < 0:
-            return theta + 360
-        else:
-            return theta
-        

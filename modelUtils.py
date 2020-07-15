@@ -237,3 +237,22 @@ def merge(old, new):
             old[k] = v
 
     return old
+
+
+def wrap_360(theta):
+    """Wrap degrees from -180 -> 180 scale and super 360 to 0 -> 360 scale."""
+    theta %= 360
+    if theta < 0:
+        return theta + 360
+    else:
+        return theta
+
+
+def wrap_180(theta):
+    """Wrap degrees from 360 scale (and super 180) to -180 -> 180 scale."""
+    theta %= 360
+    if theta > 180:
+        return 360 - theta
+    else:
+        return theta
+    
