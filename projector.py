@@ -110,7 +110,7 @@ class Projector:
         mOn.normal(self.flash_mean, self.flash_variance)
         self.seed += 1
 
-        # store timings for return (fine to ignore return)
+        # store timings for return (nested lists: synapse -> quanta)
         onset_times = {trans: [] for trans in ["E", "I", "AMPA", "NMDA"]}
 
         rand_on = {trans: 0 for trans in ["E", "I", "AMPA", "NMDA"]}
@@ -139,16 +139,23 @@ class Projector:
                     onset += quanta_delay.repick()
 
                 for t, props in self.cell.synprops.items():
+                    if not q:
+                        onset_times[t].append([])
+
+                    # TODO: Excise (replaced by onset_times)
                     self.cell.syns[t]["stim"][s][q].start = (
                         onset + props["delay"] + rand_on[t] * props["var"]
                     )
-
-                    onset_times[t].append(rand_on[t])
-
+                    
+                    q_onset = onset + props["delay"] + rand_on[t] * props["var"]
+                    onset_times[t][-1].append(q_onset)
+                    
                 if self.cell.NMDA_exc_lock:
+                    # TODO: Excise (replaced by onset_times)
                     self.cell.syns["NMDA"]["stim"][s][q].start = (
                         self.cell.syns["E"]["stim"][s][q].start
                     )
+                    onset_times["NMDA"][-1][-1] = onset_times["E"][-1][-1]
 
         return onset_times
 
@@ -194,6 +201,19 @@ class Projector:
 
         TODO: Move to using returned onset times, strip out SETTING of
         syn.start times (move to cell class).
+        -- Going to need to pass in...
+          -> sac.gaba_here
+          -> sac.deltas
+          -> cell.sac_angle_rho_mode (could assume from deltas being given)
+          -> cell.quanta_var, cell.quanta_inter
+          -> cell.synprops of course
+        -- Real talk: honestly, with how much junk this is, I should just put
+        -- the onset and failure functions in the cell class, and projector can
+        -- just figure out the base onset times based on the stimulus. Having
+        -- projector generate lists of onsets, then pass them in to cell which
+        -- will have to iterate over the whole thing again seems very silly.
+        -- I will make the synapses dict more clearly built in to the class with
+        -- simple methods for interacting with it though.
         """
         sac = self.cell.sac_net
 
@@ -244,25 +264,37 @@ class Projector:
                     bar_times = {k: v + q_delay for k, v in bar_times.items()}
 
                 for t, props in self.cell.synprops.items():
+                    if not q:
+                        onset_times[t].append([])
+
+                    # TODO: Excise (replaced with onset_times)
                     self.cell.syns[t]["stim"][s][q].start = (
                         bar_times[t] + props["delay"]
                         + rand_on[t] * props["var"]
                     )
 
-                    onset_times[t].append(rand_on[t])
+                    # onset_times[t].append(rand_on[t])
+                    q_onset = (
+                        bar_times[t] + props["delay"] + rand_on[t] * props["var"])
 
+                    onset_times[t][-1].append(q_onset)
+                    
                 # TODO: Maybe remove this option since I don't think it's used
                 if self.cell.NMDA_exc_lock:
+                    # TODO: Excise (replaced by onset_times)
                     self.cell.syns["NMDA"]["stim"][s][q].start = (
                         self.cell.syns["E"]["stim"][s][q].start
                     )
+                    onset_times["NMDA"][-1][-1] = onset_times["E"][-1][-1]
 
         if locked_synapses is not None:
             # reset activation time to coincide with bar (no noise)
             for s in locked_synapses["nums"]:
                 lock_times = self.bar_sweep(s, stim["dir"])
                 for t in ["E", "I"]:
+                    # TODO: Excise (replaced by onset_times)
                     self.cell.syns[t]["stim"][s][0].start = lock_times[t]
+                    onset_times[t][s] = [lock_times[t]]
 
         return onset_times
 
