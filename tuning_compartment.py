@@ -30,10 +30,11 @@ dendrite angles would have.
 """
 
 
-class Cell:
+class TuningToy:
     def __init__(self):
         self.soma = nrn_objref("soma")
         self.config_soma()
+        self.create_synapse()
 
     def config_soma(self):
         """Build and set membrane properties of soma compartment"""
@@ -76,7 +77,81 @@ class Cell:
             "offset": lambda d, n, p: p
                 + (n - p) * (1 - 0.98 / (1 + np.exp(d - 74.69) / 24.36)),
         }
-        
+
+    def create_synapse(self):
+        # complete synapses are made up of a NetStim, Syn, and NetCon
+        self.syns = {
+            "E": {"stim": build_stim(), "syn": nrn_objref("e_syn")},
+            "I": {"stim": build_stim(), "syn": nrn_objref("i_syn")},
+        }
+
+        self.syns["E"]["syn"].tau1 = 0.1
+        self.syns["E"]["syn"].tau2 = 4.0
+        self.syns["E"]["syn"].e    = 0
+
+        self.syns["I"]["syn"].tau1 = 0.5
+        self.syns["I"]["syn"].tau2 = 12.0
+        self.syns["I"]["syn"].e    = -60.0
+
+        self.syns["E"]["con"] = h.NetCon(
+            self.syns["E"]["stim"], self.syns["E"]["syn"], 0, 0, .001
+        )
+        self.syns["I"]["con"] = h.NetCon(
+            self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, .003
+        )
+
+    def place_electrode(self):
+        self.soma_rec = h.Vector()
+        self.soma_rec.record(self.soma(0.5)._ref_v)
+        self.soma_data = {"Vm": [], "area": [], "thresh_count": []}
+
+    def dump_recordings(self):
+        vm, area, count = Rig.measure_response(self.soma_rec)
+        self.soma_data["Vm"].append(np.round(vm, decimals=3))
+        self.soma_data["area"].append(np.round(area, decimals=3))
+        self.soma_data["thresh_count"].append(count)
+
+    def clear_recordings(self):
+        self.soma_rec.resize(0)
+
+    def summary(self, n_trials, plot=True):
+        rads = self.dir_rads
+
+        spikes = np.array(self.soma_data["thresh_count"]).reshape(n_trials, -1)
+        metrics = {"DSis": [], "thetas": []}
+
+        for i in range(n_trials):
+            dsi, theta = Rig.calc_DS(rads, spikes[i])
+            metrics["DSis"].append(dsi)
+            metrics["thetas"].append(theta)
+
+        metrics["DSis"] = np.round(metrics["DSis"], decimals=3)
+        metrics["thetas"] = np.round(metrics["thetas"], decimals=1)
+
+        metrics["spikes"] = spikes
+        metrics["total_spikes"] = spikes.sum(axis=0)
+        avg_dsi, avg_theta = Rig.calc_DS(rads, metrics["total_spikes"])
+        metrics["avg_DSi"] = np.round(avg_dsi, decimals=3)
+        metrics["avg_theta"] = np.round(avg_theta, decimals=2)
+        metrics["DSis_sdev"] = np.std(metrics["DSis"]).round(decimals=2)
+        metrics["thetas_sdev"] = np.std(metrics["thetas"]).round(decimals=2)
+
+        self.print_results(metrics)
+        if plot:
+            self.plot_results(metrics)
+
+        return metrics
+
+    def print_results(self, metrics):
+        for k, v in metrics.items():
+            print(k + ":", v)
+
+        print("")
+
+    def plot_results(self, metrics):
+        fig1 = Rig.polar_plot(self.dir_labels, metrics)
+        return fig1
+
 
 def set_hoc_params():
     """Set hoc NEURON environment model run parameters."""
