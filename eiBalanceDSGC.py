@@ -21,21 +21,6 @@ from experiments import Rig
 import balance_configs as configs
 
 
-"""TODO: Split out the cell code from the sitmulus delivery
--- In order for this to be more modular, split out the creation/config
-   of the DSGC into a separate class, so that the stimulus related code
-   can be more easily used with another cell setup (as long as it has the
-   same objects/methods that those functions expect it to have).
--- To go along with this, the way that the configs are broken up, applied, and
-   recorded (get_params_dict, and where it is called) will also have to change.
--- Rig class will have to take a little more responsibility in coordinating this
-   stuff, but it should make it a bit less tightly coupled.
--- Seems like some of the stuff that Rig does with recording should already not
-   care about a cell lacking dendrites, since it is using enumeration.
--- Rig will need to be updated to look in the appropriate place for parameters
-   (cell vs projector)
-"""
-
 class Model:
     def __init__(self, params=None):
         self.set_default_params()
@@ -59,194 +44,195 @@ class Model:
 
     def set_default_params(self):
         # hoc environment parameters
-        self.tstop = 250  # [ms]
-        self.steps_per_ms = 10  # [10 = 10kHz]
-        self.dt = 0.1  # [ms, .1 = 10kHz]
-        self.v_init = -60
-        self.celsius = 36.9
+        self.tstop        = 250  # [ms]
+        self.steps_per_ms = 10   # [10 = 10kHz]
+        self.dt           = 0.1  # [ms, .1 = 10kHz]
+        self.v_init       = -60
+        self.celsius      = 36.9
 
         # soma physical properties
-        self.soma_L = 10
-        self.soma_diam = 10
-        self.soma_nseg = 1
-        self.soma_Ra = 100
+        self.soma_L       = 10
+        self.soma_diam    = 10
+        self.soma_nseg    = 1
+        self.soma_Ra      = 100
 
         # dendrite physical properties
-        self.dend_nseg = 1
-        self.seg_step = 1 / (
+        self.dend_nseg    = 1
+        self.seg_step     = 1 / (
             self.dend_nseg * 2) if self.dend_nseg != 10 else 0.1
-        self.rec_per_sec = self.dend_nseg * 2 if self.dend_nseg != 10 else 10
-        self.diam_range = {"max": .5, "decay": 1}
-        self.dend_diam = 0.5
-        self.dend_L = 1200
-        self.dend_Ra = 100
+        self.rec_per_sec  = self.dend_nseg * 2 if self.dend_nseg != 10 else 10
+        self.diam_range   = {"max": .5, "decay": 1}
+        self.dend_diam    = 0.5
+        self.dend_L       = 1200
+        self.dend_Ra      = 100
 
         # global active properties
-        self.TTX = False  # zero all Na conductances
-        self.vc_pas = False  # eliminate active properties for clamp
+        self.TTX          = False  # zero all Na conductances
+        self.vc_pas       = False  # eliminate active properties for clamp
 
         # soma active properties
         self.active_soma = True
-        self.soma_Na = 0.15  # [S/cm2]
-        self.soma_K = 0.035  # [S/cm2]
-        self.soma_Km = 0.003  # [S/cm2]
-        self.soma_gleak_hh = 0.0001667  # [S/cm2]
-        self.soma_eleak_hh = -60.0  # [mV]
+        self.soma_Na        = 0.15       # [S/cm2]
+        self.soma_K         = 0.035      # [S/cm2]
+        self.soma_Km        = 0.003      # [S/cm2]
+        self.soma_gleak_hh  = 0.0001667  # [S/cm2]
+        self.soma_eleak_hh  = -60.0      # [mV]
         self.soma_gleak_pas = 0.0001667  # [S/cm2]
-        self.soma_eleak_pas = -60  # [mV]
+        self.soma_eleak_pas = -60        # [mV]
 
         # dend compartment active properties
-        self.active_dend = True
-        self.active_terms = True  # only synapse branches and primaries
+        self.active_dend    = True
+        self.active_terms   = True  # only synapse branches and primaries
 
-        self.prime_pas = False  # no HHst
-        self.prime_Na = 0.20  # [S/cm2]
-        self.prime_K = 0.035  # [S/cm2]
-        self.prime_Km = 0.003  # [S/cm2]
-        self.prime_gleak_hh = 0.0001667  # [S/cm2]
-        self.prime_eleak_hh = -60.0  # [mV]
+        self.prime_pas       = False      # no HHst
+        self.prime_Na        = 0.20       # [S/cm2]
+        self.prime_K         = 0.035      # [S/cm2]
+        self.prime_Km        = 0.003      # [S/cm2]
+        self.prime_gleak_hh  = 0.0001667  # [S/cm2]
+        self.prime_eleak_hh  = -60.0      # [mV]
         self.prime_gleak_pas = 0.0001667  # [S/cm2]
-        self.prime_eleak_pas = -60  # [mV]
+        self.prime_eleak_pas = -60        # [mV]
 
-        self.dend_pas = False  # no HHst
-        self.dend_Na = 0.03  # [S/cm2] .03
-        self.dend_K = 0.025  # [S/cm2]
-        self.dend_Km = 0.003  # [S/cm2]
-        self.dend_gleak_hh = 0.0001667  # [S/cm2]
-        self.dend_eleak_hh = -60.0  # [mV]
-        self.dend_gleak_pas = 0.0001667  # [S/cm2]
-        self.dend_eleak_pas = -60  # [mV]
+        self.dend_pas        = False      # no HHst
+        self.dend_Na         = 0.03       # [S/cm2] .03
+        self.dend_K          = 0.025      # [S/cm2]
+        self.dend_Km         = 0.003      # [S/cm2]
+        self.dend_gleak_hh   = 0.0001667  # [S/cm2]
+        self.dend_eleak_hh   = -60.0      # [mV]
+        self.dend_gleak_pas  = 0.0001667  # [S/cm2]
+        self.dend_eleak_pas  = -60        # [mV]
 
         # membrane noise
-        self.dend_nzFactor = 0.0  # default NF_HHst = 1
-        self.soma_nzFactor = 0.25
+        self.dend_nzFactor   = 0.0        # default NF_HHst = 1
+        self.soma_nzFactor   = 0.25
 
         # synaptic properties
-        self.term_syn_only = True
-        self.first_order = 1  # lowest order that can hold a synapse
+        self.term_syn_only   = True
+        self.first_order     = 1    # lowest order that can hold a synapse
 
-        self.flash_mean = 100  # mean onset time for flash stimulus
-        self.flash_variance = 400  # variance of flash release onset
-        self.jitter = 60  # [ms] 10
+        self.max_quanta       = 1
+        self.quanta_Pr_decay  = 0.9
+        self.quanta_inter     = 5   # [ms]
+        self.quanta_inter_var = 3   # [ms]
 
-        self.max_quanta = 1
-        self.quanta_Pr_decay = 0.9
-        self.quanta_inter = 5  # [ms]
-        self.quanta_inter_var = 3
-
-        self.NMDA_exc_lock = 0  # old excLock, remember to replace
+        self.NMDA_exc_lock    = 0   # old excLock, remember to replace
 
         self.synprops = {
             "E": {
-                "tau1": 0.1,  # excitatory conductance rise tau [ms]
-                "tau2": 4,  # excitatory conductance decay tau [ms]
-                "rev": 0,  # excitatory reversal potential [mV]
-                "weight": 0.001,  # weight of excitatory NetCons [uS] .00023
-                "prob": 0.5,  # probability of release
-                "null_prob": 0.5,  # probability of release
-                "pref_prob": 0.5,  # probability of release
-                "delay": 0,  # [ms] mean temporal offset
-                "null_offset": 0,  # [um] hard-coded space offset on null side
-                "pref_offset": 0,  # [um] hard-coded space offset on pref side
-                "var": 10,  # [ms] temporal variance of onset
+                "tau1":        0.1,    # excitatory conductance rise tau [ms]
+                "tau2":        4,      # excitatory conductance decay tau [ms]
+                "rev":         0,      # excitatory reversal potential [mV]
+                "weight":      0.001,  # weight of exc NetCons [uS] .00023
+                "prob":        0.5,    # probability of release
+                "null_prob":   0.5,    # probability of release
+                "pref_prob":   0.5,    # probability of release
+                "delay":       0,      # [ms] mean temporal offset
+                "null_offset": 0,      # [um] hard space offset on null side
+                "pref_offset": 0,      # [um] hard space offset on pref side
+                "var":         10,     # [ms] temporal variance of onset
             },
             "I": {
-                "tau1": 0.5,  # inhibitory conductance rise tau [ms]
-                "tau2": 12,  # inhibitory conductance decay tau [ms]
-                "rev": -60,  # inhibitory reversal potential [mV]
-                "weight": 0.003,  # weight of inhibitory NetCons [uS]
-                "prob": 0.8,  # probability of release
-                "null_prob": 0.8,  # probability of release
-                "pref_prob": 0.05,  # probability of release
-                "delay": -5,  # [ms] mean temporal offset
-                "null_offset": -5.5,  # [um] hard-coded space offset on null
-                "pref_offset": 3,  # [um] hard-coded space offset on pref side
-                "var": 10,  # [ms] temporal variance of onset
+                "tau1":        0.5,    # inhibitory conductance rise tau [ms]
+                "tau2":        12,     # inhibitory conductance decay tau [ms]
+                "rev":         -60,    # inhibitory reversal potential [mV]
+                "weight":      0.003,  # weight of inhibitory NetCons [uS]
+                "prob":        0.8,    # probability of release
+                "null_prob":   0.8,    # probability of release
+                "pref_prob":   0.05,   # probability of release
+                "delay":       -5,     # [ms] mean temporal offset
+                "null_offset": -5.5,   # [um] hard space offset on null
+                "pref_offset": 3,      # [um] hard space offset on pref side
+                "var":         10,     # [ms] temporal variance of onset
             },
             "AMPA": {
-                "tau1": 0.1,
-                "tau2": 4,
-                "rev": 0,
-                "weight": 0.0,
-                "prob": 0,
-                "null_prob": 0,
-                "pref_prob": 0,
-                "delay": 0,
+                "tau1":        0.1,
+                "tau2":        4,
+                "rev":         0,
+                "weight":      0.0,
+                "prob":        0,
+                "null_prob":   0,
+                "pref_prob":   0,
+                "delay":       0,
                 "null_offset": 0,
                 "pref_offset": 0,
-                "var": 7,
+                "var":         7,
             },
             "NMDA": {
-                "tau1": 2,
-                "tau2": 7,
-                "rev": 0,
-                "weight": 0.0015,
-                "prob": 0,
-                "null_prob": 0,
-                "pref_prob": 0,
-                "delay": 0,  # [ms] mean temporal offset
+                "tau1":        2,
+                "tau2":        7,
+                "rev":         0,
+                "weight":      0.0015,
+                "prob":        0,
+                "null_prob":   0,
+                "pref_prob":   0,
+                "delay":       0,     # [ms] mean temporal offset
                 "null_offset": 0,
                 "pref_offset": 0,
-                "var": 7,
-                "n": 0.25,  # SS: 0.213
-                "gama": 0.08,  # SS: 0.074
-                "Voff": 0,  # 1 -> voltage independant
-                "Vset": -30,  # set voltage when independant
+                "var":         7,
+                "n":           0.25,  # SS: 0.213
+                "gama":        0.08,  # SS: 0.074
+                "Voff":        0,     # 1 -> voltage independent
+                "Vset":        -30,   # set voltage when independent
             },
         }
 
         # light stimulus
         self.light_bar = {
             "start_time": 0,
-            "speed": 1.0,  # 1#1.6 # speed of the stimulus bar (um/ms)
-            "width": 250,  # width of the stimulus bar(um)
-            "x_motion": True,  # move bar in x, if not, move bar in y
-            "x_start": -40,  # start location (X axis) of the stim bar (um)
-            "x_end": 200,  # end location (X axis)of the stimulus bar (um)
-            "y_start": 25,  # start location (Y axis) of the stimulus bar (um)
-            "y_end": 225,  # end location (Y axis) of the stimulus bar (um)
+            "speed":      1.0,   # 1#1.6 # speed of the stimulus bar (um/ms)
+            "width":      250,   # width of the stimulus bar(um)
+            "x_motion":   True,  # move bar in x, if not, move bar in y
+            "x_start":    -40,   # start location (X axis) of the stim bar (um)
+            "x_end":      200,   # end location (X axis)of the stimulus bar (um)
+            "y_start":    25,    # start location (Y axis) of the stimulus bar (um)
+            "y_end":      225,   # end location (Y axis) of the stimulus bar (um)
         }
 
+        self.flash_mean     = 100  # mean onset time for flash stimulus
+        self.flash_variance = 400  # variance of flash release onset
+        self.jitter         = 60   # [ms] 10
+
         self.dir_labels = [225, 270, 315, 0, 45, 90, 135, 180]
-        self.dir_rads = np.radians(self.dir_labels)
-        self.dirs = [135, 90, 45, 0, 45, 90, 135, 180]
-        self.dir_inds = np.array(self.dir_labels).argsort()
-        self.circle = np.deg2rad([0, 45, 90, 135, 180, 225, 270, 315, 0])
+        self.dir_rads   = np.radians(self.dir_labels)
+        self.dirs       = [135, 90, 45, 0, 45, 90, 135, 180]
+        self.dir_inds   = np.array(self.dir_labels).argsort()
+        self.circle     = np.deg2rad([0, 45, 90, 135, 180, 225, 270, 315, 0])
 
         # take direction, null, and preferred bounds and scale between
         self.dir_sigmoids = {
             "prob": lambda d, n, p: p
-            + (n - p) * (1 - 0.98 / (1 + np.exp(d - 91) / 25)),
+              + (n - p) * (1 - 0.98 / (1 + np.exp(d - 91) / 25)),
             "offset": lambda d, n, p: p
-            + (n - p) * (1 - 0.98 / (1 + np.exp(d - 74.69) / 24.36)),
+              + (n - p) * (1 - 0.98 / (1 + np.exp(d - 74.69) / 24.36)),
         }
-        self.null_rho = 0.9
-        self.pref_rho = 0.4
-        self.space_rho = 0.9  # space correlation
-        self.time_rho = 0.9  # time correlation
-        self.null_time_rho = 0.9
+
+        self.null_rho       = 0.9
+        self.pref_rho       = 0.4
+        self.space_rho      = 0.9  # space correlation
+        self.time_rho       = 0.9  # time correlation
+        self.null_time_rho  = 0.9
         self.null_space_rho = 0.9
-        self.pref_time_rho = 0.3
+        self.pref_time_rho  = 0.3
         self.pref_space_rho = 0.3
 
-        self.sac_mode = True
-        self.sac_offset = 50
-        self.sac_rho = 0.9  # correlation of E and I dendrite angles
+        self.sac_mode           = True
+        self.sac_offset         = 50
+        self.sac_rho            = 0.9  # correlation of E and I dendrite angles
         self.sac_angle_rho_mode = True
-        self.sac_uniform_dist = {0: False, 1: False}  # uniform or gaussian
-        self.sac_shared_var = 30
-        self.sac_theta_vars = {"E": 60, "I": 60}
-        self.sac_gaba_coverage = 0.5
-        self.sac_theta_mode = "PN"
-        
+        self.sac_uniform_dist   = {0: False, 1: False}  # uniform or gaussian
+        self.sac_shared_var     = 30
+        self.sac_theta_vars     = {"E": 60, "I": 60}
+        self.sac_gaba_coverage  = 0.5
+        self.sac_theta_mode     = "PN"
+
         # recording stuff
         self.downsample = {"Vm": 0.5, "iCa": .1, "g": .1}
-        self.manipSyns = [167, 152, 99, 100, 14, 93, 135, 157]  # big set
-        self.manipDends = [12, 165, 98, 94, 315, 0, 284, 167]  # big set
-        self.record_g = True
+        self.manipSyns  = [167, 152, 99, 100, 14, 93, 135, 157]  # big set
+        self.manipDends = [12, 165, 98, 94, 315, 0, 284, 167]    # big set
+        self.record_g   = True
 
-        self.seed = 0  # 10000#1
-        self.nz_seed = 0  # 10000
+        self.seed             = 0  # 10000#1
+        self.nz_seed          = 0  # 10000
         self.sac_initial_seed = 0
 
     def update_params(self, params):
@@ -410,7 +396,7 @@ class Model:
             for dend in order:
                 dend.diam = diam
             diam *= self.diam_range["decay"]
-            
+
     def create_synapses(self):
         # number of synapses
         h("n_syn = 0")
@@ -843,7 +829,7 @@ if __name__ == "__main__":
     # dsgc = Model(configs.offset_mode_config())
     rig = Rig(dsgc, basest)
     rig.synaptic_density()
-    
+
     # rig.dir_run(3)
     rig.sac_net_run(n_nets=1, n_trials=1, rho_steps=[0., 1.])
     # rig.vc_dir_run(10)
