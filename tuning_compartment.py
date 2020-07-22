@@ -11,10 +11,12 @@ import platform
 from modelUtils import (
     windows_gui_fix,
     nrn_objref,
+    nrn_section,
     build_stim,
     find_origin,
     rotate,
     merge,
+    wrap_180,
 )
 from SacNetwork import SacNetwork
 from experiments import Rig
@@ -32,12 +34,25 @@ dendrite angles would have.
 
 class TuningToy:
     def __init__(self):
-        self.soma = nrn_objref("soma")
+        self.origin = {"X": 100, "Y": 100}
+        self.offset = 30
+        self.dir_pr = {
+            "E": {"pref": 0.95, "null": 0.05},
+            "I": {"pref": 0.95, "null": 0.05},
+        }
+        self.dir_labels = [225, 270, 315, 0, 45, 90, 135, 180]
+        self.dir_rads   = np.radians(self.dir_labels)
+        self.dirs       = [135, 90, 45, 0, 45, 90, 135, 180]
+        self.dir_inds   = np.array(self.dir_labels).argsort()
+        self.circle     = np.deg2rad([0, 45, 90, 135, 180, 225, 270, 315, 0])
+
         self.config_soma()
         self.create_synapse()
 
     def config_soma(self):
         """Build and set membrane properties of soma compartment"""
+        self.soma = nrn_section("soma")
+
         self.soma.L    = 10  # [um]
         self.soma.diam = 10  # [um]
         self.soma.nseg = 1
@@ -81,8 +96,8 @@ class TuningToy:
     def create_synapse(self):
         # complete synapses are made up of a NetStim, Syn, and NetCon
         self.syns = {
-            "E": {"stim": build_stim(), "syn": nrn_objref("e_syn")},
-            "I": {"stim": build_stim(), "syn": nrn_objref("i_syn")},
+            "E": {"stim": build_stim(), "syn": h.Exp2Syn(0.5)},
+            "I": {"stim": build_stim(), "syn": h.Exp2Syn(0.5)},
         }
 
         self.syns["E"]["syn"].tau1 = 0.1
@@ -152,6 +167,26 @@ class TuningToy:
         fig1 = Rig.polar_plot(self.dir_labels, metrics)
         return fig1
 
+    def set_sacs(self, thetas={"E": 0, "I": 0}):
+        self.thetas = thetas
+
+        self.bp_locs = {
+            s: {
+                "X": self.origin["X"] - self.offset * np.cos(np.deg2rad(t)),
+                "Y": self.origin["Y"] - self.offset * np.sin(np.deg2rad(t)),
+            } for s, t in thetas.items() 
+        }
+
+        self.prs = {
+            s: [
+                pn["pref"] + (pn["null"] - pn["pref"]) * (
+                    1 - 0.98 / (1 + np.exp((wrap_180(np.abs(t - d)) - 91) / 25))
+                ) for d in self.dir_labels 
+            ] for (s, t), pn in zip(thetas.items(), self.dir_pr.values())
+        }
+
+        # theta difference used to scale down rho
+        self.delta = wrap_180(np.abs(thetas["E"] - thetas["I"]))
 
 def set_hoc_params():
     """Set hoc NEURON environment model run parameters."""
@@ -163,9 +198,11 @@ def set_hoc_params():
 
 
 if __name__ == "__main__":
-    plat = platform.system()
-    if plat == "Linux":
+    if platform.system() == "Linux":
         basest = "/mnt/Data/NEURONoutput/"
     else:
         basest = "D:\\NEURONoutput\\"
         windows_gui_fix()
+
+    toy = TuningToy()
+    toy.set_sacs()
