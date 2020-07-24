@@ -33,7 +33,7 @@ dendrite angles would have.
 
 
 class TuningToy:
-    def __init__(self):
+    def __init__(self, seed=0):
         self.origin = {"X": 100, "Y": 100}
         self.offset = 30
         self.dir_pr = {
@@ -57,6 +57,10 @@ class TuningToy:
 
         self.config_soma()
         self.create_synapse()
+
+        self.seed = seed
+        self.nz_seed = 0
+        self.rand = h.Random(seed)
 
     def config_soma(self):
         """Build and set membrane properties of soma compartment"""
@@ -124,9 +128,146 @@ class TuningToy:
             self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, .003
         )
 
+    def set_sacs(self, thetas={"E": 0, "I": 0}):
+        self.thetas = thetas
+
+        self.bp_locs = {
+            s: {
+                "X": self.origin["X"] - self.offset * np.cos(np.deg2rad(t)),
+                "Y": self.origin["Y"] - self.offset * np.sin(np.deg2rad(t)),
+            } for s, t in thetas.items()
+        }
+
+        self.prs = {
+            s: [
+                pn["pref"] + (pn["null"] - pn["pref"]) * (
+                    1 - 0.98 / (1 + np.exp((wrap_180(np.abs(t - d)) - 91) / 25))
+                ) for d in self.dir_labels
+            ] for (s, t), pn in zip(thetas.items(), self.dir_pr.values())
+        }
+
+        # theta difference used to scale down rho
+        self.delta = wrap_180(np.abs(thetas["E"] - thetas["I"]))
+
+    def rotate_sacs(self, rotation):
+        rotated = {}
+        for s, locs in self.bp_locs.items():
+            x, y = rotate(self.origin, locs["X"], locs["Y"], rotation)
+            rotated[s] = {"X": x, "Y": y}
+        return rotated
+
+    def bar_sweep(self, dir_idx):
+        """Return activation time for the single synapse based on the light bar
+        config and the bipolar locations on the presynaptic dendrites.
+        """
+        bar = self.light_bar
+        ax = "x" if bar["x_motion"] else "y"
+        locs = rotate_sacs(-self.dir_rads[dir_idx])
+
+        on_times = {
+            s: bar["start_time"] + (loc[ax] - bar[ax + "_start"] / bar["speed"])
+            for s, loc in locs.items()
+        }
+
+        return on_times
+
+    def bar_onsets(self, stim):
+        """Calculate onset times for each synapse based on when the simulated
+        bar would be passing over their location, modified by spatial offsets.
+        Timing jitter is applied using pseudo-random number generators.
+        """
+        sac = self.sac_net
+
+        time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
+
+        if (self.sac_angle_rho_mode):
+            syn_rho = time_rho
+        else:
+            syn_rho = time_rho - time_rho * self.delta / 180
+
+        # bare base onset with added shared jitter
+        jit = self.rand.normal(0, 1)
+        bar_times = {
+            k: v + jit * self.jitter
+            for k, v in self.bar_sweep(stim["dir"]).items()
+        }
+
+        rand_on = {t: self.rand.normal(0, 1) for t in self.bar_times.keys()}
+        rand_on["E"] = rand_on["I"] * syn_rho + (
+            rand_on["E"] * np.sqrt(1 - syn_rho ** 2)
+        )
+
+        for t, timing in self.syn_timing.items():
+            self.syns[t]["stim"].start = (
+                bar_times[t] + timing["delay"] + rand_on[t] * timing["var"]
+            )
+
+    def set_failures(self, stim):
+        """Determine whether each synapse has a release event or not.
+        Psuedo-random numbers generated for each synapse are compared against
+        thresholds set by probability of release to determine if the
+        "pre-synapse" succeeds or fails to release neurotransmitter.
+        """
+        space_rho = stim.get("rhos", {"space": self.space_rho})["space"]
+
+        # numbers above can result in NaNs
+        rho = 0.986 if space_rho > 0.986 else space_rho
+
+        # calculate input rho required to achieve the desired output rho
+        # exponential fit: y = y0 + A * exp(-invTau * x)
+        # y0 = 1.0461; A = -0.93514; invTau = 3.0506
+        rho = 1.0461 - 0.93514 * np.exp(-3.0506 * rho)
+
+        picks = {t: self.rand.normal(0, 1) for t in self.syns.keys()}
+
+        # correlate synaptic variance of ACH with GABA
+        if not self.sac_angle_rho_mode:
+            picks["E"] = picks["I"] * rho + (
+                picks["E"] * np.sqrt(1 - rho ** 2))
+        else:
+            # scale correlation of E and I by prox of their dend angles
+            syn_rho = rho - rho * self.delta / 180
+            picks["E"] = (
+                picks["I"] * syn_rho
+                + picks["E"] * np.sqrt(1 - syn_rho ** 2)
+            )
+
+        for t in picks.keys():
+            prob = self.prs[t][stim["dir"]]
+            sdev = np.std(self.picks[t])
+
+            left = st.norm.ppf((1 - prob) / 2.0) * sdev
+            right = st.norm.ppf(1 - (1 - prob) / 2.0) * sdev
+            success = (left < picks[t]) * (picks[t] < right)
+
+            self.syns[t]["stim"].number = int(success)
+
+    def update_noise(self):
+        self.soma.seed_HHst = self.nz_seed
+        self.nz_seed += 1
+
+
+class Runner:
+    def __init__(self):
+        self.model = TuningToy()
+
+    def run(self, stim):
+        """Initialize model, set synapse onset and release numbers, update
+        membrane noise seeds and run the model. Calculate somatic response and
+        return to calling function."""
+        h.init()
+
+        self.model.bar_onsets(stim)
+        self.model.set_failures(stim)
+        self.model.update_noise()
+
+        self.clear_recordings()
+        h.run()
+        self.dump_recordings()
+
     def place_electrode(self):
         self.soma_rec = h.Vector()
-        self.soma_rec.record(self.soma(0.5)._ref_v)
+        self.soma_rec.record(self.model.soma(0.5)._ref_v)
         self.soma_data = {"Vm": [], "area": [], "thresh_count": []}
 
     def dump_recordings(self):
@@ -175,86 +316,6 @@ class TuningToy:
     def plot_results(self, metrics):
         fig1 = Rig.polar_plot(self.dir_labels, metrics)
         return fig1
-
-    def set_sacs(self, thetas={"E": 0, "I": 0}):
-        self.thetas = thetas
-
-        self.bp_locs = {
-            s: {
-                "X": self.origin["X"] - self.offset * np.cos(np.deg2rad(t)),
-                "Y": self.origin["Y"] - self.offset * np.sin(np.deg2rad(t)),
-            } for s, t in thetas.items()
-        }
-
-        self.prs = {
-            s: [
-                pn["pref"] + (pn["null"] - pn["pref"]) * (
-                    1 - 0.98 / (1 + np.exp((wrap_180(np.abs(t - d)) - 91) / 25))
-                ) for d in self.dir_labels
-            ] for (s, t), pn in zip(thetas.items(), self.dir_pr.values())
-        }
-
-        # theta difference used to scale down rho
-        self.delta = wrap_180(np.abs(thetas["E"] - thetas["I"]))
-
-    def rotate_sacs(self, rotation):
-        rotated = {}
-        for s, locs in self.bp_locs.items():
-            x, y = rotate(self.origin, locs["X"], locs["Y"], rotation)
-            rotated[s] = {"X": x, "Y": y}
-        return rotated
-
-    def bar_sweep(self, dir_idx):
-        """Return activation time for the single synapse based on the light bar
-        config and the bipolar locations on the presynaptic dendrites.
-        """
-        bar = self.light_bar
-        ax = "x" if bar["x_motion"] else "y"
-        locs = rotate_sacs(-self.dir_rads[dir_idx])
-
-        on_times = {
-            s: bar["start_time"] + (loc[ax] - bar[ax + "_start"] / bar["speed"])
-            for s, loc in locs.items()
-        }
-
-        return on_times
-
-    def bar_onsets(self, stim, locked_synapses=None):
-        """
-        Calculate onset times for each synapse based on when the simulated bar
-        would be passing over their location, modified by spatial offsets.
-        Timing jitter is applied using pseudo-random number generators.
-        """
-        sac = self.sac_net
-
-        time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
-
-        if (self.sac_angle_rho_mode):
-            syn_rho = time_rho
-        else:
-            syn_rho = time_rho - time_rho * self.deltas / 180
-
-        # bare base onset with added shared jitter
-        jit = h.Random(self.seed).jit_rand.normal(0, 1)
-        self.seed += 1
-        bar_times = {
-            k: v + jit * self.jitter
-            for k, v in self.bar_sweep(stim["dir"]).items()
-        }
-
-        rand_on = {}
-        for t in self.bar_times.keys():
-            rand_on[t] = h.Random(self.seed).normal(0, 1)
-            self.seed += 1
-
-        rand_on["E"] = rand_on["I"] * syn_rho + (
-            rand_on["E"] * np.sqrt(1 - syn_rho ** 2)
-        )
-
-        for t, timing in self.syn_timing.items():
-            self.syns[t]["stim"].start = (
-                bar_times[t] + timing["delay"] + rand_on[t] * timing["var"]
-            )
 
 
 def set_hoc_params():
