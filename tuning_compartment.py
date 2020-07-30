@@ -3,9 +3,11 @@ from neuron import h
 # science/math libraries
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.stats as st  # for probabilistic distributions
 
 # general libraries
 import platform
+import json
 
 # local imports
 from modelUtils import (
@@ -61,6 +63,22 @@ class TuningToy:
         self.seed = seed
         self.nz_seed = 0
         self.rand = h.Random(seed)
+
+    def get_params_dict(self):
+        skip = {
+            "soma",
+            "dir_sigmoids",
+            "dir_rads",
+            "dir_inds",
+            "circle",
+        }
+
+        params = {
+            k: v for k, v in self.__dict__.items()
+            if k not in skip
+        }
+
+        return params
 
     def config_soma(self):
         """Build and set membrane properties of soma compartment"""
@@ -264,6 +282,88 @@ class Runner:
         self.clear_recordings()
         h.run()
         self.dump_recordings()
+
+    def dir_run(
+            self,
+            n_trials=10,
+            rhos=None,
+            prefix="",
+            plot_summary=True
+    ):
+        """Run model through 8 directions for a number of trials and save the
+        data. Offets and probabilities of release for inhibition are updated
+        here before calling run() to execute the model.
+        """
+        self.place_electrodes()
+
+        n_dirs = len(self.model.dirs)
+        stim = {"type": "bar", "dir": 0}
+        params = self.model.get_params_dict()  # for logging
+
+        if rhos is not None:
+            stim["rhos"] = rhos
+            params["space_rho"] = rhos.get("space", 0)
+            params["time_rho"] = rhos.get("time", 0)
+
+        for j in range(n_trials):
+            print("trial %d..." % j, end=" ", flush=True)
+
+            for i in range(n_dirs):
+                print("%d" % self.model.dir_labels[i], end=" ", flush=True)
+
+                stim["dir"] = i
+                self.run(stim)
+
+            print("")  # next line
+
+        metrics = self.summary(n_trials, plot=plot_summary)
+
+        all_data = {
+            "params": json.dumps(params),
+            "metrics": metrics,
+            "soma": {
+                k: self.stack_trials(n_trials, n_dirs, v)
+                for k, v in self.soma_data.items()
+            },
+            "dendrites": {
+                "locs": self.model.get_recording_locations(),
+                "Vm": self.stack_trials(
+                    n_trials, n_dirs, self.dend_data["Vm"]),
+                "iCa": self.stack_trials(
+                    n_trials, n_dirs, self.dend_data["iCa"]),
+                "g": {
+                    k: self.stack_trials(n_trials, n_dirs, v)
+                    for k, v in self.dend_data["g"].items()
+                },
+            },
+        }
+
+        if self.model.sac_net is not None:
+            all_data["sac_net"] = self.model.sac_net.get_wiring_dict()
+
+        self.pack_hdf(self.data_path + prefix + "dir_run", all_data)
+
+        return metrics
+
+    def theta_diff_run(self, n_trials=3):
+        """"""
+        theta_steps = [i * 11.25 for i in range(17)]
+
+        metrics = {}
+        for theta in theta_steps:
+            self.model.seed = 0
+            self.model.nz_seed = 0
+            metrics[str(theta)] = []
+            prefix = "theta_diff_%.2f" % theta
+            self.model.set_sacs({"E": theta, "I": 0})
+            metrics[str(theta)].append(
+                self.dir_run(n_trials, prefix=prefix, plot_summary=False)
+            )
+
+        for diff, m in metrics.items():
+            print("DSi @ theta_diff=%s: %.3f" % (diff, m["avg_DSi"]))
+            print("theta @ theta_diff=%s: %.3f" % (diff, m["avg_theta"]))
+        print("")
 
     def place_electrode(self):
         self.soma_rec = h.Vector()
