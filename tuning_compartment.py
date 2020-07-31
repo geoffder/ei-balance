@@ -36,7 +36,7 @@ dendrite angles would have.
 
 class TuningToy:
     def __init__(self, seed=0):
-        self.origin = {"X": 100, "Y": 100}
+        self.origin = (100, 100)
         self.offset = 30
         self.dir_pr = {
             "E": {"pref": 0.95, "null": 0.05},
@@ -54,11 +54,20 @@ class TuningToy:
         self.circle     = np.deg2rad([0, 45, 90, 135, 180, 225, 270, 315, 0])
 
         self.light_bar = {
-            "speed": 1., "x_motion": True, "x_start": -60, "y_start": -70
+            "speed": 1.,
+            "x_motion": True,
+            "x_start": -60,
+            "y_start": -70,
+            "start_time": 0,
         }
+
+        self.sac_angle_rho_mode = True
+        self.time_rho = .9
+        self.space_rho = .9
 
         self.config_soma()
         self.create_synapse()
+        self.config_stimulus()
 
         self.seed = seed
         self.nz_seed = 0
@@ -67,6 +76,8 @@ class TuningToy:
     def get_params_dict(self):
         skip = {
             "soma",
+            "syns",
+            "rand",
             "dir_sigmoids",
             "dir_rads",
             "dir_inds",
@@ -95,7 +106,7 @@ class TuningToy:
         self.soma.gkmbar_HHst = 0.003      # [S/cm2]
         self.soma.gleak_HHst  = 0.0001667  # [S/cm2]
         self.soma.eleak_HHst  = -60.0      # [mV]
-        self.soma.NF_HHst     = 0.25
+        self.soma.NF_HHst     = 0 # 0.25
 
     def config_stimulus(self):
         # light stimulus
@@ -104,11 +115,13 @@ class TuningToy:
             "speed": 1.0,      # speed of the stimulus bar (um/ms)
             "width": 250,      # width of the stimulus bar(um)
             "x_motion": True,  # move bar in x, if not, move bar in y
-            "x_start": -40,    # start location (X axis) of the stim bar (um)
-            "x_end": 200,      # end location (X axis)of the stimulus bar (um)
+            "x_start": -300,   # start location (X axis) of the stim bar (um)
+            "x_end": 300,      # end location (X axis)of the stimulus bar (um)
             "y_start": 25,     # start location (Y axis) of the stimulus bar (um)
             "y_end": 225,      # end location (Y axis) of the stimulus bar (um)
         }
+
+        self.jitter = 0
 
         self.dir_labels = [225, 270, 315, 0, 45, 90, 135, 180]
         self.dir_rads   = np.radians(self.dir_labels)
@@ -140,10 +153,10 @@ class TuningToy:
         self.syns["I"]["syn"].e    = -60.0
 
         self.syns["E"]["con"] = h.NetCon(
-            self.syns["E"]["stim"], self.syns["E"]["syn"], 0, 0, .001
+            self.syns["E"]["stim"], self.syns["E"]["syn"], 0, 0, .1
         )
         self.syns["I"]["con"] = h.NetCon(
-            self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, .003
+            self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, .3
         )
 
     def set_sacs(self, thetas={"E": 0, "I": 0}):
@@ -151,8 +164,8 @@ class TuningToy:
 
         self.bp_locs = {
             s: {
-                "X": self.origin["X"] - self.offset * np.cos(np.deg2rad(t)),
-                "Y": self.origin["Y"] - self.offset * np.sin(np.deg2rad(t)),
+                "x": self.origin[0] - self.offset * np.cos(np.deg2rad(t)),
+                "y": self.origin[1] - self.offset * np.sin(np.deg2rad(t)),
             } for s, t in thetas.items()
         }
 
@@ -170,8 +183,8 @@ class TuningToy:
     def rotate_sacs(self, rotation):
         rotated = {}
         for s, locs in self.bp_locs.items():
-            x, y = rotate(self.origin, locs["X"], locs["Y"], rotation)
-            rotated[s] = {"X": x, "Y": y}
+            x, y = rotate(self.origin, locs["x"], locs["y"], rotation)
+            rotated[s] = {"x": x, "y": y}
         return rotated
 
     def bar_sweep(self, dir_idx):
@@ -180,7 +193,7 @@ class TuningToy:
         """
         bar = self.light_bar
         ax = "x" if bar["x_motion"] else "y"
-        locs = rotate_sacs(-self.dir_rads[dir_idx])
+        locs = self.rotate_sacs(-self.dir_rads[dir_idx])
 
         on_times = {
             s: bar["start_time"] + (loc[ax] - bar[ax + "_start"] / bar["speed"])
@@ -194,8 +207,6 @@ class TuningToy:
         bar would be passing over their location, modified by spatial offsets.
         Timing jitter is applied using pseudo-random number generators.
         """
-        sac = self.sac_net
-
         time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
 
         if (self.sac_angle_rho_mode):
@@ -210,7 +221,7 @@ class TuningToy:
             for k, v in self.bar_sweep(stim["dir"]).items()
         }
 
-        rand_on = {t: self.rand.normal(0, 1) for t in self.bar_times.keys()}
+        rand_on = {t: self.rand.normal(0, 1) for t in bar_times.keys()}
         rand_on["E"] = rand_on["I"] * syn_rho + (
             rand_on["E"] * np.sqrt(1 - syn_rho ** 2)
         )
@@ -225,6 +236,9 @@ class TuningToy:
         Psuedo-random numbers generated for each synapse are compared against
         thresholds set by probability of release to determine if the
         "pre-synapse" succeeds or fails to release neurotransmitter.
+
+        FIXME: Currently it seems that success (release) never happens. Obviously
+        need to figure out why...
         """
         space_rho = stim.get("rhos", {"space": self.space_rho})["space"]
 
@@ -252,7 +266,7 @@ class TuningToy:
 
         for t in picks.keys():
             prob = self.prs[t][stim["dir"]]
-            sdev = np.std(self.picks[t])
+            sdev = np.std(picks[t])
 
             left = st.norm.ppf((1 - prob) / 2.0) * sdev
             right = st.norm.ppf(1 - (1 - prob) / 2.0) * sdev
@@ -266,7 +280,8 @@ class TuningToy:
 
 
 class Runner:
-    def __init__(self):
+    def __init__(self, data_path=""):
+        self.data_path = data_path
         self.model = TuningToy()
 
     def run(self, stim):
@@ -283,18 +298,12 @@ class Runner:
         h.run()
         self.dump_recordings()
 
-    def dir_run(
-            self,
-            n_trials=10,
-            rhos=None,
-            prefix="",
-            plot_summary=True
-    ):
+    def dir_run(self, n_trials=10, rhos=None, prefix="", plot_summary=True):
         """Run model through 8 directions for a number of trials and save the
         data. Offets and probabilities of release for inhibition are updated
         here before calling run() to execute the model.
         """
-        self.place_electrodes()
+        self.place_electrode()
 
         n_dirs = len(self.model.dirs)
         stim = {"type": "bar", "dir": 0}
@@ -322,26 +331,16 @@ class Runner:
             "params": json.dumps(params),
             "metrics": metrics,
             "soma": {
-                k: self.stack_trials(n_trials, n_dirs, v)
+                k: Rig.stack_trials(n_trials, n_dirs, v)
                 for k, v in self.soma_data.items()
             },
-            "dendrites": {
-                "locs": self.model.get_recording_locations(),
-                "Vm": self.stack_trials(
-                    n_trials, n_dirs, self.dend_data["Vm"]),
-                "iCa": self.stack_trials(
-                    n_trials, n_dirs, self.dend_data["iCa"]),
-                "g": {
-                    k: self.stack_trials(n_trials, n_dirs, v)
-                    for k, v in self.dend_data["g"].items()
-                },
-            },
+            "thetas": self.model.thetas,
+            "bp_locs": self.model.bp_locs,
+            "probs": self.model.prs,
+            "delta": self.model.delta,
         }
 
-        if self.model.sac_net is not None:
-            all_data["sac_net"] = self.model.sac_net.get_wiring_dict()
-
-        self.pack_hdf(self.data_path + prefix + "dir_run", all_data)
+        Rig.pack_hdf(self.data_path + prefix + "dir_run", all_data)
 
         return metrics
 
@@ -360,42 +359,48 @@ class Runner:
                 self.dir_run(n_trials, prefix=prefix, plot_summary=False)
             )
 
-        for diff, m in metrics.items():
-            print("DSi @ theta_diff=%s: %.3f" % (diff, m["avg_DSi"]))
-            print("theta @ theta_diff=%s: %.3f" % (diff, m["avg_theta"]))
+        for diff, l in metrics.items():
+            dsi = np.mean([m["avg_DSi"] for m in l])
+            theta = np.mean([m["avg_theta"] for m in l])
+            print("DSi @ theta_diff=%s: %.3f" % (diff, dsi))
+            print("theta @ theta_diff=%s: %.3f" % (diff, theta))
         print("")
 
     def place_electrode(self):
         self.soma_rec = h.Vector()
         self.soma_rec.record(self.model.soma(0.5)._ref_v)
-        self.soma_data = {"Vm": [], "area": [], "thresh_count": []}
+        self.soma_data = {"Vm": [], "area": [], "peak": [], "thresh_count": []}
 
     def dump_recordings(self):
         vm, area, count = Rig.measure_response(self.soma_rec)
         self.soma_data["Vm"].append(np.round(vm, decimals=3))
         self.soma_data["area"].append(np.round(area, decimals=3))
+        self.soma_data["peak"].append(np.round(np.max(vm) + 65, decimals=3))
         self.soma_data["thresh_count"].append(count)
 
     def clear_recordings(self):
         self.soma_rec.resize(0)
 
     def summary(self, n_trials, plot=True):
-        rads = self.dir_rads
+        rads = self.model.dir_rads
 
-        spikes = np.array(self.soma_data["thresh_count"]).reshape(n_trials, -1)
+        peaks = np.array(self.soma_data["peak"]).reshape(n_trials, -1)
+        areas = np.array(self.soma_data["area"]).reshape(n_trials, -1)
         metrics = {"DSis": [], "thetas": []}
 
         for i in range(n_trials):
-            dsi, theta = Rig.calc_DS(rads, spikes[i])
+            dsi, theta = Rig.calc_DS(rads, areas[i])
             metrics["DSis"].append(dsi)
             metrics["thetas"].append(theta)
 
         metrics["DSis"] = np.round(metrics["DSis"], decimals=3)
         metrics["thetas"] = np.round(metrics["thetas"], decimals=1)
 
-        metrics["spikes"] = spikes
-        metrics["total_spikes"] = spikes.sum(axis=0)
-        avg_dsi, avg_theta = Rig.calc_DS(rads, metrics["total_spikes"])
+        metrics["peaks"] = peaks
+        metrics["areas"] = areas
+        metrics["total_area"] = areas.sum(axis=0)
+        metrics["total_peak"] = peaks.sum(axis=0)
+        avg_dsi, avg_theta = Rig.calc_DS(rads, metrics["total_area"])
         metrics["avg_DSi"] = np.round(avg_dsi, decimals=3)
         metrics["avg_theta"] = np.round(avg_theta, decimals=2)
         metrics["DSis_sdev"] = np.std(metrics["DSis"]).round(decimals=2)
@@ -420,19 +425,26 @@ class Runner:
 
 def set_hoc_params():
     """Set hoc NEURON environment model run parameters."""
-    h.tstop = 100  # [ms]
+    h.tstop = 400        # [ms]
     h.steps_per_ms = 10
-    h.dt = 0.1  # [ms]
-    h.v_init = -60  # [mV]
+    h.dt = 0.1           # [ms]
+    h.v_init = -60       # [mV]
     h.celsius = 36.9
 
 
 if __name__ == "__main__":
     if platform.system() == "Linux":
-        basest = "/mnt/Data/NEURONoutput/"
+        basest = "/mnt/Data/NEURONoutput/tuning/"
     else:
         basest = "D:\\NEURONoutput\\"
         windows_gui_fix()
 
-    toy = TuningToy()
-    toy.set_sacs()
+    set_hoc_params()
+    rig = Runner(basest)
+    rig.theta_diff_run(n_trials=10)
+
+    data = {
+        k: Rig.stack_trials(10, 8, v)
+        for k, v in rig.soma_data.items()
+    }
+    dir_vm_avg = np.mean(data["Vm"], axis=0)
