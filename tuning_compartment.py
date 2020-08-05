@@ -106,7 +106,7 @@ class TuningToy:
         self.soma.gkmbar_HHst = 0.003      # [S/cm2]
         self.soma.gleak_HHst  = 0.0001667  # [S/cm2]
         self.soma.eleak_HHst  = -60.0      # [mV]
-        self.soma.NF_HHst     = 0 # 0.25
+        self.soma.NF_HHst     = 0.25
 
     def config_stimulus(self):
         # light stimulus
@@ -138,6 +138,8 @@ class TuningToy:
         }
 
     def create_synapse(self):
+        self.soma.push()
+
         # complete synapses are made up of a NetStim, Syn, and NetCon
         self.syns = {
             "E": {"stim": build_stim(), "syn": h.Exp2Syn(0.5)},
@@ -153,10 +155,10 @@ class TuningToy:
         self.syns["I"]["syn"].e    = -60.0
 
         self.syns["E"]["con"] = h.NetCon(
-            self.syns["E"]["stim"], self.syns["E"]["syn"], 0, 0, .1
+            self.syns["E"]["stim"], self.syns["E"]["syn"], 0, 0, .001
         )
         self.syns["I"]["con"] = h.NetCon(
-            self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, .3
+            self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, .003
         )
 
     def set_sacs(self, thetas={"E": 0, "I": 0}):
@@ -236,9 +238,6 @@ class TuningToy:
         Psuedo-random numbers generated for each synapse are compared against
         thresholds set by probability of release to determine if the
         "pre-synapse" succeeds or fails to release neurotransmitter.
-
-        FIXME: Currently it seems that success (release) never happens. Obviously
-        need to figure out why...
         """
         space_rho = stim.get("rhos", {"space": self.space_rho})["space"]
 
@@ -266,7 +265,7 @@ class TuningToy:
 
         for t in picks.keys():
             prob = self.prs[t][stim["dir"]]
-            sdev = np.std(picks[t])
+            sdev = 1.0  # only one pick right now...
 
             left = st.norm.ppf((1 - prob) / 2.0) * sdev
             right = st.norm.ppf(1 - (1 - prob) / 2.0) * sdev
@@ -375,7 +374,7 @@ class Runner:
         vm, area, count = Rig.measure_response(self.soma_rec)
         self.soma_data["Vm"].append(np.round(vm, decimals=3))
         self.soma_data["area"].append(np.round(area, decimals=3))
-        self.soma_data["peak"].append(np.round(np.max(vm) + 65, decimals=3))
+        self.soma_data["peak"].append(np.round(np.max(vm + 61.3), decimals=3))
         self.soma_data["thresh_count"].append(count)
 
     def clear_recordings(self):
@@ -386,10 +385,11 @@ class Runner:
 
         peaks = np.array(self.soma_data["peak"]).reshape(n_trials, -1)
         areas = np.array(self.soma_data["area"]).reshape(n_trials, -1)
+        spikes = np.array(self.soma_data["thresh_count"]).reshape(n_trials, -1)
         metrics = {"DSis": [], "thetas": []}
 
         for i in range(n_trials):
-            dsi, theta = Rig.calc_DS(rads, areas[i])
+            dsi, theta = Rig.calc_DS(rads, spikes[i])
             metrics["DSis"].append(dsi)
             metrics["thetas"].append(theta)
 
@@ -398,9 +398,11 @@ class Runner:
 
         metrics["peaks"] = peaks
         metrics["areas"] = areas
+        metrics["spikes"] = spikes
         metrics["total_area"] = areas.sum(axis=0)
         metrics["total_peak"] = peaks.sum(axis=0)
-        avg_dsi, avg_theta = Rig.calc_DS(rads, metrics["total_area"])
+        metrics["total_spikes"] = spikes.sum(axis=0)
+        avg_dsi, avg_theta = Rig.calc_DS(rads, metrics["total_spikes"])
         metrics["avg_DSi"] = np.round(avg_dsi, decimals=3)
         metrics["avg_theta"] = np.round(avg_theta, decimals=2)
         metrics["DSis_sdev"] = np.std(metrics["DSis"]).round(decimals=2)
@@ -440,11 +442,13 @@ if __name__ == "__main__":
         windows_gui_fix()
 
     set_hoc_params()
+
+    n_trials = 20
     rig = Runner(basest)
-    rig.theta_diff_run(n_trials=10)
+    rig.theta_diff_run(n_trials=n_trials)
 
     data = {
-        k: Rig.stack_trials(10, 8, v)
+        k: Rig.stack_trials(n_trials, 8, v)
         for k, v in rig.soma_data.items()
     }
     dir_vm_avg = np.mean(data["Vm"], axis=0)
