@@ -115,8 +115,8 @@ class TuningToy:
             "speed": 1.0,      # speed of the stimulus bar (um/ms)
             "width": 250,      # width of the stimulus bar(um)
             "x_motion": True,  # move bar in x, if not, move bar in y
-            "x_start": -300,   # start location (X axis) of the stim bar (um)
-            "x_end": 300,      # end location (X axis)of the stimulus bar (um)
+            "x_start": -175,   # start location (X axis) of the stim bar (um)
+            "x_end": 175,      # end location (X axis)of the stimulus bar (um)
             "y_start": 25,     # start location (Y axis) of the stimulus bar (um)
             "y_end": 225,      # end location (Y axis) of the stimulus bar (um)
         }
@@ -318,7 +318,6 @@ class Runner:
 
             for i in range(n_dirs):
                 print("%d" % self.model.dir_labels[i], end=" ", flush=True)
-
                 stim["dir"] = i
                 self.run(stim)
 
@@ -452,3 +451,7 @@ if __name__ == "__main__":
         for k, v in rig.soma_data.items()
     }
     dir_vm_avg = np.mean(data["Vm"], axis=0)
+
+    # for d in dir_vm_avg:
+    #     plt.plot(d)
+    # plt.show()
