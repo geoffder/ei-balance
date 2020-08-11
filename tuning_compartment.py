@@ -297,7 +297,7 @@ class Runner:
         h.run()
         self.dump_recordings()
 
-    def dir_run(self, n_trials=10, rhos=None, prefix="", plot_summary=True):
+    def dir_run(self, n_trials=10, rhos=None, prefix="", plot_summary=False):
         """Run model through 8 directions for a number of trials and save the
         data. Offets and probabilities of release for inhibition are updated
         here before calling run() to execute the model.
@@ -323,11 +323,9 @@ class Runner:
 
             print("")  # next line
 
-        metrics = self.summary(n_trials, plot=plot_summary)
-
-        all_data = {
+        data = {
             "params": json.dumps(params),
-            "metrics": metrics,
+            "metrics": self.summary(n_trials, plot=plot_summary),
             "soma": {
                 k: Rig.stack_trials(n_trials, n_dirs, v)
                 for k, v in self.soma_data.items()
@@ -338,31 +336,28 @@ class Runner:
             "delta": self.model.delta,
         }
 
-        Rig.pack_hdf(self.data_path + prefix + "dir_run", all_data)
-
-        return metrics
+        return data
 
     def theta_diff_run(self, n_trials=3):
         """"""
         theta_steps = [i * 11.25 for i in range(17)]
 
-        metrics = {}
+        all_data = {}
         for theta in theta_steps:
             self.model.seed = 0
             self.model.nz_seed = 0
-            metrics[str(theta)] = []
             prefix = "theta_diff_%.2f" % theta
             self.model.set_sacs({"E": theta, "I": 0})
-            metrics[str(theta)].append(
-                self.dir_run(n_trials, prefix=prefix, plot_summary=False)
-            )
+            all_data[str(theta)] = self.dir_run(n_trials)
 
-        for diff, l in metrics.items():
-            dsi = np.mean([m["avg_DSi"] for m in l])
-            theta = np.mean([m["avg_theta"] for m in l])
+        for diff, d in all_data.items():
+            dsi = np.mean(d["metrics"]["avg_DSi"])
+            theta = np.mean(d["metrics"]["avg_theta"])
             print("DSi @ theta_diff=%s: %.3f" % (diff, dsi))
             print("theta @ theta_diff=%s: %.3f" % (diff, theta))
         print("")
+
+        Rig.pack_hdf(self.data_path + "theta_diff_exp", all_data)
 
     def place_electrode(self):
         self.soma_rec = h.Vector()
