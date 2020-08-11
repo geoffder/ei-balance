@@ -88,7 +88,7 @@ class Rig:
 
         metrics["DSis"] = np.round(metrics["DSis"], decimals=3)
         metrics["thetas"] = np.round(metrics["thetas"], decimals=1)
-        
+
         metrics["spikes"] = spikes
         metrics["total_spikes"] = spikes.sum(axis=0)
         avg_dsi, avg_theta = self.calc_DS(rads, metrics["total_spikes"])
@@ -383,7 +383,7 @@ class Rig:
         seed = self.model.sac_initial_seed
         iThetas, eThetas = [], []
         total_gaba = 0
-        
+
         for _ in range(n_nets):
             seed += 1000
             self.model.build_sac_net(initial_seed=seed)
@@ -397,7 +397,7 @@ class Rig:
         iThetas = np.concatenate(iThetas).flatten()
         eThetas = np.array(eThetas).flatten()
         print("Average GABA synapse count: %.2f" % (total_gaba / n_nets))
-        
+
         fig, axes = plt.subplots(1, len(bins))
 
         for j, numBins in enumerate(bins):
@@ -420,7 +420,7 @@ class Rig:
             "There are %.4f synapses per micron (for %s dendrites)."
             % (density, "all" if all_tree else "synaptic")
         )
-        
+
     @staticmethod
     def measure_response(vm_rec, threshold=20):
         vm = np.array(vm_rec)
@@ -502,3 +502,11 @@ class Rig:
 
         with h5.File(pth + ".h5", "w") as pckg:
             rec(data_dict, pckg)
+
+    @staticmethod
+    def unpack_hdf(group):
+        """Recursively unpack an hdf5 of nested Groups (and Datasets) to dict."""
+        return {
+            k: v[()] if type(v) is h5._hl.dataset.Dataset else unpack_hdf(v)
+            for k, v in group.items()
+        }
