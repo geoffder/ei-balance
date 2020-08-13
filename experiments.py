@@ -507,6 +507,6 @@ class Rig:
     def unpack_hdf(group):
         """Recursively unpack an hdf5 of nested Groups (and Datasets) to dict."""
         return {
-            k: v[()] if type(v) is h5._hl.dataset.Dataset else unpack_hdf(v)
+            k: v[()] if type(v) is h5._hl.dataset.Dataset else Rig.unpack_hdf(v)
             for k, v in group.items()
         }
