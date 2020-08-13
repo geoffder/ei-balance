@@ -358,6 +358,7 @@ class Runner:
         print("")
 
         Rig.pack_hdf(self.data_path + "theta_diff_exp", all_data)
+        return all_data
 
     def place_electrode(self):
         self.soma_rec = h.Vector()
@@ -439,14 +440,4 @@ if __name__ == "__main__":
 
     n_trials = 20
     rig = Runner(basest)
-    rig.theta_diff_run(n_trials=n_trials)
-
-    data = {
-        k: Rig.stack_trials(n_trials, 8, v)
-        for k, v in rig.soma_data.items()
-    }
-    dir_vm_avg = np.mean(data["Vm"], axis=0)
-
-    # for d in dir_vm_avg:
-    #     plt.plot(d)
-    # plt.show()
+    data = rig.theta_diff_run(n_trials=n_trials)
