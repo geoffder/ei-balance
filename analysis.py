@@ -506,6 +506,8 @@ def dendritic_ds(tree_recs, dirs, pref=0, thresh=None, bin_pts=None):
     # direction selective tuning for each recording location on tree
     DSis, thetas = calc_tuning(areas, dirs, dir_ax=1)
     if pref != 0:
+        # NOTE: This is on 0 -> 180 scale, so ABSOLUTE theta diff from preferred
+        # NOT -180 -> 180 scale. Make sure that this is what I want.
         thetas = np.vectorize(wrap_180)(thetas - pref)
     
     return {"DSi": DSis, "theta": thetas}
