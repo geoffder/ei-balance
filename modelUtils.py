@@ -249,10 +249,13 @@ def wrap_360(theta):
 
 
 def wrap_180(theta):
-    """Wrap degrees from 360 scale (and super 180) to -180 -> 180 scale."""
+    """Wrap degrees from 360 scale (and super 180) to 0 -> 180 scale."""
     theta %= 360
     if theta > 180:
         return 360 - theta
     else:
         return theta
-    
+
+def scale_180_from_360(theta):
+    """Wrap degrees from 360 scale to -180 -> 180 scale."""
+    return ((theta - 180) % 360) - 180
