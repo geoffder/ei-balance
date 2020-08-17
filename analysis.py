@@ -11,7 +11,7 @@ import h5py as h5
 import json
 
 # local libraries
-from modelUtils import rotate
+from modelUtils import rotate, scale_180_from_360
 
 
 def unpack_hdf(group):
@@ -20,16 +20,6 @@ def unpack_hdf(group):
         k: v[()] if type(v) is h5._hl.dataset.Dataset else unpack_hdf(v)
         for k, v in group.items()
     }
-
-
-def wrap_180(degrees):
-    degrees = degrees % 360
-    if degrees <= -180:
-        return degrees + 360
-    elif degrees > 180:
-        return degrees - 360
-    else:
-        return degrees
 
 
 def spike_transform(vm, kernel_sz, kernel_var, thresh=0):
@@ -384,7 +374,7 @@ def polar_plot(metrics, dirs, radius=None, net_shadows=False, title="",
         avg_DSi,
         np.degrees(avg_theta),
         np.std(DSis),
-        np.std(np.vectorize(wrap_180)(np.degrees(thetas - avg_theta)))
+        np.std(np.vectorize(scale_180_from_360)(np.degrees(thetas - avg_theta)))
     )
     ax.set_title("%s\n%s" % (title, sub), size=15)
 
@@ -508,7 +498,7 @@ def dendritic_ds(tree_recs, dirs, pref=0, thresh=None, bin_pts=None):
     if pref != 0:
         # NOTE: This is on 0 -> 180 scale, so ABSOLUTE theta diff from preferred
         # NOT -180 -> 180 scale. Make sure that this is what I want.
-        thetas = np.vectorize(wrap_180)(thetas - pref)
+        thetas = np.vectorize(scale_180_from_360)(thetas - pref)
     
     return {"DSi": DSis, "theta": thetas}
 

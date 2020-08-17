@@ -256,6 +256,7 @@ def wrap_180(theta):
     else:
         return theta
 
+
 def scale_180_from_360(theta):
     """Wrap degrees from 360 scale to -180 -> 180 scale."""
     return ((theta - 180) % 360) - 180

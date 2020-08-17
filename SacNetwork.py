@@ -96,9 +96,7 @@ class SacNetwork:
             self.bp_locs[t]["Y"] = np.array(self.bp_locs[t]["Y"])
 
         # theta difference used by DSGC model to scale down rho
-        self.deltas = np.vectorize(wrap_180)(
-            np.abs(self.thetas["E"] - self.thetas["I"])
-        )
+        self.deltas = np.vectorize(wrap_180)(self.thetas["E"] - self.thetas["I"])
 
     def theta_picker_PN(self):
         # determine whether there is GABA present at this synapse
@@ -144,7 +142,7 @@ class SacNetwork:
                 self.thetas["I"].append(np.NaN)
                 continue
 
-            theta = self.wrap_360(pick[t] * self.theta_vars[t] + base)
+            theta = wrap_360(pick[t] * self.theta_vars[t] + base)
 
             self.thetas[t].append(theta)
         
