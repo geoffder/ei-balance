@@ -1,11 +1,35 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+
 import h5py as h5
 import json
 
 from analysis import calc_tuning
 from general_utils import unpack_hdf, clean_axes
 from modelUtils import scale_180_from_360
+
+
+def vonmises_fit(pref):
+    """Returns vonmises fitting function with given preferred direction.
+    Signature matches that expected by scipy.optimize.curve_fit."""
+    def fit(theta, peak, width):
+        """Fiscella et al., 2015.
+        Visual coding with a population of direction-selective neurons.
+        Expects theta in degrees (for now)."""
+        return peak * np.exp((1 / width ** 2) * np.cos(np.deg2rad(theta) - pref))
+    return fit
+
+
+def fit_line(x, y, func, pts=100, **fit_kwargs):
+    """Fit data to given function and return function mapped onto the linear
+    space between the lower and upper ranges of the x data. y can be be a
+    1d ndarray, or 2d of shape (N, x.size)."""
+    flat_y = y.reshape(-1)
+    flat_x = np.repeat(x, y.size // x.size)
+    pars, _ = curve_fit(f=func, xdata=flat_x, ydata=flat_y, **fit_kwargs)
+    x_ax = np.linspace(np.min(x), np.max(x), pts)
+    return x_ax, func(x_ax, *pars)
 
 
 def thresholded_area(vm, thresh):
@@ -36,7 +60,7 @@ def plot_basic_ds_metrics(theta_diffs, dsis, thetas):
     axes[0].scatter(theta_diffs, dsis)
     axes[0].set_ylim(0, 1)
     axes[0].set_ylabel("DSi", fontsize=13)
-    
+
     axes[1].scatter(theta_diffs, thetas)
     axes[1].set_ylim(0, 180)
     axes[1].set_ylabel("Preferred Theta", fontsize=13)
@@ -61,14 +85,31 @@ def plot_fancy_scatter_ds_metrics(theta_diffs, dsis, thetas):
     return fig
 
 
-def plot_raw_metric(dirs, base_metric, diff_keys=["0.0", "90.0", "180.0"]):
+def plot_raw_metric(dirs, base_metric, diff_keys=["0.0", "90.0", "180.0"],
+                    relative_dirs=True, show_trials=True):
     """Plot response amplitude against stimulus direction for the given list
     of theta difference conditions."""
     fig, axes = plt.subplots(1, len(diff_keys), sharey=True, figsize=(12, 7))
+    dir_ax = dirs
+    dir_label = "%sDirection" % ("Relative " if relative_dirs else "")
 
     for ax, diff in zip(axes, diff_keys):
-        ax.scatter(dirs, np.mean(base_metric[diff], axis=0))
-        ax.set_xlabel("Direction", fontsize=13)
+        diff_float = float(diff)
+        if relative_dirs:
+            dir_ax = scale_180_from_360(dirs - diff_float)
+            diff_float = 0.  # correct for fit function
+
+        if show_trials:
+            for trial in base_metric[diff]:
+                ax.scatter(dir_ax, trial, marker="x", c="0", alpha=.2)
+        mean = np.mean(base_metric[diff], axis=0)
+        ax.scatter(dir_ax, mean, c="r", s=45)
+
+        fit_x, fit_y = fit_line(dir_ax, mean, vonmises_fit(diff_float))
+        ax.plot(fit_x, fit_y, c="0", linestyle="--")
+
+        ax.set_xlim(-190, 145)
+        ax.set_xlabel(dir_label, fontsize=13)
         ax.set_title("E-I Diff = %s" % diff)
 
     axes[0].set_ylabel("Response", fontsize=13)
@@ -125,8 +166,8 @@ if __name__ == "__main__":
     tuning = trial_by_trial_tuning(dirs, thresh_areas)
     # avg_dsis, avg_thetas = avg_tuning_metrics(tuning)
     avg_dsis, avg_thetas = avg_raw_tuning(dirs, thresh_areas)
-    
+
     basic_ds = plot_basic_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
-    raw_bells = plot_raw_metric(dirs_180, thresh_areas)
+    raw_bells = plot_raw_metric(dirs_180, thresh_areas, show_trials=False)
     fancy = plot_fancy_scatter_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
     plt.show()
