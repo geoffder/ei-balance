@@ -21,21 +21,6 @@ def vonmises_fit(pref):
     return fit
 
 
-def gaussian_fit(pref):
-    """Returns gaussian fitting function with given preferred direction.
-    Signature matches that expected by scipy.optimize.curve_fit.
-    NOTE: Not fitting..."""
-    def fit(theta, bsln, peak, width):
-        """Fiscella et al., 2015.
-        Visual coding with a population of direction-selective neurons.
-        Expects theta in degrees (for now)."""
-        r = peak / (width * np.sqrt(2 * np.pi))
-        diff = np.deg2rad(scale_180_from_360(theta - pref))
-        e = np.exp(-1 * (diff ** 2) / (2 * (width ** 2)))
-        return bsln + r * e
-    return fit
-
-
 def fit_line(x, y, func, pts=100, **fit_kwargs):
     """Fit data to given function and return function mapped onto the linear
     space between the lower and upper ranges of the x data. y can be be a
@@ -168,24 +153,32 @@ def avg_tuning_metrics(tuning_dict):
 
 
 def get_traces(data):
-    return { k: d["soma"]["Vm"] for k, d in data }
+    return { k: d["soma"]["Vm"] for k, d in data.items() }
 
 
 def plot_traces(dirs, traces, diff_keys=["0.0", "90.0", "180.0"]):
     fig, axes = plt.subplots(
-        len(diff_keys), len(dirs), figsize=(12, 6),
+        len(diff_keys), len(dirs), figsize=(16, 8),
         sharex="col", sharey="row", squeeze=False,
     )
 
+    vmin, vmax = np.inf, -np.inf
     for diff, row in zip(diff_keys, axes):
-        # shared Y (row) settings
-        row[0].set_ylim(-65, 20)  # FIXME: will want to use global min/max
-        row[0].set_ylabel("Response (mV)", size=14)
+        dir_avgs = np.mean(traces[diff], axis=0)
+        vmin = min(vmin, np.min(dir_avgs))
+        vmax = max(vmax, np.max(dir_avgs))
+        for i, (avg, ax) in enumerate(zip(dir_avgs, row)):
+            ax.plot(avg)
+
+    # shared Y (row) settings
+    for diff, row in zip(diff_keys, axes):
+        row[0].set_ylim(vmin, vmax)
+        row[0].set_ylabel("%s° Θ Diff (mV)" % diff, size=14)
 
     # shared X (column) settings
-    for col_idx, direction in enumerate(dirs):
-        axes[0][col_idx].set_title("%i°" % direction, fontsize=18)
-        axes[-1][col_idx].set_xlabel("Time (ms)", size=14)
+    for direction, col_top, col_bot in zip(dirs, axes[0], axes[-1]):
+        col_top.set_title("%i°" % direction, fontsize=18)
+        col_bot.set_xlabel("Time (ms)", size=14)
 
     fig.tight_layout()
 
@@ -206,8 +199,10 @@ if __name__ == "__main__":
     tuning = trial_by_trial_tuning(dirs, thresh_areas)
     # avg_dsis, avg_thetas = avg_tuning_metrics(tuning)
     avg_dsis, avg_thetas = avg_raw_tuning(dirs, thresh_areas)
+    traces = get_traces(all_data)
 
     basic_ds = plot_basic_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
     raw_bells = plot_raw_metric(dirs_180, thresh_areas, show_trials=False)
     fancy = plot_fancy_scatter_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
+    dir_traces = plot_traces(dirs_180, traces)
     plt.show()
