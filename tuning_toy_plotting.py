@@ -17,7 +17,22 @@ def vonmises_fit(pref):
         """Fiscella et al., 2015.
         Visual coding with a population of direction-selective neurons.
         Expects theta in degrees (for now)."""
-        return peak * np.exp((1 / width ** 2) * np.cos(np.deg2rad(theta) - pref))
+        return peak * np.exp((1 / width ** 2) * np.cos(np.deg2rad(theta - pref)))
+    return fit
+
+
+def gaussian_fit(pref):
+    """Returns gaussian fitting function with given preferred direction.
+    Signature matches that expected by scipy.optimize.curve_fit.
+    NOTE: Not fitting..."""
+    def fit(theta, bsln, peak, width):
+        """Fiscella et al., 2015.
+        Visual coding with a population of direction-selective neurons.
+        Expects theta in degrees (for now)."""
+        r = peak / (width * np.sqrt(2 * np.pi))
+        diff = np.deg2rad(scale_180_from_360(theta - pref))
+        e = np.exp(-1 * (diff ** 2) / (2 * (width ** 2)))
+        return bsln + r * e
     return fit
 
 
@@ -150,6 +165,31 @@ def avg_tuning_metrics(tuning_dict):
     avg_dsis = [np.mean(v["DSis"]) for v in tuning_dict.values()]
     avg_thetas = [np.mean(v["thetas"]) for v in tuning_dict.values()]
     return np.concatenate(avg_dsis), np.concatenate(avg_thetas)
+
+
+def get_traces(data):
+    return { k: d["soma"]["Vm"] for k, d in data }
+
+
+def plot_traces(dirs, traces, diff_keys=["0.0", "90.0", "180.0"]):
+    fig, axes = plt.subplots(
+        len(diff_keys), len(dirs), figsize=(12, 6),
+        sharex="col", sharey="row", squeeze=False,
+    )
+
+    for diff, row in zip(diff_keys, axes):
+        # shared Y (row) settings
+        row[0].set_ylim(-65, 20)  # FIXME: will want to use global min/max
+        row[0].set_ylabel("Response (mV)", size=14)
+
+    # shared X (column) settings
+    for col_idx, direction in enumerate(dirs):
+        axes[0][col_idx].set_title("%i°" % direction, fontsize=18)
+        axes[-1][col_idx].set_xlabel("Time (ms)", size=14)
+
+    fig.tight_layout()
+
+    return fig
 
 
 if __name__ == "__main__":
