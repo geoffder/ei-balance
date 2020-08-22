@@ -37,6 +37,8 @@ def unpack_hdf(group):
 
 def clean_axes(axes):
     """A couple basic changes I often make to pyplot axes."""
+    # wrap single axis in list
+    axes = axes if hasattr(axes, "__iter__") else [axes]
     for a in axes:
         a.spines["right"].set_visible(False)
         a.spines["top"].set_visible(False)
