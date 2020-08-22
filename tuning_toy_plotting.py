@@ -119,6 +119,29 @@ def plot_raw_metric(dirs, base_metric, diff_keys=["0.0", "90.0", "180.0"],
     return fig
 
 
+def plot_peak_responses(base_metric):
+    """Plot maximal response amplitude against theta difference.
+    NOTE: Undecided what the best metric / manipulation to display is yet, and
+    how many panels to do. Options include:
+      -- strongest responding direction amplitude (average over trials first)
+      -- max response across all trials / directions
+      -- max response for each trial (across all directions)
+      -- any more?
+    """
+    fig, ax = plt.subplots(1)
+    theta_diffs = np.array([float(t) for t in base_metric.keys()])
+    # average over trials, then take the strongest responding direction
+    prefs = [np.max(np.mean(rs, axis=0)) for rs in base_metric.values()]
+    # maxs = [np.max(rs) for rs in base_metric.values()]
+
+    ax.scatter(theta_diffs, prefs)
+    ax.set_ylabel("Max Response", fontsize=13)
+    ax.set_xlabel("E-I Angle Difference", fontsize=13)
+
+    clean_axes(ax)
+    return fig
+
+
 def trial_by_trial_tuning(dirs, base_metric):
     """Calculate DSi and preferred theta metrics for each trial for each
     theta difference condition in the base_metric input dict, which takes the
@@ -157,6 +180,7 @@ def get_traces(data):
 
 
 def plot_traces(dirs, traces, diff_keys=["0.0", "90.0", "180.0"]):
+    timeax = np.arange(traces[diff_keys[0]].shape[-1]) * .1
     fig, axes = plt.subplots(
         len(diff_keys), len(dirs), figsize=(16, 8),
         sharex="col", sharey="row", squeeze=False,
@@ -168,7 +192,7 @@ def plot_traces(dirs, traces, diff_keys=["0.0", "90.0", "180.0"]):
         vmin = min(vmin, np.min(dir_avgs))
         vmax = max(vmax, np.max(dir_avgs))
         for i, (avg, ax) in enumerate(zip(dir_avgs, row)):
-            ax.plot(avg)
+            ax.plot(timeax, avg)
 
     # shared Y (row) settings
     for diff, row in zip(diff_keys, axes):
@@ -184,6 +208,10 @@ def plot_traces(dirs, traces, diff_keys=["0.0", "90.0", "180.0"]):
 
     return fig
 
+
+# TODO: peak / max response for each E-I difference (good to see inflection
+# point of when the the angles are far enough apart to allow maximal preferred
+# directtion response)
 
 if __name__ == "__main__":
     basest = "/mnt/Data/NEURONoutput/tuning/"
@@ -204,5 +232,8 @@ if __name__ == "__main__":
     basic_ds = plot_basic_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
     raw_bells = plot_raw_metric(dirs_180, thresh_areas, show_trials=False)
     fancy = plot_fancy_scatter_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
-    dir_traces = plot_traces(dirs_180, traces)
+    # keys = ["0.0", "11.25", "22.5"]
+    keys = ["0.0", "2.8125", "5.625", "8.4375"]
+    dir_traces = plot_traces(dirs_180, traces, diff_keys=keys)
+    peaks = plot_peak_responses(thresh_areas)
     plt.show()
