@@ -43,8 +43,10 @@ class TuningToy:
             "I": {"pref": 0.95, "null": 0.05},
         }
         self.syn_timing = {
-            "E": {"var": 15, "delay": 5},
-            "I": {"var": 15, "delay": 0},
+            # "E": {"var": 15, "delay": 5},
+            # "I": {"var": 15, "delay": 0},
+            "E": {"var": 5, "delay": 5},
+            "I": {"var": 5, "delay": 0},
         }
 
         self.dir_labels = [225, 270, 315, 0, 45, 90, 135, 180]
@@ -56,14 +58,14 @@ class TuningToy:
         self.light_bar = {
             "speed": 1.,
             "x_motion": True,
-            "x_start": -60,
-            "y_start": -70,
+            "x_start": 0,
+            "y_start": 0,
             "start_time": 0,
         }
 
         self.sac_angle_rho_mode = True
-        self.time_rho = .9
-        self.space_rho = .9
+        self.time_rho = 1.
+        self.space_rho = 1.
 
         self.config_soma()
         self.create_synapse()
@@ -101,7 +103,7 @@ class TuningToy:
         self.soma.Ra   = 100
 
         self.soma.insert("HHst")
-        self.soma.gnabar_HHst = 0.013      # [S/cm2]
+        self.soma.gnabar_HHst = 0.  # 0.013      # [S/cm2]
         self.soma.gkbar_HHst  = 0.035      # [S/cm2]
         self.soma.gkmbar_HHst = 0.003      # [S/cm2]
         self.soma.gleak_HHst  = 0.0001667  # [S/cm2]
@@ -158,7 +160,7 @@ class TuningToy:
             self.syns["E"]["stim"], self.syns["E"]["syn"], 0, 0, .001
         )
         self.syns["I"]["con"] = h.NetCon(
-            self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, .003
+            self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, .006  # .003
         )
 
     def set_sacs(self, thetas={"E": 0, "I": 0}):
@@ -174,13 +176,13 @@ class TuningToy:
         self.prs = {
             s: [
                 pn["pref"] + (pn["null"] - pn["pref"]) * (
-                    1 - 0.98 / (1 + np.exp((wrap_180(np.abs(t - d)) - 91) / 25))
+                    1 - 0.98 / (1 + np.exp((wrap_180(t - d) - 91) / 25))
                 ) for d in self.dir_labels
             ] for (s, t), pn in zip(thetas.items(), self.dir_pr.values())
         }
 
         # theta difference used to scale down rho
-        self.delta = wrap_180(np.abs(thetas["E"] - thetas["I"]))
+        self.delta = wrap_180(thetas["E"] - thetas["I"])
 
     def rotate_sacs(self, rotation):
         rotated = {}
@@ -209,12 +211,10 @@ class TuningToy:
         bar would be passing over their location, modified by spatial offsets.
         Timing jitter is applied using pseudo-random number generators.
         """
-        time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
-
         if (self.sac_angle_rho_mode):
-            syn_rho = time_rho
+            syn_rho = self.time_rho
         else:
-            syn_rho = time_rho - time_rho * self.delta / 180
+            syn_rho = self.time_rho - self.time_rho * self.delta / 180
 
         # bare base onset with added shared jitter
         jit = self.rand.normal(0, 1)
@@ -239,10 +239,8 @@ class TuningToy:
         thresholds set by probability of release to determine if the
         "pre-synapse" succeeds or fails to release neurotransmitter.
         """
-        space_rho = stim.get("rhos", {"space": self.space_rho})["space"]
-
         # numbers above can result in NaNs
-        rho = 0.986 if space_rho > 0.986 else space_rho
+        rho = 0.986 if self.space_rho > 0.986 else self.space_rho
 
         # calculate input rho required to achieve the desired output rho
         # exponential fit: y = y0 + A * exp(-invTau * x)
@@ -297,7 +295,7 @@ class Runner:
         h.run()
         self.dump_recordings()
 
-    def dir_run(self, n_trials=10, rhos=None, prefix="", plot_summary=False):
+    def dir_run(self, n_trials=10, prefix="", plot_summary=False):
         """Run model through 8 directions for a number of trials and save the
         data. Offets and probabilities of release for inhibition are updated
         here before calling run() to execute the model.
@@ -307,11 +305,6 @@ class Runner:
         n_dirs = len(self.model.dirs)
         stim = {"type": "bar", "dir": 0}
         params = self.model.get_params_dict()  # for logging
-
-        if rhos is not None:
-            stim["rhos"] = rhos
-            params["space_rho"] = rhos.get("space", 0)
-            params["time_rho"] = rhos.get("time", 0)
 
         for j in range(n_trials):
             print("trial %d..." % j, end=" ", flush=True)
@@ -338,9 +331,10 @@ class Runner:
 
         return data
 
-    def theta_diff_run(self, n_trials=3):
+    def theta_diff_run(self, n_trials=3, n_steps=16):
         """"""
-        theta_steps = [i * 11.25 for i in range(17)]
+        step = 180 / n_steps
+        theta_steps = [i * step for i in range(n_steps + 1)]
 
         all_data = {}
         for theta in theta_steps:
@@ -438,6 +432,7 @@ if __name__ == "__main__":
 
     set_hoc_params()
 
-    n_trials = 20
+    n_trials = 40
+    n_steps = 64
     rig = Runner(basest)
-    data = rig.theta_diff_run(n_trials=n_trials)
+    data = rig.theta_diff_run(n_trials, n_steps)
