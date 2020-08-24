@@ -17,7 +17,21 @@ def vonmises_fit(pref):
         """Fiscella et al., 2015.
         Visual coding with a population of direction-selective neurons.
         Expects theta in degrees (for now)."""
-        return peak * np.exp((1 / width ** 2) * np.cos(np.deg2rad(theta - pref)))
+        e = np.exp((1 / width ** 2) * np.cos(np.deg2rad(theta - pref)))
+        return peak * e 
+    return fit
+
+
+def vonmises_base_fit(pref):
+    """Returns vonmises fitting function with given preferred direction.
+    Signature matches that expected by scipy.optimize.curve_fit."""
+    def fit(theta, base, peak, width):
+        """Fiscella et al., 2015.
+        Visual coding with a population of direction-selective neurons. Modified
+        by addition of base parameter.
+        Expects theta in degrees (for now)."""
+        e = np.exp((1 / width ** 2) * np.cos(np.deg2rad(theta - pref)))
+        return base + peak * e 
     return fit
 
 
@@ -117,6 +131,8 @@ def plot_raw_metric(dirs, base_metric, diff_keys=["0.0", "90.0", "180.0"],
 
         if fit == "gauss":
             fit_x, fit_y = gauss_fit_line(dir_ax, mean)
+        elif fit == "vonmises_base":
+            fit_x, fit_y = fit_line(dir_ax, mean, vonmises_base_fit(diff_float))
         else:
             fit_x, fit_y = fit_line(dir_ax, mean, vonmises_fit(diff_float))
         ax.plot(fit_x, fit_y, c="0", linestyle="--")
