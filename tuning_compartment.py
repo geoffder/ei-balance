@@ -416,11 +416,11 @@ class Runner:
 
 def set_hoc_params():
     """Set hoc NEURON environment model run parameters."""
-    h.tstop = 400        # [ms]
+    h.tstop        = 400  # [ms]
     h.steps_per_ms = 10
-    h.dt = 0.1           # [ms]
-    h.v_init = -60       # [mV]
-    h.celsius = 36.9
+    h.dt           = 0.1  # [ms]
+    h.v_init       = -60  # [mV]
+    h.celsius      = 36.9
 
 
 if __name__ == "__main__":
