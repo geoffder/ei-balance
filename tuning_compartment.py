@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import scipy.stats as st  # for probabilistic distributions
 
 # general libraries
+import os
 import platform
 import json
 
@@ -43,8 +44,6 @@ class TuningToy:
             "I": {"pref": 0.95, "null": 0.05},
         }
         self.syn_timing = {
-            # "E": {"var": 15, "delay": 5},
-            # "I": {"var": 15, "delay": 0},
             "E": {"var": 5, "delay": 5},
             "I": {"var": 5, "delay": 0},
         }
@@ -152,15 +151,17 @@ class TuningToy:
         self.syns["E"]["syn"].tau2 = 4.0
         self.syns["E"]["syn"].e    = 0
 
+        # NOTE: reversal dropped to -65 to get I to be shunting, since the vm is
+        # resting below -60 as it is
         self.syns["I"]["syn"].tau1 = 0.5
         self.syns["I"]["syn"].tau2 = 12.0
-        self.syns["I"]["syn"].e    = -60.0
+        self.syns["I"]["syn"].e    = -65.0  # -60.0
 
         self.syns["E"]["con"] = h.NetCon(
             self.syns["E"]["stim"], self.syns["E"]["syn"], 0, 0, .001
         )
         self.syns["I"]["con"] = h.NetCon(
-            self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, .006  # .003
+            self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, .004 # .006  # .003
         )
 
     def set_sacs(self, thetas={"E": 0, "I": 0}):
@@ -279,6 +280,8 @@ class TuningToy:
 class Runner:
     def __init__(self, data_path=""):
         self.data_path = data_path
+        if not os.path.isdir(data_path):
+            os.makedirs(data_path)
         self.model = TuningToy()
 
     def run(self, stim):
@@ -332,7 +335,8 @@ class Runner:
         return data
 
     def theta_diff_run(self, n_trials=3, n_steps=16):
-        """"""
+        """8-directional run repeated for a 180 degree range (with `n_steps`) of
+        E-I theta differences"""
         step = 180 / n_steps
         theta_steps = [i * step for i in range(n_steps + 1)]
 
@@ -425,14 +429,15 @@ def set_hoc_params():
 
 if __name__ == "__main__":
     if platform.system() == "Linux":
-        basest = "/mnt/Data/NEURONoutput/tuning/"
+        base_pth = "/mnt/Data/NEURONoutput/tuning/"
     else:
-        basest = "D:\\NEURONoutput\\"
+        base_pth = "D:\\NEURONoutput\\"
         windows_gui_fix()
 
     set_hoc_params()
 
     n_trials = 40
     n_steps = 64
-    rig = Runner(basest)
+    pth = base_pth + "var0_Iw004_Irev65/"
+    rig = Runner(pth)
     data = rig.theta_diff_run(n_trials, n_steps)
