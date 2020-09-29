@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
+import os
 import h5py as h5
 import json
 
@@ -258,7 +259,10 @@ def plot_traces(dirs, traces, diff_keys=["0.0", "90.0", "180.0"]):
 
 if __name__ == "__main__":
     basest = "/mnt/Data/NEURONoutput/tuning/"
+    basest += "var0_Iw004_Irev65/"
     fig_path = basest + "figs/"
+    if not os.path.isdir(fig_path):
+        os.makedirs(fig_path)
 
     with h5.File(basest + "theta_diff_exp.h5", "r") as f:
         all_data = unpack_hdf(f)
