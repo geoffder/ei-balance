@@ -41,7 +41,7 @@ def gauss_fit(x, a, x0, sigma):
 
 
 def gauss_fit_line(x, y):
-    mean = np.sum(x * y) / np.sum(y)
+    mean  = np.sum(x * y) / np.sum(y)
     sigma = np.sqrt(np.sum(y * (x - y) ** 2) / np.sum(y))
     return fit_line(x, y, gauss_fit, p0=[1, mean, sigma])
 
@@ -50,10 +50,10 @@ def fit_line(x, y, func, pts=100, **fit_kwargs):
     """Fit data to given function and return function mapped onto the linear
     space between the lower and upper ranges of the x data. y can be be a
     1d ndarray, or 2d of shape (N, x.size)."""
-    flat_y = y.reshape(-1)
-    flat_x = np.repeat(x, y.size // x.size)
+    flat_y  = y.reshape(-1)
+    flat_x  = np.repeat(x, y.size // x.size)
     pars, _ = curve_fit(f=func, xdata=flat_x, ydata=flat_y, **fit_kwargs)
-    x_ax = np.linspace(np.min(x), np.max(x), pts)
+    x_ax    = np.linspace(np.min(x), np.max(x), pts)
     return x_ax, func(x_ax, *pars)
 
 
@@ -63,7 +63,7 @@ def thresholded_area(vm, thresh):
     orig_shape = vm.shape
     reshaped = vm.copy().reshape(-1, orig_shape[-1])  # flatten non-T dims
     reshaped[reshaped < thresh] = thresh
-    areas = np.sum((reshaped - thresh), axis=1)
+    areas = np.sum((reshaped[:, 300:] - thresh), axis=1)
     if len(orig_shape) > 1:
         return areas.reshape(*orig_shape[:-1])
     else:
@@ -150,19 +150,14 @@ def plot_raw_metric(dirs, base_metric, diff_keys=["0.0", "90.0", "180.0"],
 
 
 def plot_peak_responses(base_metric):
-    """Plot maximal response amplitude against theta difference.
-    NOTE: Undecided what the best metric / manipulation to display is yet, and
-    how many panels to do. Options include:
-      -- strongest responding direction amplitude (average over trials first)
-      -- max response across all trials / directions
-      -- max response for each trial (across all directions)
-      -- any more?
+    """Plot maximal directional response amplitude against theta difference.
+    Average over trials for each direction, then take the strongest direction.
+    This will plateau once the excitation theta is far enough from the inhibition
+    to be "out of range".
     """
     fig, ax = plt.subplots(1)
     theta_diffs = np.array([float(t) for t in base_metric.keys()])
-    # average over trials, then take the strongest responding direction
     prefs = [np.max(np.mean(rs, axis=0)) for rs in base_metric.values()]
-    # maxs = [np.max(rs) for rs in base_metric.values()]
 
     ax.scatter(theta_diffs, prefs)
     ax.set_ylim(0)
@@ -201,7 +196,7 @@ def avg_tuning_metrics(tuning_dict):
     """Calculate average tuning by averaging tuning metrics (dsi and theta) for
     individual trials. Input dict has theta difference keys and values in the
     form of {"DSis": ndarray (1D), "thetas": ndarray (1D)}."""
-    avg_dsis = [np.mean(v["DSis"]) for v in tuning_dict.values()]
+    avg_dsis   = [np.mean(v["DSis"]) for v in tuning_dict.values()]
     avg_thetas = [np.mean(v["thetas"]) for v in tuning_dict.values()]
     return np.concatenate(avg_dsis), np.concatenate(avg_thetas)
 
@@ -211,7 +206,7 @@ def get_traces(data):
 
 
 def plot_traces(dirs, traces, diff_keys=["0.0", "90.0", "180.0"]):
-    timeax = np.arange(traces[diff_keys[0]].shape[-1]) * .1
+    timeax    = np.arange(traces[diff_keys[0]].shape[-1]) * .1
     fig, axes = plt.subplots(
         len(diff_keys), len(dirs), figsize=(16, 10),
         sharex="col", sharey="row", squeeze=False,
@@ -220,10 +215,10 @@ def plot_traces(dirs, traces, diff_keys=["0.0", "90.0", "180.0"]):
     vmin, vmax = np.inf, -np.inf
     for diff, row in zip(diff_keys, axes):
         dir_avgs = np.mean(traces[diff], axis=0)
-        vmin = min(vmin, np.min(dir_avgs))
-        vmax = max(vmax, np.max(dir_avgs))
+        vmin     = min(vmin, np.min(dir_avgs))
+        vmax     = max(vmax, np.max(dir_avgs))
         for i, (avg, ax) in enumerate(zip(dir_avgs, row)):
-            ax.plot(timeax[1000:], avg[1000:])
+            ax.plot(timeax[300:], avg[300:])
 
     # shared Y (row) settings
     for diff, row in zip(diff_keys, axes):
@@ -259,7 +254,7 @@ def plot_traces(dirs, traces, diff_keys=["0.0", "90.0", "180.0"]):
 
 if __name__ == "__main__":
     basest = "/mnt/Data/NEURONoutput/tuning/"
-    basest += "var0_Iw004_Irev65/"
+    basest += "var0_spd2000_Iw004_Irev65/"
     fig_path = basest + "figs/"
     if not os.path.isdir(fig_path):
         os.makedirs(fig_path)
@@ -268,24 +263,24 @@ if __name__ == "__main__":
         all_data = unpack_hdf(f)
 
     theta_diffs = np.array([float(t) for t in all_data.keys()])
-    dirs = json.loads(all_data["0.0"]["params"])["dir_labels"]
-    dirs_180 = np.vectorize(scale_180_from_360)(dirs)
+    dirs        = json.loads(all_data["0.0"]["params"])["dir_labels"]
+    dirs_180    = np.vectorize(scale_180_from_360)(dirs)
 
     thresh_areas = thresh_area_tuning(all_data, thresh=-55)
-    tuning = trial_by_trial_tuning(dirs, thresh_areas)
+    tuning       = trial_by_trial_tuning(dirs, thresh_areas)
     # avg_dsis, avg_thetas = avg_tuning_metrics(tuning)
     avg_dsis, avg_thetas = avg_raw_tuning(dirs, thresh_areas)
-    traces = get_traces(all_data)
-    small_keys = ["0.0", "2.8125", "5.625", "8.4375"]
-    big_keys = ["0.0", "45.0", "90.0", "180.0"]
+    traces               = get_traces(all_data)
+    small_keys           = ["0.0", "2.8125", "5.625", "8.4375"]
+    big_keys             = ["0.0", "45.0", "90.0", "180.0"]
 
-    basic_ds = plot_basic_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
-    raw_bells_small = plot_raw_metric(dirs_180, thresh_areas, small_keys, show_trials=False)
-    raw_bells_big = plot_raw_metric(dirs_180, thresh_areas, big_keys, show_trials=False)
-    fancy = plot_fancy_scatter_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
+    basic_ds         = plot_basic_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
+    raw_bells_small  = plot_raw_metric(dirs_180, thresh_areas, small_keys, show_trials=False)
+    raw_bells_big    = plot_raw_metric(dirs_180, thresh_areas, big_keys, show_trials=False)
+    fancy            = plot_fancy_scatter_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
     dir_traces_small = plot_traces(dirs_180, traces, diff_keys=small_keys)
-    dir_traces_big = plot_traces(dirs_180, traces, diff_keys=big_keys)
-    peaks = plot_peak_responses(thresh_areas)
+    dir_traces_big   = plot_traces(dirs_180, traces, diff_keys=big_keys)
+    peaks            = plot_peak_responses(thresh_areas)
 
     if 1:
         basic_ds.savefig(fig_path + "basic_ds.png", bbox_inches="tight")
@@ -295,4 +290,5 @@ if __name__ == "__main__":
         dir_traces_small.savefig(fig_path + "dir_traces_small.png", bbox_inches="tight")
         dir_traces_big.savefig(fig_path + "dir_traces_big.png", bbox_inches="tight")
         peaks.savefig(fig_path + "directional_peaks.png", bbox_inches="tight")
+
     plt.show()
