@@ -44,35 +44,21 @@ class TuningToy:
             "I": {"pref": 0.95, "null": 0.05},
         }
         self.syn_timing = {
-            "E": {"var": 5, "delay": 5},
-            "I": {"var": 5, "delay": 0},
-        }
-
-        self.dir_labels = [225, 270, 315, 0, 45, 90, 135, 180]
-        self.dir_rads   = np.radians(self.dir_labels)
-        self.dirs       = [135, 90, 45, 0, 45, 90, 135, 180]
-        self.dir_inds   = np.array(self.dir_labels).argsort()
-        self.circle     = np.deg2rad([0, 45, 90, 135, 180, 225, 270, 315, 0])
-
-        self.light_bar = {
-            "speed": 1.,
-            "x_motion": True,
-            "x_start": 0,
-            "y_start": 0,
-            "start_time": 0,
+            "E": {"var": 0, "delay": 5},
+            "I": {"var": 0, "delay": 0},
         }
 
         self.sac_angle_rho_mode = True
-        self.time_rho = 1.
+        self.time_rho  = 1.
         self.space_rho = 1.
 
         self.config_soma()
         self.create_synapse()
         self.config_stimulus()
 
-        self.seed = seed
+        self.seed    = seed
         self.nz_seed = 0
-        self.rand = h.Random(seed)
+        self.rand    = h.Random(seed)
 
     def get_params_dict(self):
         skip = {
@@ -112,14 +98,14 @@ class TuningToy:
     def config_stimulus(self):
         # light stimulus
         self.light_bar = {
-            "start_time": 0,
-            "speed": 1.0,      # speed of the stimulus bar (um/ms)
-            "width": 250,      # width of the stimulus bar(um)
-            "x_motion": True,  # move bar in x, if not, move bar in y
-            "x_start": -175,   # start location (X axis) of the stim bar (um)
-            "x_end": 175,      # end location (X axis)of the stimulus bar (um)
-            "y_start": 25,     # start location (Y axis) of the stimulus bar (um)
-            "y_end": 225,      # end location (Y axis) of the stimulus bar (um)
+            "start_time": 0., # vel -> start: .25 -> -900; .5 -> -400
+            "speed": 2.0,     # speed of the stimulus bar (um/ms)
+            "width": 250,     # width of the stimulus bar(um)
+            "x_motion": True, # move bar in x, if not, move bar in y
+            "x_start": -175,  # start location (X axis) of the stim bar (um)
+            "x_end": 175,     # end location (X axis)of the stimulus bar (um)
+            "y_start": 25,    # start location (Y axis) of the stimulus bar (um)
+            "y_end": 225,     # end location (Y axis) of the stimulus bar (um)
         }
 
         self.jitter = 0
@@ -201,7 +187,7 @@ class TuningToy:
         locs = self.rotate_sacs(-self.dir_rads[dir_idx])
 
         on_times = {
-            s: bar["start_time"] + (loc[ax] - bar[ax + "_start"] / bar["speed"])
+            s: bar["start_time"] + (loc[ax] - bar[ax + "_start"]) / bar["speed"]
             for s, loc in locs.items()
         }
 
@@ -437,7 +423,7 @@ if __name__ == "__main__":
     set_hoc_params()
 
     n_trials = 40
-    n_steps = 64
-    pth = base_pth + "var0_Iw004_Irev65/"
-    rig = Runner(pth)
-    data = rig.theta_diff_run(n_trials, n_steps)
+    n_steps  = 64
+    pth      = base_pth + "var0_spd2000_Iw004_Irev65/"
+    rig      = Runner(pth)
+    data     = rig.theta_diff_run(n_trials, n_steps)
