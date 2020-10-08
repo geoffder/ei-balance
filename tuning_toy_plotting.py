@@ -134,8 +134,11 @@ def plot_raw_metric(dirs, base_metric, diff_keys=["0.0", "90.0", "180.0"],
             fit_x, fit_y = gauss_fit_line(dir_ax, mean)
         elif fit == "vonmises_base":
             fit_x, fit_y = fit_line(dir_ax, mean, vonmises_base_fit(diff_float))
-        else:
+        elif fit == "vonmises":
             fit_x, fit_y = fit_line(dir_ax, mean, vonmises_fit(diff_float))
+        else:
+            fit_x, fit_y = [], []
+
         ax.plot(fit_x, fit_y, c="0", linestyle="--")
 
         ax.set_xlim(-190, 145)
@@ -247,14 +250,23 @@ def plot_traces(dirs, traces, diff_keys=["0.0", "90.0", "180.0"]):
     return fig
 
 
-# TODO: peak / max response for each E-I difference (good to see inflection
-# point of when the the angles are far enough apart to allow maximal preferred
-# directtion response)
-
+# NOTE: Thinking about a new metric... What about something that looks at the
+# empirical preferred theta versus the theta of E, I, and/or some "predicted"
+# theta based on the combination of E and I thetas somehow. Idea behind the
+# predicted one being that opposite of I theta and the absolute of the E will be
+# what influences what direction the post-synapse will prefer. In the "control"
+# case where E and I are both DS in probability, the preferred angle follows the
+# angle of the E theta pretty perfectly. The result when DS probability is
+# replaced with non-DS release probability is a bit funny. When gaba is non-DS,
+# any E theta that is close enough to I such that the conductances would overlap,
+# the post-synaptic response will be supressed, even if the stimulus lines up with
+# the E dendrite more than the I dendrite. This expands the range of theta-diffs
+# for which there is an E-I interaction, and the I is able to influence the
+# post-synaptic preferred direction.
 
 if __name__ == "__main__":
     basest = "/mnt/Data/NEURONoutput/tuning/"
-    basest += "var0_spd2000_Iw004_Irev65/"
+    basest += "var0_spd1000_Iw004_Irev65/"
     fig_path = basest + "figs/"
     if not os.path.isdir(fig_path):
         os.makedirs(fig_path)
@@ -274,9 +286,10 @@ if __name__ == "__main__":
     small_keys           = ["0.0", "2.8125", "5.625", "8.4375"]
     big_keys             = ["0.0", "45.0", "90.0", "180.0"]
 
+    fit = "gauss" # ""
     basic_ds         = plot_basic_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
-    raw_bells_small  = plot_raw_metric(dirs_180, thresh_areas, small_keys, show_trials=False)
-    raw_bells_big    = plot_raw_metric(dirs_180, thresh_areas, big_keys, show_trials=False)
+    raw_bells_small  = plot_raw_metric(dirs_180, thresh_areas, small_keys, show_trials=False, fit=fit)
+    raw_bells_big    = plot_raw_metric(dirs_180, thresh_areas, big_keys, show_trials=False, fit=fit)
     fancy            = plot_fancy_scatter_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
     dir_traces_small = plot_traces(dirs_180, traces, diff_keys=small_keys)
     dir_traces_big   = plot_traces(dirs_180, traces, diff_keys=big_keys)
