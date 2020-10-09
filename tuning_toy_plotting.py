@@ -19,7 +19,7 @@ def vonmises_fit(pref):
         Visual coding with a population of direction-selective neurons.
         Expects theta in degrees (for now)."""
         e = np.exp((1 / width ** 2) * np.cos(np.deg2rad(theta - pref)))
-        return peak * e 
+        return peak * e
     return fit
 
 
@@ -32,7 +32,7 @@ def vonmises_base_fit(pref):
         by addition of base parameter.
         Expects theta in degrees (for now)."""
         e = np.exp((1 / width ** 2) * np.cos(np.deg2rad(theta - pref)))
-        return base + peak * e 
+        return base + peak * e
     return fit
 
 
@@ -130,14 +130,24 @@ def plot_raw_metric(dirs, base_metric, diff_keys=["0.0", "90.0", "180.0"],
         mean = np.mean(base_metric[diff], axis=0)
         ax.scatter(dir_ax, mean, c="r", s=45)
 
-        if fit == "gauss":
-            fit_x, fit_y = gauss_fit_line(dir_ax, mean)
-        elif fit == "vonmises_base":
-            fit_x, fit_y = fit_line(dir_ax, mean, vonmises_base_fit(diff_float))
-        elif fit == "vonmises":
-            fit_x, fit_y = fit_line(dir_ax, mean, vonmises_fit(diff_float))
+        if fit is not None:
+            try:
+                if fit == "gauss":
+                    fit_x, fit_y = gauss_fit_line(dir_ax, mean)
+                elif fit == "vonmises_base":
+                    fit_x, fit_y = fit_line(
+                        dir_ax, mean, vonmises_base_fit(diff_float))
+                elif fit == "vonmises":
+                    fit_x, fit_y = fit_line(
+                        dir_ax, mean, vonmises_fit(diff_float))
+                else:
+                    fit_x, fit_y = [], []
+            except:
+                fit_x, fit_y = [], []
+                print("%s fitting failed." % fit)
         else:
             fit_x, fit_y = [], []
+
 
         ax.plot(fit_x, fit_y, c="0", linestyle="--")
 
@@ -266,7 +276,7 @@ def plot_traces(dirs, traces, diff_keys=["0.0", "90.0", "180.0"]):
 
 if __name__ == "__main__":
     basest = "/mnt/Data/NEURONoutput/tuning/"
-    basest += "var0_spd1000_Iw004_Irev65/"
+    basest += "var5_spd1000_Iw004_Irev65/"
     fig_path = basest + "figs/"
     if not os.path.isdir(fig_path):
         os.makedirs(fig_path)
@@ -286,10 +296,11 @@ if __name__ == "__main__":
     small_keys           = ["0.0", "2.8125", "5.625", "8.4375"]
     big_keys             = ["0.0", "45.0", "90.0", "180.0"]
 
-    fit = "gauss" # ""
     basic_ds         = plot_basic_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
-    raw_bells_small  = plot_raw_metric(dirs_180, thresh_areas, small_keys, show_trials=False, fit=fit)
-    raw_bells_big    = plot_raw_metric(dirs_180, thresh_areas, big_keys, show_trials=False, fit=fit)
+    rel_bells_small  = plot_raw_metric(dirs_180, thresh_areas, small_keys, show_trials=False)
+    rel_bells_big    = plot_raw_metric(dirs_180, thresh_areas, big_keys, show_trials=False)
+    abs_bells_small  = plot_raw_metric(dirs_180, thresh_areas, small_keys, show_trials=False, relative_dirs=False)
+    abs_bells_big    = plot_raw_metric(dirs_180, thresh_areas, big_keys, show_trials=False, relative_dirs=False)
     fancy            = plot_fancy_scatter_ds_metrics(theta_diffs, avg_dsis, np.abs(avg_thetas))
     dir_traces_small = plot_traces(dirs_180, traces, diff_keys=small_keys)
     dir_traces_big   = plot_traces(dirs_180, traces, diff_keys=big_keys)
@@ -297,8 +308,10 @@ if __name__ == "__main__":
 
     if 1:
         basic_ds.savefig(fig_path + "basic_ds.png", bbox_inches="tight")
-        raw_bells_small.savefig(fig_path + "raw_bells_small.png", bbox_inches="tight")
-        raw_bells_big.savefig(fig_path + "raw_bells_big.png", bbox_inches="tight")
+        rel_bells_small.savefig(fig_path + "raw_bells_small_relative.png", bbox_inches="tight")
+        rel_bells_big.savefig(fig_path + "raw_bells_big_relative.png", bbox_inches="tight")
+        abs_bells_small.savefig(fig_path + "raw_bells_small_absolute.png", bbox_inches="tight")
+        abs_bells_big.savefig(fig_path + "raw_bells_big_absolute.png", bbox_inches="tight")
         fancy.savefig(fig_path + "fancy_ds.png", bbox_inches="tight")
         dir_traces_small.savefig(fig_path + "dir_traces_small.png", bbox_inches="tight")
         dir_traces_big.savefig(fig_path + "dir_traces_big.png", bbox_inches="tight")
