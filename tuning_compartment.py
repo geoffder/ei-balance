@@ -44,8 +44,8 @@ class TuningToy:
             "I": {"pref": 0.95, "null": 0.05},
         }
         self.syn_timing = {
-            "E": {"var": 0, "delay": 5},
-            "I": {"var": 0, "delay": 0},
+            "E": {"var": 5, "delay": 5},
+            "I": {"var": 5, "delay": 0},
         }
 
         self.sac_angle_rho_mode = True
@@ -99,8 +99,8 @@ class TuningToy:
         # light stimulus
         self.light_bar = {
             "start_time": 0., # vel -> start: .25 -> -900; .5 -> -400
-            "speed": 2.0,     # speed of the stimulus bar (um/ms)
-            "width": 250,     # width of the stimulus bar(um)
+            "speed": 1.0,     # speed of the stimulus bar (um/ms)
+            "width": 500,     # width of the stimulus bar(um)
             "x_motion": True, # move bar in x, if not, move bar in y
             "x_start": -175,  # start location (X axis) of the stim bar (um)
             "x_end": 175,     # end location (X axis)of the stimulus bar (um)
@@ -424,6 +424,6 @@ if __name__ == "__main__":
 
     n_trials = 40
     n_steps  = 64
-    pth      = base_pth + "var0_spd2000_Iw004_Irev65/"
+    pth      = base_pth + "var5_spd1000_Iw004_Irev65/"
     rig      = Runner(pth)
     data     = rig.theta_diff_run(n_trials, n_steps)
