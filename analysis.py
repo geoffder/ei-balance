@@ -11,7 +11,7 @@ import h5py as h5
 import json
 
 # local libraries
-from modelUtils import rotate, scale_180_from_360
+from modelUtils import rotate, scale_180_from_360, wrap_180
 
 
 def unpack_hdf(group):
@@ -33,7 +33,7 @@ def spike_transform(vm, kernel_sz, kernel_var, thresh=0):
     vm = vm.reshape(-1, vm.shape[-1])
 
     spks, conv = np.zeros_like(vm), np.zeros_like(vm)
-    
+
     for i, rec in enumerate(vm):
         idxs, _ = signal.find_peaks(rec, height=thresh)
         spks[i][idxs] = 1
@@ -50,7 +50,7 @@ def gauss_conv(vm, kernel_sz, kernel_var):
     vm = vm.reshape(-1, vm.shape[-1])
     conv = np.array([np.convolve(rec, kernel, mode="same") for rec in vm])
     return conv.reshape(og_shape)
-    
+
 
 def calc_tuning(data, dirs, dir_ax=0):
     """Calculate direction selective metrics of vector-sum index and preferred
@@ -59,10 +59,10 @@ def calc_tuning(data, dirs, dir_ax=0):
     in the same shape as the input, minus the directional dimension."""
     data = np.moveaxis(data, dir_ax, 0)
     out_shape = data.shape[1:]
-    
+
     data = data.reshape(data.shape[0], -1)
     rads = np.radians(dirs).reshape(-1, 1)
-        
+
     xsums = np.multiply(data, np.cos(rads)).sum(axis=0)
     ysums = np.multiply(data, np.sin(rads)).sum(axis=0)
     DSi = np.squeeze(
@@ -190,13 +190,13 @@ def make_sac_rec_gifs(
                 dpi=dpi
             )
 
-            
+
 def tuning_gif(data, locs, fname, dsi_mul=250, sample_inter=25, rec_dt=.1,
                gif_inter=150, dpi=100):
     """Create animated gif depicting directional preference in response to a
     simulated visual stimulus."""
     data["tree"]["DSi"] *= dsi_mul
-    
+
     fig, ax = plt.subplots(
         3, 1, gridspec_kw={"height_ratios": [.7, .15, .15]}, figsize=(6, 7)
     )
@@ -221,7 +221,7 @@ def tuning_gif(data, locs, fname, dsi_mul=250, sample_inter=25, rec_dt=.1,
     ax[2].set_xlim(time.min(), time.max())
     ax[1].set_ylim(data["soma"]["theta"].min(), data["soma"]["theta"].max(),)
     ax[2].set_ylim(data["soma"]["DSi"].min(), data["soma"]["DSi"].max(),)
-    
+
     rate_diff = data["soma"]["DSi"].shape[0] // data["tree"]["DSi"].shape[1]
 
     # draw legend mapping DSi -> size with min/max examples.
@@ -255,7 +255,7 @@ def tuning_gif(data, locs, fname, dsi_mul=250, sample_inter=25, rec_dt=.1,
     anim.save(fname, dpi=dpi, writer='imagemagick')
     plt.close()
 
-            
+
 def make_sac_tuning_gifs(
         pth, data, dirs, rec_key="Vm", rhos=[], net=0, thresh=None,
         sample_inter=25, gif_inter=150, dpi=100
@@ -266,7 +266,7 @@ def make_sac_tuning_gifs(
     gif_pth = pth + "gifs/"
     if not os.path.isdir(gif_pth):
         os.mkdir(gif_pth)
-        
+
     rhos = list(data.keys()) if rhos == [] else rhos
     for rho in rhos:
         rec_locs = data[rho][net]["dendrites"]["locs"]
@@ -302,8 +302,8 @@ def make_sac_tuning_gifs(
             tuning = {
                 "soma": {"DSi": soma_DSi, "theta": soma_theta},
                 "tree": {"DSi": tree_DSi, "theta": tree_theta},
-            } 
-            
+            }
+
             # get theta and DSi ranges for colour and size scaling
             for k in tuning.keys():
                 for m in list(tuning[k].keys()):
@@ -336,7 +336,7 @@ def polar_plot(metrics, dirs, radius=None, net_shadows=False, title="",
         metrics["spikes"].reshape(-1, len(dirs)).sum(axis=0), dirs
     )
     avg_theta = np.radians(avg_theta)
-    
+
     fig = plt.figure(figsize=(5, 6))
     ax = fig.add_subplot(111, projection="polar")
 
@@ -433,7 +433,7 @@ def get_sac_metrics(data):
     }
     return metrics
 
-    
+
 def sac_rho_polars(metrics, dirs, save=False, net_shadows=False, save_pth=""):
     """Collect pre-calculated metrics from given data dict and feed them in to
     polar_plot function for each sac angle rho level included in the data."""
@@ -472,10 +472,10 @@ def sac_rho_violins(metrics, dir_labels, viol_inner="box"):
         a.set_ylabel("Spikes in %d" % dir_labels[idx], size=14)
         a.set_ylim(-1)
         a.set_yticks(np.arange(0, spks.max() + 2, 2))
-        
+
     ax[-1].set_xlabel("Correlation (rho)", size=14)
     fig.tight_layout()
-    
+
     return fig
 
 
@@ -490,8 +490,8 @@ def dendritic_ds(tree_recs, dirs, pref=0, thresh=None, bin_pts=None):
         tree_recs = np.clip(tree_recs, thresh, None) - thresh
     else:
         tree_recs = tree_recs - tree_recs.min()
-        
-    areas = np.sum(tree_recs, axis=3)    
+
+    areas = np.sum(tree_recs, axis=3)
 
     # direction selective tuning for each recording location on tree
     DSis, thetas = calc_tuning(areas, dirs, dir_ax=1)
@@ -499,7 +499,7 @@ def dendritic_ds(tree_recs, dirs, pref=0, thresh=None, bin_pts=None):
         # NOTE: This is on 0 -> 180 scale, so ABSOLUTE theta diff from preferred
         # NOT -180 -> 180 scale. Make sure that this is what I want.
         thetas = np.vectorize(scale_180_from_360)(thetas - pref)
-    
+
     return {"DSi": DSis, "theta": thetas}
 
 
@@ -538,12 +538,12 @@ def plot_tree_tuning(tuning_dict, net_idx, trial=None, dsi_size=True, dsi_mul=25
     # range vars for size and colour legend
     min_dsi, max_dsi = 1., 0.
     min_theta, max_theta = 180., 0.
-    
+
     # get theta range for colour scaling
     for rho, nets in tuning_dict.items():
         net = nets[net_idx]
         rel_theta = np.abs(net[level]["theta"][trial])
-        
+
         net_low = rel_theta.min()
         min_theta = net_low if net_low < min_theta else min_theta
         net_high = rel_theta.max()
@@ -578,15 +578,15 @@ def plot_tree_tuning(tuning_dict, net_idx, trial=None, dsi_size=True, dsi_mul=25
             handlelength=2, loc="upper right", borderpad=1, handletextpad=1,
             title="DSi Bounds", title_fontsize=18,
         )
-    
+
     fig.colorbar(scatter, ax=axes, orientation="horizontal", pad=.1)
-    
+
     return fig
 
 
 def ds_scatter(tuning_dict):
     fig, axes = plt.subplots(1, len(tuning_dict), figsize=(12, 6))
-    
+
     # sort dict so rho increases left to right
     for (rho, nets), ax in zip(sorted(tuning_dict.items()), axes):
         pts = {
@@ -628,7 +628,7 @@ def spike_rasters(data, dirs, net_idx=None, thresh=0, bin_ms=0):
 
     # unzip axes from rows in to column-major organization
     axes = [[a[i] for a in axes] for i in range(len(data))]
-    
+
     # sort dict so rho increases left to right
     for (rho, nets), col in zip(sorted(data.items()), axes):
         dir_ts = {d: [] for d in dirs}
@@ -645,7 +645,7 @@ def spike_rasters(data, dirs, net_idx=None, thresh=0, bin_ms=0):
             dir_ts.values(), lineoffsets=rel_dirs,
             linelengths=30, alpha=.5,
         )
-        
+
         if bin_ms > 0:
             cum_spks = [np.zeros(len(dir_ts))]
             for p in bin_pts:
@@ -681,7 +681,7 @@ def spike_rasters(data, dirs, net_idx=None, thresh=0, bin_ms=0):
     axes[0][2].set_ylim(0, 1)
 
     fig.tight_layout()
-    
+
     return fig
 
 
@@ -703,7 +703,7 @@ def time_evolution(data, dirs, kernel_var=30, net_idx=None):
     # sort dict so rho increases left to right
     for (rho, nets), col in zip(sorted(data.items()), axes):
         spk_waves = [
-            spike_transform(nets[n]["soma"]["Vm"], 500, kernel_var) 
+            spike_transform(nets[n]["soma"]["Vm"], 500, kernel_var)
             for n in nets.keys() if net_idx is None or net_idx == n
         ]
         net_means = np.stack([np.mean(w, axis=0) for w in spk_waves], axis=1)
@@ -745,7 +745,7 @@ def time_evolution(data, dirs, kernel_var=30, net_idx=None):
     axes[0][-1].set_ylabel("DSi", size=14)
     axes[0][-2].set_ylabel("theta (°)", size=14)
     # fig.tight_layout()
-    
+
     return fig
 
 
@@ -758,6 +758,29 @@ def receptive_field_shift(vc_data):
     edges = np.array([np.where(a)[0][0] for a in ampa])
     onset = edges * vc_data["params"]["dt"]
     return np.max(onset) - onset
+
+
+def get_sac_thetas(data):
+   """Pick out the dendrite angles from the sac wiring conditions."""
+   thetas = {
+       r: {
+           trans: np.stack([
+               e["sac_net"]["wiring"]["thetas"][trans]
+               for e in exps.values()
+           ], axis=0)
+           for trans in ["E", "I"]
+       }
+       for r, exps in data.items()
+   }
+   return thetas
+
+
+def sac_deltas(sac_thetas):
+   deltas = {
+       r: wrap_180(thetas["E"] - thetas["I"])
+       for r, thetas in sac_thetas.items()
+   }
+   return deltas
 
 
 # TODO: Enable rasters, tuning evolution, and violins to adjust to different
@@ -774,7 +797,7 @@ if __name__ == "__main__":
     sac_data = load_sac_rho_data(basest)
     sac_metrics = get_sac_metrics(sac_data)
     tuning = analyze_tree(sac_data, dir_labels, pref=0, thresh=-58)
-    
+
     polars = sac_rho_polars(sac_metrics, dir_labels, net_shadows=True,
                             save=True, save_pth=fig_pth)
 
@@ -793,7 +816,7 @@ if __name__ == "__main__":
     scatter = ds_scatter(tuning)
     rasters = spike_rasters(sac_data, dir_labels, bin_ms=50)
     evol = time_evolution(sac_data, dir_labels, kernel_var=45)
-    
+
     if 1:
         violins.savefig(fig_pth + "selectivity_violins.png", bbox_inches="tight")
         tree.savefig(fig_pth + "tree_tuning.png", bbox_inches="tight")
@@ -802,4 +825,3 @@ if __name__ == "__main__":
         evol.savefig(fig_pth + "spike_evolution.png", bbox_inches="tight")
 
     plt.show()
-
