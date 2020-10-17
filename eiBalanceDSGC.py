@@ -831,7 +831,7 @@ if __name__ == "__main__":
     rig.synaptic_density()
 
     # rig.dir_run(3)
-    rig.sac_net_run(n_nets=1, n_trials=1, rho_steps=[0., 1.])
+    rig.sac_net_run(n_nets=5, n_trials=5, rho_steps=[0., 1.])
     # rig.vc_dir_run(10)
     # dsgc.sac_net.plot_dends(0)
     # locs = dsgc.get_recording_locations()
