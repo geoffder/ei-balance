@@ -196,6 +196,7 @@ class Rig:
                     for k, v in self.dend_data["g"].items()
                 },
             },
+            "syn_locs": {ax: np.array(self.model.syns[ax]) for ax in ["X", "Y"]}
         }
 
         if self.model.sac_net is not None:
