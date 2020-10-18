@@ -6,6 +6,7 @@ import scipy.stats as st  # for probabilistic distributions
 
 # general libraries
 import platform
+import os
 
 # local imports
 from modelUtils import (
@@ -818,10 +819,14 @@ class Model:
 if __name__ == "__main__":
     plat = platform.system()
     if plat == "Linux":
-        basest = "/mnt/Data/NEURONoutput/"
+        basest = "/mnt/Data/NEURONoutput/sac_net/"
+        # basest += "ttx/"
     else:
         basest = "D:\\NEURONoutput\\"
         windows_gui_fix()
+
+    if not os.path.isdir(basest):
+        os.mkdir(basest)
 
     h.xopen("new_balance.ses")  # open neuron gui session
 
