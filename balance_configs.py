@@ -16,10 +16,16 @@ def sac_mode_config():
         "active_terms": False,
         "soma_Na": 0.2,
         "soma_K": 0.07,
+        "soma_gleak_hh": 0.0001667,
+        "soma_gleak_pas": 0.0001667,
         "prime_Na": .07,  # 0.045,  # 0.03 # 0.1,  # 0.011,
         "prime_K": 0.07,  # 0.035,  # 0.03,
+        "prime_gleak_hh": 0.0001667,
+        "prime_gleak_pas": 0.0001667,
         "dend_Na": 0.013,  # 0.011,
         "dend_K": 0.035,  # 0.03,  # 0.035,  # 0.03,
+        "dend_gleak_hh": 0.0001667,
+        "dend_gleak_pas": 0.0001667,
         # synapse variability
         "jitter": 0,
         "space_rho": 1,  # 0.9,
@@ -75,7 +81,7 @@ def sac_mode_config():
         "sac_mode": True,
         "sac_rho": 0.,
         "sac_angle_rho_mode": True,
-        "sac_uniform_dist": {0: True, 1: False}, 
+        "sac_uniform_dist": {0: True, 1: False},
         "sac_shared_var": 60,  # 45,
         "sac_theta_vars": {"E": 60, "I": 60},
         "sac_gaba_coverage": 0.5,
@@ -98,8 +104,30 @@ def sac_mode_config():
         params["sac_theta_vars"] = {"E": 60, "I": 60}
         params["sac_angle_rho_mode"] = True
 
+    # TTX
+    if 0:
+        params["soma_Na"] = 0.
+        params["prime_Na"] = 0.
+        params["dend_Na"] = 0.
+
+    # MORE LEAK
+    if 0:
+        params["soma_gleak_hh"]   = 0.0001667 * 2
+        params["soma_gleak_pas"]  = 0.0001667 * 2
+        params["prime_gleak_hh"]  = 0.0001667 * 2
+        params["prime_gleak_pas"] = 0.0001667 * 2
+        params["dend_gleak_hh"]   = 0.0001667 * 2
+        params["dend_gleak_pas"]  = 0.0001667 * 2
+
+    # MORE Kv
+    if 0:
+        params["soma_K"]  = 0.1
+        params["prime_K"] = 0.1
+        params["dend_K"]  = 0.1
+
+
     # testing out diameter scaling mode
-    if 1:
+    if 0:
         params["diam_scaling_mode"] = True
         params["diam_range"] = {"max": 2, "decay": .92}
         # increase weight to counter incr diam
@@ -108,11 +136,11 @@ def sac_mode_config():
         # increase Nav to counter incr diam (want to lean on this more)
         params["dend_Na"] = 0.015
         params["dend_K"] = 0.035
-        
+
         params["synprops"]["E"]["weight"] *= 1.
         params["synprops"]["E"]["delay"] = 3
         params["synprops"]["NMDA"]["weight"] *= 1.5
-        
+
     if 0:
         params["vc_pas"] = True
 
@@ -130,10 +158,16 @@ def offset_mode_config():
         # membrane properties
         "soma_Na": 0.15,
         "soma_K": 0.07,
+        "soma_gleak_hh": 0.0001667,
+        "soma_gleak_pas": 0.0001667,
         "prime_Na": 0.015,
         "prime_K": 0.07,
+        "prime_gleak_hh": 0.0001667,
+        "prime_gleak_pas": 0.0001667,
         "dend_Na": 0.03,
         "dend_K": 0.035,
+        "dend_gleak_hh": 0.0001667,
+        "dend_gleak_pas": 0.0001667,
         # synapse variability
         "synprops": {
             "E": {
