@@ -1,6 +1,7 @@
 # science/math libraries
 import numpy as np
 from scipy import signal
+from scipy.stats import linregress
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import seaborn as sns
@@ -761,26 +762,106 @@ def receptive_field_shift(vc_data):
 
 
 def get_sac_thetas(data):
-   """Pick out the dendrite angles from the sac wiring conditions."""
-   thetas = {
-       r: {
-           trans: np.stack([
-               e["sac_net"]["wiring"]["thetas"][trans]
-               for e in exps.values()
-           ], axis=0)
-           for trans in ["E", "I"]
-       }
-       for r, exps in data.items()
-   }
-   return thetas
+    """Pick out the dendrite angles from the sac wiring conditions."""
+    thetas = {
+        r: {
+            trans: np.stack([
+                e["sac_net"]["wiring"]["thetas"][trans]
+                for e in exps.values()
+            ], axis=0)
+            for trans in ["E", "I"]
+        }
+        for r, exps in data.items()
+    }
+    return thetas
 
 
-def sac_deltas(sac_thetas):
-   deltas = {
-       r: wrap_180(thetas["E"] - thetas["I"])
-       for r, thetas in sac_thetas.items()
-   }
-   return deltas
+def get_sac_deltas(sac_thetas):
+    """Calculate E/I theta difference for each synapse for each SAC network.
+    Compare these to DSi/preferred theta of each synaptic site to gain insight
+    into the importance of SAC dendrite alignment.
+    NOTE: Includes nans, where there is no inhibitory input."""
+    deltas = {
+        r: np.vectorize(wrap_180)(thetas["E"] - thetas["I"])
+        for r, thetas in sac_thetas.items()
+    }
+    return deltas
+
+
+def get_syn_rec_lookups(rec_locs, syn_locs):
+    """VERY hacky way of getting which recordings correspond to with synapses.
+    Doing this as a quick way of looking at how pre-synaptic (SAC) arrangement
+    impacts the post-synapse. Right now since the # of synapses are fewer than
+    the recs, and they cover a variable amount of the tree, there isn't anything
+    being stored (or easily added in quickly) to line them up to dendrites index
+    wise. Also the recording electrodes are placed independantly.
+
+    Here we line the synapses with particular recordings by using the XY
+    locations that have been recorded for them.
+    """
+    syn_to_rec = {}
+    rec_to_syn = {}
+    for i in range(syn_locs["X"].size):
+        rec_idx = np.argmin(
+            np.abs((syn_locs["X"][i] - rec_locs[0]))
+            + np.abs((syn_locs["Y"][i] - rec_locs[1]))
+        )
+        syn_to_rec[i] = rec_idx
+        rec_to_syn[rec_idx] = i
+    return {"to_rec": syn_to_rec, "to_syn": rec_to_syn}
+
+
+def get_postsyn_avg_tuning(tuning_dict, lookups):
+    d = {}
+    for r, exps in tuning_dict.items():
+        thetas = []
+        dsis = []
+        for e in exps.values():
+            ts = [e["avg"]["theta"][:, idx] for idx in lookups["to_rec"].values()]
+            ds = [e["avg"]["DSi"][:, idx] for idx in lookups["to_rec"].values()]
+            thetas.append(ts)
+            dsis.append(ds)
+        d[r] = {
+            "DSi": np.squeeze(np.stack(dsis, axis=0)), 
+            "theta": np.squeeze(np.stack(thetas, axis=0))
+        }
+    return d
+
+
+def plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas, rhos=["0.00"]):
+    """TODO: 4 panels. Cols: rhos Rows (Y): theta, dsi, sharedx: delta"""
+    fig, axes = plt.subplots(2, len(rhos), sharex="col", figsize=(6 * len(rhos), 10))
+    if len(rhos) > 1:
+        # unzip axes from rows in to column-major organization
+        axes = [[a[i] for a in axes] for i in range(len(rhos))]
+    else:
+        axes = [axes]
+
+    for r, col in zip(rhos, axes):
+        flat_dels = sac_deltas[r].reshape(-1)
+        flat_dsis = post_syn_avg_tuning[r]["DSi"].reshape(-1)
+        col[0].scatter(flat_dels, post_syn_avg_tuning[r]["theta"].reshape(-1))
+        col[1].scatter(flat_dels, flat_dsis)
+        # SAC Delta vs DSi fit
+        nanless_dels = flat_dels[~np.isnan(flat_dels)]
+        nanless_dsis = flat_dsis[~np.isnan(flat_dels)]
+        xaxis = np.linspace(0, np.max(nanless_dels), 100)
+        m, x, r_val, p_val, std_err = linregress(nanless_dels, nanless_dsis)
+        fit_line = x + m * xaxis
+        col[1].plot(xaxis, fit_line, c="red")
+
+        # shared X settings
+        col[0].set_title("rho = %s" % r)
+        col[1].set_xlabel("SAC Theta Delta (°)")
+
+    # shared Y settings
+    axes[0][0].set_ylabel("theta (°)", size=14)
+    axes[0][0].set_ylim(-180, 180)
+    axes[0][1].set_ylabel("DSi", size=14)
+    axes[0][1].set_ylim(0, 1)
+
+    fig.tight_layout()
+    return fig
 
 
 # TODO: Enable rasters, tuning evolution, and violins to adjust to different
@@ -788,6 +869,7 @@ def sac_deltas(sac_thetas):
 if __name__ == "__main__":
     basest = "/mnt/Data/NEURONoutput/"
     # basest += "uni_var60_E90_I90_ARM_nonDirGABA/"
+    basest += "ttx/"
     fig_pth = basest + "py_figs/"
     if not os.path.isdir(fig_pth):
         os.mkdir(fig_pth)
@@ -796,7 +878,16 @@ if __name__ == "__main__":
 
     sac_data = load_sac_rho_data(basest)
     sac_metrics = get_sac_metrics(sac_data)
-    tuning = analyze_tree(sac_data, dir_labels, pref=0, thresh=-58)
+    tuning = analyze_tree(sac_data, dir_labels, pref=0, thresh=-55)
+
+    sac_thetas = get_sac_thetas(sac_data)
+    sac_deltas = get_sac_deltas(sac_thetas)
+
+    rec_locs = sac_data["0.00"][0]["dendrites"]["locs"]
+    syn_locs = sac_data["0.00"][0]["syn_locs"]
+    syn_rec_lookups = get_syn_rec_lookups(rec_locs, syn_locs)
+
+    post_syn_avg_tuning = get_postsyn_avg_tuning(tuning, syn_rec_lookups)
 
     polars = sac_rho_polars(sac_metrics, dir_labels, net_shadows=True,
                             save=True, save_pth=fig_pth)
@@ -816,6 +907,7 @@ if __name__ == "__main__":
     scatter = ds_scatter(tuning)
     rasters = spike_rasters(sac_data, dir_labels, bin_ms=50)
     evol = time_evolution(sac_data, dir_labels, kernel_var=45)
+    theta_diffs = plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas)
 
     if 1:
         violins.savefig(fig_pth + "selectivity_violins.png", bbox_inches="tight")
@@ -823,5 +915,6 @@ if __name__ == "__main__":
         scatter.savefig(fig_pth + "ds_scatter.png", bbox_inches="tight")
         rasters.savefig(fig_pth + "spike_rasters.png", bbox_inches="tight")
         evol.savefig(fig_pth + "spike_evolution.png", bbox_inches="tight")
+        theta_diffs.savefig(fig_pth + "theta_diff_tuning.png", bbox_inches="tight")
 
     plt.show()
