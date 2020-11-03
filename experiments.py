@@ -96,7 +96,8 @@ class Rig:
         metrics["avg_theta"] = np.round(avg_theta, decimals=2)
         metrics["DSis_sdev"] = np.std(metrics["DSis"]).round(decimals=2)
         metrics["thetas_sdev"] = np.std(metrics["thetas"]).round(decimals=2)
-        metrics["num_GABA"] = np.sum(self.model.sac_net.gaba_here)
+        if self.model.sac_mode:
+            metrics["num_GABA"] = np.sum(self.model.sac_net.gaba_here)
 
         self.print_results(metrics)
         if plot:
@@ -119,8 +120,8 @@ class Rig:
 
         print("")
 
-    def plot_results(self, metrics):
-        fig1 = self.polar_plot(self.model.dir_labels, metrics)
+    def plot_results(self, metrics, show_plot=True):
+        fig1 = self.polar_plot(self.model.dir_labels, metrics, show_plot)
         return fig1
 
     def run(self, stim, locked_synapses=None):
@@ -164,6 +165,8 @@ class Rig:
             stim["rhos"] = rhos
             params["space_rho"] = rhos.get("space", 0)
             params["time_rho"] = rhos.get("time", 0)
+            self.model.space_rho = params["space_rho"]
+            self.model.time_rho = params["time_rho"]
 
         for j in range(n_trials):
             print("trial %d..." % j, end=" ", flush=True)
@@ -378,6 +381,21 @@ class Rig:
 
         h.run()
 
+    def rough_rho_compare(self, n_trials=10, rhos=[0, 1.], seed_reset=True):
+        metrics = []
+        first_seed = self.model
+        for r in rhos:
+            if seed_reset:
+                self.model.seed = 0
+                self.model.nz_seed = 0
+            prefix = "rho_sp%.2f_tm%.2f_" % (r, r)
+            m = self.dir_run(
+                n_trials, rhos={"space": r, "time": r}, prefix=prefix, plot_summary=False)
+            metrics.append(m)
+
+        figs = [self.plot_results(m, show_plot=False) for m in metrics]
+        plt.show()
+
     def sac_angle_distribution(self, n_nets=100, bins=[8, 12, 16]):
         """Plot SAC dendrite angle distribution histograms, aggregating over a
         number of generated networks to get a more accurate estimate."""
@@ -417,6 +435,7 @@ class Rig:
             d.L for order in self.model.order_list[first:] for d in order
         ]
         density = len(self.model.syns["X"]) / np.sum(dend_lens)
+        print("# of synapses = %i" % len(self.model.syns["X"]))
         print(
             "There are %.4f synapses per micron (for %s dendrites)."
             % (density, "all" if all_tree else "synaptic")
@@ -442,7 +461,7 @@ class Rig:
         return DSi, theta
 
     @staticmethod
-    def polar_plot(dirs, metrics):
+    def polar_plot(dirs, metrics, show_plot=True):
         # resort directions and make circular for polar axes
         circ_vals = metrics["spikes"].T[np.array(dirs).argsort()]
         circ_vals = np.concatenate(
@@ -478,7 +497,8 @@ class Rig:
         ax.set_rticks([peak])
         ax.set_thetagrids([0, 90, 180, 270])
 
-        plt.show()
+        if show_plot:
+            plt.show()
 
         return fig
 
