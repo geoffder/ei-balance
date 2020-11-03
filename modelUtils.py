@@ -184,6 +184,17 @@ def dist_calc(pth, model):
         dists.to_csv(pth + "distBetwRecs.csv", index=False)
 
 
+def cable_dist_to_soma(model):
+    model.soma.push()
+    h.distance(0, .5)  # set origin at soma
+    dists = []
+    for dend in model.all_dends:
+        dend.push()
+        dists.append(h.distance(1.0))
+        h.pop_section()
+    return dists
+
+
 def map_tree(cell):
     """Sort dendrite sections by branch order and if they are terminal. Stack
     based non-recursive solution."""
