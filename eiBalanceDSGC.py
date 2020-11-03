@@ -16,6 +16,7 @@ from modelUtils import (
     find_origin,
     rotate,
     merge,
+    cable_dist_to_soma,
 )
 from SacNetwork import SacNetwork
 from experiments import Rig
@@ -62,10 +63,12 @@ class Model:
         self.seg_step     = 1 / (
             self.dend_nseg * 2) if self.dend_nseg != 10 else 0.1
         self.rec_per_sec  = self.dend_nseg * 2 if self.dend_nseg != 10 else 10
-        self.diam_range   = {"max": .5, "decay": 1}
         self.dend_diam    = 0.5
         self.dend_L       = 1200
         self.dend_Ra      = 100
+
+        self.diam_scaling_mode = None  # None | "order" | "cable"
+        self.diam_range        = {"max": .5, "decay": 1}
 
         # global active properties
         self.TTX          = False  # zero all Na conductances
@@ -392,11 +395,21 @@ class Model:
                 dend.NF_HHst = self.dend_nzFactor
 
         # set dendrite diameters
-        diam = self.diam_range["max"]
-        for i, order in enumerate(self.order_list):
-            for dend in order:
-                dend.diam = diam
-            diam *= self.diam_range["decay"]
+        if self.diam_scaling_mode == "order":
+            diam = self.diam_range["max"]
+            for i, order in enumerate(self.order_list):
+                for dend in order:
+                    dend.diam = diam
+                diam *= self.diam_range["decay"]
+        elif self.diam_scaling_mode == "cable":
+            dists      = cable_dist_to_soma(self)
+            dist_max   = np.max(dists)
+            dist_min   = np.min(dists)
+            dist_range = dist_max - dist_min
+            for dist, dend in zip(dists, self.all_dends):
+                d = 2 - 1.5 * min(2 * (dist - dist_min) / dist_range, 1)
+                # print(d)
+                dend.diam = d
 
     def create_synapses(self):
         # number of synapses
@@ -821,6 +834,7 @@ if __name__ == "__main__":
     if plat == "Linux":
         basest = "/mnt/Data/NEURONoutput/sac_net/"
         # basest += "ttx/"
+        basest += "spiking/"
     else:
         basest = "D:\\NEURONoutput\\"
         windows_gui_fix()
@@ -836,7 +850,8 @@ if __name__ == "__main__":
     rig.synaptic_density()
 
     # rig.dir_run(3)
-    rig.sac_net_run(n_nets=5, n_trials=5, rho_steps=[0., 1.])
+    # rig.rough_rho_compare(3)
+    rig.sac_net_run(n_nets=3, n_trials=3, rho_steps=[0., 1.])
     # rig.vc_dir_run(10)
     # dsgc.sac_net.plot_dends(0)
     # locs = dsgc.get_recording_locations()
