@@ -585,7 +585,7 @@ def plot_tree_tuning(tuning_dict, net_idx, trial=None, dsi_size=True, dsi_mul=25
     return fig
 
 
-def ds_scatter(tuning_dict):
+def ds_scatter(tuning_dict, x_max=None):
     fig, axes = plt.subplots(1, len(tuning_dict), figsize=(12, 6))
 
     # sort dict so rho increases left to right
@@ -596,7 +596,8 @@ def ds_scatter(tuning_dict):
             ) for m in ["DSi", "theta"]
         }
         ax.scatter(pts["DSi"], pts["theta"], c="black", alpha=.1)
-        ax.set_xlim(0, .5)
+        if x_max is not None:
+            ax.set_xlim(0, x_max)
         ax.set_ylim(-180, 180)
         ax.set_xlabel("DSi", size=14)
         ax.set_ylabel("theta (°)", size=14)
