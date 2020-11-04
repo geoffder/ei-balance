@@ -48,6 +48,7 @@ def sac_mode_config():
                 "weight": 0.006,
                 "tau1": 0.5,
                 "tau2": 16,
+                "rev": -65,  # -60.,
             },
             "NMDA": {
                 "var": 7,
@@ -79,7 +80,7 @@ def sac_mode_config():
         },
         # SAC Network
         "sac_mode": True,
-        "sac_rho": 0.,
+        "sac_rho": 1.,
         "sac_angle_rho_mode": True,
         "sac_uniform_dist": {0: True, 1: False},
         "sac_shared_var": 60,  # 45,
@@ -93,22 +94,41 @@ def sac_mode_config():
     # PN theta mode, uniform inner + outer
     if 0:
         params["sac_uniform_dist"][1] = True
-        params["sac_shared_var"] = 60
-        params["sac_theta_vars"] = {"E": 90, "I": 90}
-        params["sac_angle_rho_mode"] = True
+        params["sac_shared_var"]      = 60
+        params["sac_theta_vars"]      = {"E": 90, "I": 90}
+        params["sac_angle_rho_mode"]  = True
 
     # Uniform theta mode, uniform outer (no inner)
     if 1:
         params["sac_uniform_dist"][1] = True
-        params["sac_theta_mode"] = "uniform"
-        params["sac_theta_vars"] = {"E": 60, "I": 60}
-        params["sac_angle_rho_mode"] = True
+        params["sac_theta_mode"]      = "uniform"
+        params["sac_theta_vars"]      = {"E": 60, "I": 60}
+        params["sac_angle_rho_mode"]  = True
+
+    # testing out diameter scaling mode
+    if 1:
+        # params["diam_scaling_mode"] = "order"
+        params["diam_scaling_mode"] = "cable"
+        # params["diam_range"] = {"max": 2, "min": .4, "decay": .92, "scale": 1.5}
+        params["diam_range"] = {"max": 1.5, "min": .4, "decay": .92, "scale": 1.}
+        # increase weight to counter incr diam
+        # for s in params["synprops"].keys():
+        #     params["synprops"][s]["weight"] *= 2
+        # increase Nav to counter incr diam (want to lean on this more)
+        # params["dend_Na"] = 0.015
+        # params["dend_K"] = 0.035
+        params["dend_Na"] = .05 # .04 # 0.03
+        params["dend_K"]  = 0.07
+
+        # params["synprops"]["E"]["weight"] *= 1.
+        # params["synprops"]["E"]["delay"] = 3
+        # params["synprops"]["NMDA"]["weight"] *= 1.5
 
     # TTX
     if 0:
-        params["soma_Na"] = 0.
+        params["soma_Na"]  = 0.
         params["prime_Na"] = 0.
-        params["dend_Na"] = 0.
+        params["dend_Na"]  = 0.
 
     # MORE LEAK
     if 0:
@@ -121,25 +141,12 @@ def sac_mode_config():
 
     # MORE Kv
     if 0:
-        params["soma_K"]  = 0.1
-        params["prime_K"] = 0.1
-        params["dend_K"]  = 0.1
-
-
-    # testing out diameter scaling mode
-    if 0:
-        params["diam_scaling_mode"] = True
-        params["diam_range"] = {"max": 2, "decay": .92}
-        # increase weight to counter incr diam
-        for s in params["synprops"].keys():
-            params["synprops"][s]["weight"] *= 2
-        # increase Nav to counter incr diam (want to lean on this more)
-        params["dend_Na"] = 0.015
-        params["dend_K"] = 0.035
-
-        params["synprops"]["E"]["weight"] *= 1.
-        params["synprops"]["E"]["delay"] = 3
-        params["synprops"]["NMDA"]["weight"] *= 1.5
+        params["soma_K"]  = 0.15
+        params["prime_K"] = 0.15
+        # params["dend_K"]  = 0.15
+        # params["synprops"]["E"]["weight"]    *= 1.5
+        # params["synprops"]["NMDA"]["weight"] *= 0
+        # params["synprops"]["I"]["weight"]    *= 2.
 
     if 0:
         params["vc_pas"] = True

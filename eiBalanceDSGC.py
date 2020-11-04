@@ -68,7 +68,7 @@ class Model:
         self.dend_Ra      = 100
 
         self.diam_scaling_mode = None  # None | "order" | "cable"
-        self.diam_range        = {"max": .5, "decay": 1}
+        self.diam_range        = {"max": .5, "min": .5, "decay": 1, "scale": 1}
 
         # global active properties
         self.TTX          = False  # zero all Na conductances
@@ -407,7 +407,11 @@ class Model:
             dist_min   = np.min(dists)
             dist_range = dist_max - dist_min
             for dist, dend in zip(dists, self.all_dends):
-                d = 2 - 1.5 * min(2 * (dist - dist_min) / dist_range, 1)
+                d = (
+                    self.diam_range["max"]
+                    - (self.diam_range["max"] - self.diam_range["min"])
+                    * min(self.diam_range["scale"] * (dist - dist_min) / dist_range, 1)
+                )
                 # print(d)
                 dend.diam = d
 
