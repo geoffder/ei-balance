@@ -587,6 +587,7 @@ def plot_tree_tuning(tuning_dict, net_idx, trial=None, dsi_size=True, dsi_mul=25
 
 def ds_scatter(tuning_dict, x_max=None):
     fig, axes = plt.subplots(1, len(tuning_dict), figsize=(12, 6))
+    dsi_max = 0.
 
     # sort dict so rho increases left to right
     for (rho, nets), ax in zip(sorted(tuning_dict.items()), axes):
@@ -595,13 +596,18 @@ def ds_scatter(tuning_dict, x_max=None):
                 [n["trials"][m].flatten() for n in nets.values()]
             ) for m in ["DSi", "theta"]
         }
+        dsi_max = max(dsi_max, np.max(pts["DSi"]))
         ax.scatter(pts["DSi"], pts["theta"], c="black", alpha=.1)
-        if x_max is not None:
-            ax.set_xlim(0, x_max)
         ax.set_ylim(-180, 180)
         ax.set_xlabel("DSi", size=14)
         ax.set_ylabel("theta (°)", size=14)
         ax.set_title("rho = %s" % rho, fontsize=18)
+
+    for ax in axes:
+        if x_max is None:
+            ax.set_xlim(0, dsi_max)
+        else:
+            ax.set_xlim(0, x_max)
 
     return fig
 
@@ -823,7 +829,7 @@ def get_postsyn_avg_tuning(tuning_dict, lookups):
             thetas.append(ts)
             dsis.append(ds)
         d[r] = {
-            "DSi": np.squeeze(np.stack(dsis, axis=0)), 
+            "DSi": np.squeeze(np.stack(dsis, axis=0)),
             "theta": np.squeeze(np.stack(thetas, axis=0))
         }
     return d
@@ -865,12 +871,31 @@ def plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas, rhos=["0.00
     return fig
 
 
+def rough_gaba_weight_scaling():
+    """Rough comparison of DSis with correlated and uncorrelated SAC nets with
+    a range of GABA synapse weights. DSis are taken from the figures generated
+    for 3 trial / 3 network runs of the spiking model with synaptic weight of
+    GABA scaled by the factors found in `multi`."""
+    rho0  = [.03, .05, .08, .16, .21, .25, .34]
+    rho1  = [.05, .08, .14, .27, .35, .37, .44]
+    multi = [.10, .15, .25, .50, .75, 1.0, 1.5]
+
+    fig, ax = plt.subplots()
+    ax.plot(multi, rho0, label="rho 0")
+    ax.plot(multi, rho1, label="rho 1")
+    ax.set_xlabel("GABA Weight Scaling")
+    ax.set_ylabel("DSi")
+    plt.show()
+
+
 # TODO: Enable rasters, tuning evolution, and violins to adjust to different
 # preferred directions as well.
 if __name__ == "__main__":
-    basest = "/mnt/Data/NEURONoutput/"
+    basest = "/mnt/Data/NEURONoutput/sac_net/"
     # basest += "uni_var60_E90_I90_ARM_nonDirGABA/"
-    basest += "ttx/"
+    # basest += "ttx/"
+    # basest += "spiking/"
+    # basest += "spiking_cable_diam/"
     fig_pth = basest + "py_figs/"
     if not os.path.isdir(fig_pth):
         os.mkdir(fig_pth)
@@ -879,16 +904,15 @@ if __name__ == "__main__":
 
     sac_data = load_sac_rho_data(basest)
     sac_metrics = get_sac_metrics(sac_data)
-    tuning = analyze_tree(sac_data, dir_labels, pref=0, thresh=-55)
+    tuning = analyze_tree(sac_data, dir_labels, pref=0, thresh=-57)
 
     sac_thetas = get_sac_thetas(sac_data)
     sac_deltas = get_sac_deltas(sac_thetas)
 
-    rec_locs = sac_data["0.00"][0]["dendrites"]["locs"]
-    syn_locs = sac_data["0.00"][0]["syn_locs"]
-    syn_rec_lookups = get_syn_rec_lookups(rec_locs, syn_locs)
-
-    post_syn_avg_tuning = get_postsyn_avg_tuning(tuning, syn_rec_lookups)
+    # rec_locs = sac_data["0.00"][0]["dendrites"]["locs"]
+    # syn_locs = sac_data["0.00"][0]["syn_locs"]
+    # syn_rec_lookups = get_syn_rec_lookups(rec_locs, syn_locs)
+    # post_syn_avg_tuning = get_postsyn_avg_tuning(tuning, syn_rec_lookups)
 
     polars = sac_rho_polars(sac_metrics, dir_labels, net_shadows=True,
                             save=True, save_pth=fig_pth)
@@ -904,11 +928,11 @@ if __name__ == "__main__":
     # )
 
     violins = sac_rho_violins(sac_metrics, dir_labels)
-    tree = plot_tree_tuning(tuning, 4, dsi_mul=500)
+    tree = plot_tree_tuning(tuning, 0, dsi_mul=500)
     scatter = ds_scatter(tuning)
     rasters = spike_rasters(sac_data, dir_labels, bin_ms=50)
     evol = time_evolution(sac_data, dir_labels, kernel_var=45)
-    theta_diffs = plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas)
+    # theta_diffs = plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas)
 
     if 1:
         violins.savefig(fig_pth + "selectivity_violins.png", bbox_inches="tight")
@@ -916,6 +940,6 @@ if __name__ == "__main__":
         scatter.savefig(fig_pth + "ds_scatter.png", bbox_inches="tight")
         rasters.savefig(fig_pth + "spike_rasters.png", bbox_inches="tight")
         evol.savefig(fig_pth + "spike_evolution.png", bbox_inches="tight")
-        theta_diffs.savefig(fig_pth + "theta_diff_tuning.png", bbox_inches="tight")
+        # theta_diffs.savefig(fig_pth + "theta_diff_tuning.png", bbox_inches="tight")
 
     plt.show()
