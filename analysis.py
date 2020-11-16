@@ -887,7 +887,17 @@ def rough_gaba_weight_scaling():
     ax.set_ylabel("DSi")
     plt.show()
 
-
+# TODO: "Zoom-in" on synapses / recordings locations that have drammatically off
+# post-synaptic tuning (mainly TTX of course), and log what the SAC angles were.
+# Another way of trying to bring out the effect a bit more cleanly.
+#
+# TODO: I have some rough "SR" style data (see `rough_gaba_weight_scaling`), but
+# I also should do GABAergic synapse scaling. Show how corelease allows there to
+# be fewer GABA *synapses*, not just weaker ones. (hopefully). The "uniform"
+# angle distribution strategy in SacNet should make this possible, I simply need
+# to decrease the gaba_coverage parameter (which I think should leave the Ach
+# tuning intact / unaffected).
+    
 # TODO: Enable rasters, tuning evolution, and violins to adjust to different
 # preferred directions as well.
 if __name__ == "__main__":
