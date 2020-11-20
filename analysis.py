@@ -837,7 +837,7 @@ def get_postsyn_avg_tuning(tuning_dict, lookups):
 
 def plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas, rhos=["0.00"]):
     """TODO: 4 panels. Cols: rhos Rows (Y): theta, dsi, sharedx: delta"""
-    fig, axes = plt.subplots(2, len(rhos), sharex="col", figsize=(6 * len(rhos), 10))
+    fig, axes = plt.subplots(3, len(rhos), sharex="col", figsize=(6 * len(rhos), 10))
     if len(rhos) > 1:
         # unzip axes from rows in to column-major organization
         axes = [[a[i] for a in axes] for i in range(len(rhos))]
@@ -845,27 +845,73 @@ def plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas, rhos=["0.00
         axes = [axes]
 
     for r, col in zip(rhos, axes):
-        flat_dels = sac_deltas[r].reshape(-1)
-        flat_dsis = post_syn_avg_tuning[r]["DSi"].reshape(-1)
-        col[0].scatter(flat_dels, post_syn_avg_tuning[r]["theta"].reshape(-1))
-        col[1].scatter(flat_dels, flat_dsis)
-        # SAC Delta vs DSi fit
-        nanless_dels = flat_dels[~np.isnan(flat_dels)]
-        nanless_dsis = flat_dsis[~np.isnan(flat_dels)]
-        xaxis = np.linspace(0, np.max(nanless_dels), 100)
-        m, x, r_val, p_val, std_err = linregress(nanless_dels, nanless_dsis)
-        fit_line = x + m * xaxis
-        col[1].plot(xaxis, fit_line, c="red")
+        flat_deltas     = sac_deltas[r].reshape(-1)
+        flat_dsis       = post_syn_avg_tuning[r]["DSi"].reshape(-1)
+        flat_thetas     = post_syn_avg_tuning[r]["theta"].reshape(-1)
+        flat_thetas_abs = np.abs(flat_thetas)
+        col[0].scatter(flat_deltas, flat_thetas)
+        col[1].scatter(flat_deltas, flat_thetas_abs)
+        col[2].scatter(flat_deltas, flat_dsis)
+        # SAC Delta vs DSi and absolute theta fits
+        not_nan_idxs   = ~np.isnan(flat_deltas)
+        nanless_deltas = flat_deltas[not_nan_idxs]
+        nanless_dsis   = flat_dsis[not_nan_idxs]
+        nanless_thetas = flat_thetas_abs[not_nan_idxs]
+        xaxis = np.linspace(0, np.max(nanless_deltas), 100)
+        m, x, r_val, p_val, std_err = linregress(nanless_deltas, nanless_dsis)
+        dsi_fit_line = x + m * xaxis
+        m, x, r_val, p_val, std_err = linregress(nanless_deltas, nanless_thetas)
+        theta_fit_line = x + m * xaxis
+        col[1].plot(xaxis, theta_fit_line, c="red")
+        col[2].plot(xaxis, dsi_fit_line, c="red")
 
         # shared X settings
         col[0].set_title("rho = %s" % r)
-        col[1].set_xlabel("SAC Theta Delta (°)")
+        col[2].set_xlabel("SAC Theta Delta (°)")
 
     # shared Y settings
     axes[0][0].set_ylabel("theta (°)", size=14)
     axes[0][0].set_ylim(-180, 180)
-    axes[0][1].set_ylabel("DSi", size=14)
-    axes[0][1].set_ylim(0, 1)
+    axes[0][1].set_ylabel("absolute theta (°)", size=14)
+    axes[0][1].set_ylim(0, 180)
+    axes[0][2].set_ylabel("DSi", size=14)
+    axes[0][2].set_ylim(0, 1)
+
+    fig.tight_layout()
+    return fig
+
+
+def plot_theta_diff_vs_abs_theta(post_syn_avg_tuning, sac_deltas, rhos=["0.00"], bin_sz=10):
+    fig, axes = plt.subplots(1, len(rhos))
+    if len(rhos) > 1:
+        # unzip axes from rows in to column-major organization
+        axes = [[a[i] for a in axes] for i in range(len(rhos))]
+    else:
+        axes = [axes]
+
+    for r, col in zip(rhos, axes):
+        flat_deltas     = sac_deltas[r].reshape(-1)
+        not_nan_idxs    = ~np.isnan(flat_deltas)
+        flat_deltas     = flat_deltas[not_nan_idxs]
+        flat_thetas     = post_syn_avg_tuning[r]["theta"].reshape(-1)
+        flat_thetas_abs = np.abs(flat_thetas)[not_nan_idxs]
+        binned = []
+        for i in range(180 // bin_sz):
+            idxs = (flat_deltas > (bin_sz * i)) * (flat_deltas < (bin_sz * (i + 1)))
+            n    = np.sum(idxs)
+            if n > 0:
+                binned.append(np.sum(flat_thetas_abs[idxs]) / n)
+            else:
+                binned.append(0)
+            
+        # shared X settings
+        col.plot([i * bin_sz for i in range(1, 180 // bin_sz + 1)], binned)
+        col.set_title("rho = %s" % r)
+        col.set_xlabel("SAC Theta Delta Bin (°)")
+
+    # shared Y settings
+    axes[0].set_ylabel("absolute theta (°)", size=14)
+    axes[0].set_ylim(0, 180)
 
     fig.tight_layout()
     return fig
@@ -906,6 +952,7 @@ if __name__ == "__main__":
     # basest += "ttx/"
     # basest += "spiking/"
     # basest += "spiking_cable_diam/"
+    basest += "ttx_cable_diam/"
     fig_pth = basest + "py_figs/"
     if not os.path.isdir(fig_pth):
         os.mkdir(fig_pth)
@@ -919,10 +966,12 @@ if __name__ == "__main__":
     sac_thetas = get_sac_thetas(sac_data)
     sac_deltas = get_sac_deltas(sac_thetas)
 
-    # rec_locs = sac_data["0.00"][0]["dendrites"]["locs"]
-    # syn_locs = sac_data["0.00"][0]["syn_locs"]
-    # syn_rec_lookups = get_syn_rec_lookups(rec_locs, syn_locs)
-    # post_syn_avg_tuning = get_postsyn_avg_tuning(tuning, syn_rec_lookups)
+    ttx = True
+    if ttx:
+        rec_locs = sac_data["0.00"][0]["dendrites"]["locs"]
+        syn_locs = sac_data["0.00"][0]["syn_locs"]
+        syn_rec_lookups = get_syn_rec_lookups(rec_locs, syn_locs)
+        post_syn_avg_tuning = get_postsyn_avg_tuning(tuning, syn_rec_lookups)
 
     polars = sac_rho_polars(sac_metrics, dir_labels, net_shadows=True,
                             save=True, save_pth=fig_pth)
@@ -938,11 +987,13 @@ if __name__ == "__main__":
     # )
 
     violins = sac_rho_violins(sac_metrics, dir_labels)
-    tree = plot_tree_tuning(tuning, 0, dsi_mul=500)
+    tree    = plot_tree_tuning(tuning, 0, dsi_mul=500)
     scatter = ds_scatter(tuning)
     rasters = spike_rasters(sac_data, dir_labels, bin_ms=50)
-    evol = time_evolution(sac_data, dir_labels, kernel_var=45)
-    # theta_diffs = plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas)
+    evol    = time_evolution(sac_data, dir_labels, kernel_var=45)
+    if ttx:
+        theta_diffs = plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas)
+        theta_diff_bins = plot_theta_diff_vs_abs_theta(post_syn_avg_tuning, sac_deltas)
 
     if 1:
         violins.savefig(fig_pth + "selectivity_violins.png", bbox_inches="tight")
@@ -950,6 +1001,8 @@ if __name__ == "__main__":
         scatter.savefig(fig_pth + "ds_scatter.png", bbox_inches="tight")
         rasters.savefig(fig_pth + "spike_rasters.png", bbox_inches="tight")
         evol.savefig(fig_pth + "spike_evolution.png", bbox_inches="tight")
-        # theta_diffs.savefig(fig_pth + "theta_diff_tuning.png", bbox_inches="tight")
+        if ttx:
+            theta_diffs.savefig(fig_pth + "theta_diff_tuning.png", bbox_inches="tight")
+            theta_diff_bins.savefig(fig_pth + "theta_diff_bins.png", bbox_inches="tight")
 
     plt.show()
