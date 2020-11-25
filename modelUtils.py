@@ -91,6 +91,29 @@ def nrn_objref(name):
     return h.__getattribute__(name)
 
 
+class NrnObjref:
+    def __init__(self, name, n=1):
+        self.name = name
+        self.n = 1
+        h("objref %s[%i]" % (name, n))
+        self.ref = h.__getattribute__(name) 
+
+    def __len__(self):
+        return self.n
+    
+    def __getitem__(self, i):
+        return self.ref[i]
+
+    def __setitem__(self, i, obj):
+        self.ref[i] = obj
+
+    def __iter__(self):
+        return iter(self.ref)
+    
+    def set(self, obj, i=0):
+        self.ref[i] = obj
+
+
 def build_stim():
     """Return basic initialized NetStim object."""
     stim = h.NetStim(0.5)
