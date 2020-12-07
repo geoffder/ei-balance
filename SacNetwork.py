@@ -150,13 +150,19 @@ class SacNetwork:
         p = 0
         n = 1
         base = self.rand.uniform(-180, 180)
-        
         gaba_prob = p + (n - p) * (
             # 1 - 0.98 / (1 + np.exp(np.abs(base) - 91) / 25))
             1 - 0.98 / (1 + np.exp(np.abs(base) - 96) / 25))
-        # gaba_prob *= 2 * self.gaba_coverage  # NOTE: Approximate, fix if used...
-        # NOTE: More restrictive sigmoid decr GABA coverage, so bumped up...
-        gaba_prob *= 6 * self.gaba_coverage
+
+        pt = .45
+        m0 = 2
+        m1 = 82
+        if self.gaba_coverage > pt:
+            g = (m0 * pt) + max(0, self.gaba_coverage - pt) * m1
+        else:
+            g = self.gaba_coverage * m0
+
+        gaba_prob *=  g
         self.gaba_here.append(self.rand.uniform(0, 1) < gaba_prob)
         
         pick = self.get_outer_picks(self.gaba_here[-1])
@@ -300,3 +306,61 @@ class SacNetwork:
 
         return net
 
+
+
+from scipy.optimize import curve_fit
+
+def gaba_coverage_testing():
+    """Resulting plot shows the relationship of the set gaba coverage value and
+    the actual proportion of gaba containing synapses that would result. This calculation
+    corresponds to the one used in `theta_picker_uniform` above. The relationship here
+    is used to set the multiplier needed to allow gaba_coverage 0. -> 1.0 actually result
+    in the desired gaba probability.
+
+    NOTE:
+    There is a hard switch from a slope of ~.5 from x = 0 to ~.9 to a slope of ~0.011
+    from x ~.9 to 49.
+
+    The inflection point `pt`, initial slope m0 and final slope m1 are tested to
+    confirm that they enable approximate scaling.
+    """
+    def actual_coverage(gaba_coverage, reps=100):
+        p = 0
+        n = 1
+        rand = h.Random(1)
+
+        pt = .45
+        m0 = 2
+        m1 = 82
+        if gaba_coverage > pt:
+            g = (m0 * pt) + max(0, gaba_coverage - pt) * m1
+        else:
+            g = gaba_coverage * m0
+            
+        gaba_here = []
+        for i in range(reps):
+            base = rand.uniform(-180, 180)
+            gaba_prob = p + (n - p) * (
+                1 - 0.98 / (1 + np.exp(np.abs(base) - 96) / 25))
+            gaba_prob *= g
+            gaba_here.append(rand.uniform(0, 1) < gaba_prob)
+
+        return np.sum(gaba_here) / reps
+    
+    x = np.concatenate([np.arange(50000) * 0.00002, (1 + np.arange(4700) * .01)])
+    y = np.array([actual_coverage(g) for g in x])
+    
+    plt.plot(x, y)
+    plt.xlabel("GABA Coverage Value")
+    plt.ylabel("Actual Probability")
+
+    plt.show()
+
+    return x, y
+    
+
+def exp_rise(x, m, tau):
+    return m * (1 - np.exp(-x / tau)) 
+
+if __name__ == "__main__":
+    gaba_coverage_testing()
