@@ -933,6 +933,24 @@ def rough_gaba_weight_scaling():
     ax.set_ylabel("DSi")
     plt.show()
 
+
+def rough_gaba_coverage_scaling():
+    """Rough comparison of DSis with correlated and uncorrelated SAC nets with
+    a range of GABA synapse weights. DSis are taken from the figures generated
+    for 3 trial / 3 network runs of the spiking model with synaptic weight of
+    GABA scaled by the factors found in `multi`."""
+    rho0  = [.04, .07, .13, .16, .22, .25, .25, .24, .23, .17]
+    rho1  = [.04, .08, .16, .21, .30, .32, .37, .39, .40, .38]
+    multi = [.10, .15, .25, .30, .40, .45, .50, .55, .60, .70]
+
+    fig, ax = plt.subplots()
+    ax.plot(multi, rho0, label="rho 0")
+    ax.plot(multi, rho1, label="rho 1")
+    ax.set_xlabel("GABA Coverage")
+    ax.set_ylabel("DSi")
+    plt.show()
+
+
 # TODO: "Zoom-in" on synapses / recordings locations that have drammatically off
 # post-synaptic tuning (mainly TTX of course), and log what the SAC angles were.
 # Another way of trying to bring out the effect a bit more cleanly.
@@ -950,9 +968,9 @@ if __name__ == "__main__":
     basest = "/mnt/Data/NEURONoutput/sac_net/"
     # basest += "uni_var60_E90_I90_ARM_nonDirGABA/"
     # basest += "ttx/"
-    # basest += "spiking/"
+    basest += "spiking_coverage10/"
     # basest += "spiking_cable_diam/"
-    basest += "ttx_cable_diam/"
+    # basest += "ttx_cable_diam/"
     fig_pth = basest + "py_figs/"
     if not os.path.isdir(fig_pth):
         os.mkdir(fig_pth)
