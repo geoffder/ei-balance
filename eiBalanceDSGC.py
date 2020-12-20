@@ -838,13 +838,12 @@ if __name__ == "__main__":
     if plat == "Linux":
         basest = "/mnt/Data/NEURONoutput/sac_net/"
         # basest += "ttx/"
-        basest += "spiking/"
+        basest += "gaba_titration/ttx/"
     else:
         basest = "D:\\NEURONoutput\\"
         windows_gui_fix()
 
-    if not os.path.isdir(basest):
-        os.mkdir(basest)
+    os.makedirs(basest, exist_ok=True)
 
     h.xopen("new_balance.ses")  # open neuron gui session
 
@@ -855,7 +854,9 @@ if __name__ == "__main__":
 
     # rig.dir_run(3)
     # rig.rough_rho_compare(3)
-    rig.sac_net_run(n_nets=3, n_trials=3, rho_steps=[0., 1.])
+    # rig.sac_net_run(n_nets=3, n_trials=3, rho_steps=[0., 1.])
+    # rig.gaba_coverage_run(n_nets=3, n_trials=3, rho_steps=[0., 1.])
+    rig.gaba_titration_run(n_nets=3, n_trials=3, rho_steps=[0., 1.])
     # rig.vc_dir_run(10)
     # dsgc.sac_net.plot_dends(0)
     # locs = dsgc.get_recording_locations()
