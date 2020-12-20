@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # general libraries
+import os
 import h5py as h5
 import json
 
@@ -205,7 +206,7 @@ class Rig:
         if self.model.sac_net is not None:
             all_data["sac_net"] = self.model.sac_net.get_wiring_dict()
 
-        self.pack_hdf(self.data_path + prefix + "dir_run", all_data)
+        self.pack_hdf(os.path.join(self.data_path, prefix + "dir_run"), all_data)
 
         return metrics
 
@@ -278,6 +279,38 @@ class Rig:
             dsi = np.mean([m["avg_DSi"] for m in l])
             print("DSi @ sac_rho=%s: %.3f" % (rho, dsi))
         print("")
+
+    def gaba_coverage_run(self, n_nets=3, n_trials=3, rho_steps=[0., .9],
+                          cov_steps=[.1, .15, .25, .30, .40, .45, .50, .55, .60, .70]):
+        base_data_path = self.data_path[:]
+        base_seed = self.model.sac_initial_seed
+        for c in cov_steps:
+            label = "coverage%i" % int(c * 100)
+            self.data_path = os.path.join(base_data_path, label)
+            os.makedirs(self.data_path, exist_ok=True)
+            self.model.sac_gaba_coverage = c
+            self.model.sac_initial_seed = base_seed
+            self.sac_net_run(n_nets=n_nets, n_trials=n_trials, rho_steps=rho_steps)
+
+        self.data_path = base_data_path[:]
+
+    def gaba_titration_run(self, n_nets=3, n_trials=3, rho_steps=[0., .9],
+                           multi=[.10, .15, .25, .50, .75, 1.0, 1.5]):
+        base_data_path = self.data_path[:]
+        base_gaba_weight = self.model.synprops["I"]["weight"] * 1.
+
+        for m in multi:
+            self.data_path = os.path.join(base_data_path, "gaba_scale_%ip" % int(m * 100))
+            os.makedirs(self.data_path, exist_ok=True)
+
+            weight = base_gaba_weight * m
+            for netcon in self.model.syns["I"]["con"]:
+                for quanta in netcon:
+                    quanta.weight[0] = weight
+
+            self.sac_net_run(n_nets=n_nets, n_trials=n_trials, rho_steps=rho_steps)
+
+        self.data_path = base_data_path[:]
 
     def vc_dir_run(self, n_trials=10, simultaneous=True, prefix=""):
         """Similar to dir_run(), but running in voltage-clamp mode to record
