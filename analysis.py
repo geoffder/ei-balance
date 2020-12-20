@@ -954,21 +954,18 @@ def rough_gaba_coverage_scaling():
 # TODO: "Zoom-in" on synapses / recordings locations that have drammatically off
 # post-synaptic tuning (mainly TTX of course), and log what the SAC angles were.
 # Another way of trying to bring out the effect a bit more cleanly.
-#
-# TODO: I have some rough "SR" style data (see `rough_gaba_weight_scaling`), but
-# I also should do GABAergic synapse scaling. Show how corelease allows there to
-# be fewer GABA *synapses*, not just weaker ones. (hopefully). The "uniform"
-# angle distribution strategy in SacNet should make this possible, I simply need
-# to decrease the gaba_coverage parameter (which I think should leave the Ach
-# tuning intact / unaffected).
-    
+
+# TODO: put the suite of plotting functions into a function that can be called
+# on all folders in a directory. Will save some pain in re-running titration and
+# coverage experiments
+
 # TODO: Enable rasters, tuning evolution, and violins to adjust to different
 # preferred directions as well.
 if __name__ == "__main__":
     basest = "/mnt/Data/NEURONoutput/sac_net/"
     # basest += "uni_var60_E90_I90_ARM_nonDirGABA/"
     # basest += "ttx/"
-    basest += "spiking_coverage10/"
+    basest += "gaba_titration/ttx/gaba_scale_150p/"
     # basest += "spiking_cable_diam/"
     # basest += "ttx_cable_diam/"
     fig_pth = basest + "py_figs/"
@@ -990,6 +987,10 @@ if __name__ == "__main__":
         syn_locs = sac_data["0.00"][0]["syn_locs"]
         syn_rec_lookups = get_syn_rec_lookups(rec_locs, syn_locs)
         post_syn_avg_tuning = get_postsyn_avg_tuning(tuning, syn_rec_lookups)
+        theta_diffs = plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas)
+        theta_diff_bins = plot_theta_diff_vs_abs_theta(post_syn_avg_tuning, sac_deltas)
+        theta_diffs.savefig(fig_pth + "theta_diff_tuning_net.png", bbox_inches="tight")
+        theta_diff_bins.savefig(fig_pth + "theta_diff_bins_net.png", bbox_inches="tight")
 
     polars = sac_rho_polars(sac_metrics, dir_labels, net_shadows=True,
                             save=True, save_pth=fig_pth)
@@ -1003,15 +1004,14 @@ if __name__ == "__main__":
     #     fig_pth, sac_data, dir_labels, rhos=[], rec_key="spk_Vm",
     #     sample_inter=10, gif_inter=50,
     # )
+    for net_idx in range(len(sac_data["0.00"])):
+        tree = plot_tree_tuning(tuning, net_idx, dsi_mul=500)
+        tree.savefig(fig_pth + "tree_tuning_net%i.png" % net_idx, bbox_inches="tight")
 
     violins = sac_rho_violins(sac_metrics, dir_labels)
-    tree    = plot_tree_tuning(tuning, 0, dsi_mul=500)
     scatter = ds_scatter(tuning)
     rasters = spike_rasters(sac_data, dir_labels, bin_ms=50)
     evol    = time_evolution(sac_data, dir_labels, kernel_var=45)
-    if ttx:
-        theta_diffs = plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas)
-        theta_diff_bins = plot_theta_diff_vs_abs_theta(post_syn_avg_tuning, sac_deltas)
 
     if 1:
         violins.savefig(fig_pth + "selectivity_violins.png", bbox_inches="tight")
@@ -1019,8 +1019,5 @@ if __name__ == "__main__":
         scatter.savefig(fig_pth + "ds_scatter.png", bbox_inches="tight")
         rasters.savefig(fig_pth + "spike_rasters.png", bbox_inches="tight")
         evol.savefig(fig_pth + "spike_evolution.png", bbox_inches="tight")
-        if ttx:
-            theta_diffs.savefig(fig_pth + "theta_diff_tuning.png", bbox_inches="tight")
-            theta_diff_bins.savefig(fig_pth + "theta_diff_bins.png", bbox_inches="tight")
 
     plt.show()
