@@ -30,45 +30,50 @@ def sac_mode_config():
         "jitter": 0,
         "space_rho": 1,  # 0.9,
         "time_rho": 1,  # 0.9,
-        "synprops": {
-            "E": {
-                "var": 15,  # 10,  # 12,  # 15,
-                "delay": 5,  # 5,
-                "null_prob": 0.05,
-                "pref_prob": 0.95,  # 0.8,
-                "weight": 0.0015,  # 0.0012 # 0.0015,
-                "tau1": 0.1,
-                "tau2": 4,
+        "synprops":
+            {
+                "E":
+                    {
+                        "var": 15,  # 10,  # 12,  # 15,
+                        "delay": 5,  # 5,
+                        "null_prob": 0.05,
+                        "pref_prob": 0.95,  # 0.8,
+                        "weight": 0.0015,  # 0.0012 # 0.0015,
+                        "tau1": 0.1,
+                        "tau2": 4,
+                    },
+                "I":
+                    {
+                        "var": 15,  # 10,  # 12,  # 15,
+                        "delay": 0,
+                        "null_prob": 0.05,
+                        "pref_prob": 0.95,  # 0.8,
+                        "weight": 0.006,
+                        "tau1": 0.5,
+                        "tau2": 16,
+                        "rev": -65,  # -60.,
+                    },
+                "NMDA":
+                    {
+                        "var": 7,
+                        "delay": 0,
+                        "null_prob": 0.8,  # 0.8,  # 0.4,  # 0.8,
+                        "pref_prob": 0.8,  # 0.8,  # 0.4,  # 0.8,
+                        "weight": 0.002,  # 0.0045,  # 0.0030, .0045 might also be good
+                        "tau1": 2,
+                        "tau2": 7,
+                    },
+                "AMPA":
+                    {
+                        "var": 7,
+                        "delay": 0,
+                        "null_prob": 0.,
+                        "pref_prob": 0.,
+                        "weight": 0.0015,
+                        "tau1": 0.1,
+                        "tau2": 4,
+                    },
             },
-            "I": {
-                "var": 15,  # 10,  # 12,  # 15,
-                "delay": 0,
-                "null_prob": 0.05,
-                "pref_prob": 0.95,  # 0.8,
-                "weight": 0.006,
-                "tau1": 0.5,
-                "tau2": 16,
-                "rev": -65,  # -60.,
-            },
-            "NMDA": {
-                "var": 7,
-                "delay": 0,
-                "null_prob": 0.8,  # 0.8,  # 0.4,  # 0.8,
-                "pref_prob": 0.8,  # 0.8,  # 0.4,  # 0.8,
-                "weight": 0.002,  # 0.0045,  # 0.0030, .0045 might also be good
-                "tau1": 2,
-                "tau2": 7,
-            },
-            "AMPA": {
-                "var": 7,
-                "delay": 0,
-                "null_prob": 0.,
-                "pref_prob": 0.,
-                "weight": 0.0015,
-                "tau1": 0.1,
-                "tau2": 4,
-            },
-        },
         # quanta
         "max_quanta": 3,  # 3,
         "quanta_Pr_decay": 0.9,
@@ -76,15 +81,24 @@ def sac_mode_config():
         "quanta_inter_var": 3,  # 3
         # stimulus
         "light_bar": {
-            "speed": 1., "x_motion": True, "x_start": -60, "y_start": -70
+            "speed": 1.,
+            "x_motion": True,
+            "x_start": -60,
+            "y_start": -70
         },
         # SAC Network
         "sac_mode": True,
         "sac_rho": 1.,
         "sac_angle_rho_mode": True,
-        "sac_uniform_dist": {0: True, 1: False},
+        "sac_uniform_dist": {
+            0: True,
+            1: False
+        },
         "sac_shared_var": 60,  # 45,
-        "sac_theta_vars": {"E": 60, "I": 60},
+        "sac_theta_vars": {
+            "E": 60,
+            "I": 60
+        },
         "sac_gaba_coverage": 0.5,
         "sac_offset": 30,
         "sac_initial_seed": 1,  # 100,
@@ -94,16 +108,16 @@ def sac_mode_config():
     # PN theta mode, uniform inner + outer
     if 0:
         params["sac_uniform_dist"][1] = True
-        params["sac_shared_var"]      = 60
-        params["sac_theta_vars"]      = {"E": 90, "I": 90}
-        params["sac_angle_rho_mode"]  = True
+        params["sac_shared_var"] = 60
+        params["sac_theta_vars"] = {"E": 90, "I": 90}
+        params["sac_angle_rho_mode"] = True
 
     # Uniform theta mode, uniform outer (no inner)
     if 1:
         params["sac_uniform_dist"][1] = True
-        params["sac_theta_mode"]      = "uniform"
-        params["sac_theta_vars"]      = {"E": 60, "I": 60}
-        params["sac_angle_rho_mode"]  = True
+        params["sac_theta_mode"] = "uniform"
+        params["sac_theta_vars"] = {"E": 60, "I": 60}
+        params["sac_angle_rho_mode"] = True
 
     # testing out diameter scaling mode
     if 1:
@@ -117,8 +131,8 @@ def sac_mode_config():
         # increase Nav to counter incr diam (want to lean on this more)
         # params["dend_Na"] = 0.015
         # params["dend_K"] = 0.035
-        params["dend_Na"] = .05 # .04 # 0.03
-        params["dend_K"]  = 0.07
+        params["dend_Na"] = .05  # .04 # 0.03
+        params["dend_K"] = 0.07
 
         # params["synprops"]["E"]["weight"] *= 1.
         # params["synprops"]["E"]["delay"] = 3
@@ -126,22 +140,22 @@ def sac_mode_config():
 
     # TTX
     if 0:
-        params["soma_Na"]  = 0.
+        params["soma_Na"] = 0.
         params["prime_Na"] = 0.
-        params["dend_Na"]  = 0.
+        params["dend_Na"] = 0.
 
     # MORE LEAK
     if 0:
-        params["soma_gleak_hh"]   = 0.0001667 * 2
-        params["soma_gleak_pas"]  = 0.0001667 * 2
-        params["prime_gleak_hh"]  = 0.0001667 * 2
+        params["soma_gleak_hh"] = 0.0001667 * 2
+        params["soma_gleak_pas"] = 0.0001667 * 2
+        params["prime_gleak_hh"] = 0.0001667 * 2
         params["prime_gleak_pas"] = 0.0001667 * 2
-        params["dend_gleak_hh"]   = 0.0001667 * 2
-        params["dend_gleak_pas"]  = 0.0001667 * 2
+        params["dend_gleak_hh"] = 0.0001667 * 2
+        params["dend_gleak_pas"] = 0.0001667 * 2
 
     # MORE Kv
     if 0:
-        params["soma_K"]  = 0.15
+        params["soma_K"] = 0.15
         params["prime_K"] = 0.15
         # params["dend_K"]  = 0.15
         # params["synprops"]["E"]["weight"]    *= 1.5
@@ -176,43 +190,55 @@ def offset_mode_config():
         "dend_gleak_hh": 0.0001667,
         "dend_gleak_pas": 0.0001667,
         # synapse variability
-        "synprops": {
-            "E": {
-                "var": 15,
-                "delay": 0,
-                "weight": 0.0005,
-                "tau1": 0.1,
-                "tau2": 4,
-                "null_offset": -50,
-                "pref_offset": -50,
+        "synprops":
+            {
+                "E":
+                    {
+                        "var": 15,
+                        "delay": 0,
+                        "weight": 0.0005,
+                        "tau1": 0.1,
+                        "tau2": 4,
+                        "null_offset": -50,
+                        "pref_offset": -50,
+                    },
+                "I":
+                    {
+                        "var": 15,
+                        "delay": 0,
+                        "weight": 0.004,
+                        "tau1": 0.5,
+                        "tau2": 16,
+                        "null_offset": -55,
+                        "pref_offset": 0,
+                    },
+                "AMPA":
+                    {
+                        "var": 7,
+                        "delay": 0,
+                        "weight": 0.0005,
+                        "tau1": 0.1,
+                        "tau2": 4,
+                        "null_offset": 0,
+                        "pref_offset": 0,
+                    },
+                "NMDA": {
+                    "null_prob": 0,
+                    "pref_prob": 0
+                },
             },
-            "I": {
-                "var": 15,
-                "delay": 0,
-                "weight": 0.004,
-                "tau1": 0.5,
-                "tau2": 16,
-                "null_offset": -55,
-                "pref_offset": 0,
-            },
-            "AMPA": {
-                "var": 7,
-                "delay": 0,
-                "weight": 0.0005,
-                "tau1": 0.1,
-                "tau2": 4,
-                "null_offset": 0,
-                "pref_offset": 0,
-            },
-            "NMDA": {"null_prob": 0, "pref_prob": 0},
-        },
         # quanta
         "max_quanta": 15,
         "quanta_Pr_decay": 0.95,
         "quanta_inter": 5,
         "quanta_inter_var": 3,
         # stimulus
-        "light_bar": {"speed": 0.5, "x_motion": True, "x_start": -60, "y_start": -70},
+        "light_bar": {
+            "speed": 0.5,
+            "x_motion": True,
+            "x_start": -60,
+            "y_start": -70
+        },
         # SAC Network
         "sac_mode": False,
     }

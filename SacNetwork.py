@@ -36,7 +36,7 @@ class SacNetwork:
         self.seed = initial_seed
         self.theta_mode = theta_mode  # TODO: Make a theta param dict...
         self.cell_pref = cell_pref
-        
+
         self.build()
 
     def build(self):
@@ -61,7 +61,7 @@ class SacNetwork:
                 self.theta_picker_uniform_post()
             else:
                 raise Exception("Invalid theta_mode.")
-            
+
             for t in ["E", "I"]:
                 # Coordinates of current SAC dendrites INPUT location that
                 # governs stimulus offset of the output on to the DSGC.
@@ -78,17 +78,15 @@ class SacNetwork:
                 pref, null = self.dir_pr[t]["pref"], self.dir_pr[t]["null"]
                 for d in self.dir_labels:
                     prs.append(np.abs(self.thetas[t][-1] - d))
-                    prs[-1] = np.abs(
-                        prs[-1] - 360) if prs[-1] > 180 else prs[-1]
-                    prs[-1] = pref + (null - pref) * (
-                        1 - 0.98 / (1 + np.exp((prs[-1] - 91) / 25))
-                    )
+                    prs[-1] = np.abs(prs[-1] - 360) if prs[-1] > 180 else prs[-1]
+                    prs[-1] = pref + (null - pref
+                                     ) * (1 - 0.98 / (1 + np.exp((prs[-1] - 91) / 25)))
 
                 self.probs[t].append(prs)
 
         self.origin = self.find_origin()
         self.gaba_here = np.array(self.gaba_here)
-        
+
         for t in ["E", "I"]:
             self.probs[t] = np.nan_to_num(self.probs[t])
             self.thetas[t] = np.array(self.thetas[t])
@@ -118,7 +116,8 @@ class SacNetwork:
 
             base = 180 if self.gaba_here[-1] else 0
             theta = wrap_360(
-                pick[t] * self.theta_vars[t] + shared + base + self.cell_pref)
+                pick[t] * self.theta_vars[t] + shared + base + self.cell_pref
+            )
 
             self.thetas[t].append(theta)
 
@@ -133,10 +132,10 @@ class SacNetwork:
             gaba_prob = 2 * self.gaba_coverage * 0
 
         self.gaba_here.append(self.rand.uniform(0, 1) < gaba_prob)
-        
+
         # pseudo-random numbers for angle determination (outer portion)
         pick = self.get_outer_picks(self.gaba_here[-1])
-            
+
         for t in ["E", "I"]:
             if t == "I" and not self.gaba_here[-1]:
                 self.thetas["I"].append(np.NaN)
@@ -145,14 +144,15 @@ class SacNetwork:
             theta = wrap_360(pick[t] * self.theta_vars[t] + base)
 
             self.thetas[t].append(theta)
-        
+
     def theta_picker_uniform(self):
         p = 0
         n = 1
         base = self.rand.uniform(-180, 180)
         gaba_prob = p + (n - p) * (
             # 1 - 0.98 / (1 + np.exp(np.abs(base) - 91) / 25))
-            1 - 0.98 / (1 + np.exp(np.abs(base) - 96) / 25))
+            1 - 0.98 / (1 + np.exp(np.abs(base) - 96) / 25)
+        )
 
         pt = .45
         m0 = 2
@@ -162,37 +162,34 @@ class SacNetwork:
         else:
             g = self.gaba_coverage * m0
 
-        gaba_prob *=  g
+        gaba_prob *= g
         self.gaba_here.append(self.rand.uniform(0, 1) < gaba_prob)
-        
+
         pick = self.get_outer_picks(self.gaba_here[-1])
-            
+
         for t in ["E", "I"]:
             if t == "I" and not self.gaba_here[-1]:
                 self.thetas["I"].append(np.NaN)
                 continue
 
-            theta = wrap_360(
-                pick[t] * self.theta_vars[t] + base + self.cell_pref)
+            theta = wrap_360(pick[t] * self.theta_vars[t] + base + self.cell_pref)
 
             self.thetas[t].append(theta)
-            
+
     def theta_picker_uniform_post(self):
         p = 0.05
         n = 1
         base = self.rand.uniform(-180, 180)
-        
+
         # pseudo-random numbers for angle determination (outer portion)
         pick = self.get_outer_picks(True)
 
         for t in ["E", "I"]:
-            theta = wrap_360(
-                pick[t] * self.theta_vars[t] + base + self.cell_pref)
+            theta = wrap_360(pick[t] * self.theta_vars[t] + base + self.cell_pref)
 
             if t == "I":
                 d = np.abs(theta - (theta // 180) * 360)
-                gaba_prob = p + (n - p) * (
-                    1 - 0.98 / (1 + np.exp(d - 120) / 25))
+                gaba_prob = p + (n - p) * (1 - 0.98 / (1 + np.exp(d - 120) / 25))
                 gaba_prob *= 2 * self.gaba_coverage  # NOTE: Approximate, fix if used...
                 self.gaba_here.append(self.rand.uniform(0, 1) < gaba_prob)
                 if not self.gaba_here[-1]:
@@ -208,22 +205,17 @@ class SacNetwork:
                 pick[t] = self.rand.uniform(-1, 1)
             else:
                 pick[t] = self.rand.normal(0, 1)
-                
+
         if correlate:
-            pick["E"] = (pick["I"] * self.rho
-                         + pick["E"] * np.sqrt(1 - self.rho ** 2))
+            pick["E"] = (pick["I"] * self.rho + pick["E"] * np.sqrt(1 - self.rho**2))
         return pick
 
     def find_origin(self):
-        allX = np.concatenate(
-            [self.bp_locs["E"]["X"], self.bp_locs["I"]["X"]], axis=0
-        )
+        allX = np.concatenate([self.bp_locs["E"]["X"], self.bp_locs["I"]["X"]], axis=0)
         allX = allX[~np.isnan(allX)]
         leftX, rightX = np.min(allX), np.max(allX)
 
-        allY = np.concatenate(
-            [self.bp_locs["E"]["Y"], self.bp_locs["I"]["Y"]], axis=0
-        )
+        allY = np.concatenate([self.bp_locs["E"]["Y"], self.bp_locs["I"]["Y"]], axis=0)
         allY = allY[~np.isnan(allY)]
         botY, topY = np.min(allY), np.max(allY)
 
@@ -231,14 +223,12 @@ class SacNetwork:
 
     def get_syn_loc(self, trans, num, rotation):
         x, y = rotate(
-            self.origin,
-            self.bp_locs[trans]["X"][num],
-            self.bp_locs[trans]["Y"][num],
+            self.origin, self.bp_locs[trans]["X"][num], self.bp_locs[trans]["Y"][num],
             rotation
         )
         return {"x": x, "y": y}
 
-    def plot_dends(self, stim_angle=None):
+    def plot_dends(self, stim_angle=None, cmap="jet"):
         fig, ax = plt.subplots(1, figsize=(8, 8))
 
         for synX, synY, achX, achY, gabaX, gabaY, ePr, iPr in zip(
@@ -255,17 +245,14 @@ class SacNetwork:
             ax.plot([synX, gabaX], [synY, gabaY], c="m", alpha=0.5)
 
             if stim_angle is not None:
-                angle_idx = np.argwhere(
-                    self.dir_labels == np.array(stim_angle))[0][0]
-                colors = [plt.get_cmap("jet")(1.0 * i / 10) for i in range(10)]
+                angle_idx = np.argwhere(self.dir_labels == np.array(stim_angle))[0][0]
+                colors = [plt.get_cmap(cmap)(1.0 * i / 10) for i in range(10)]
                 eClr = colors[int(ePr[angle_idx] / 0.1)]
                 ax.scatter(achX, achY, c=[eClr], s=120, alpha=0.5)
 
                 if not np.isnan(gabaX):
                     iClr = colors[int(iPr[angle_idx] / 0.1)]
-                    ax.scatter(
-                        gabaX, gabaY, marker="v", c=[iClr], s=120, alpha=0.5
-                    )
+                    ax.scatter(gabaX, gabaY, marker="v", c=[iClr], s=120, alpha=0.5)
             else:
                 ax.scatter(achX, achY, c="g", s=120, alpha=0.5)
                 ax.scatter(gabaX, gabaY, marker="v", c="m", s=120, alpha=0.5)
@@ -289,26 +276,25 @@ class SacNetwork:
     def get_wiring_dict(self):
         """Return a dict ready to be packed in to an HDF5 archive. Parameters
         are formatted as a json, generated values are store separately."""
-        param_keys = {
-            "dir_pr", "rho", "theta_vars", "gaba_coverage", "offset", "seed"
-        }
+        param_keys = {"dir_pr", "rho", "theta_vars", "gaba_coverage", "offset", "seed"}
 
         net = {
-            "params": json.dumps({
-                k: v for k, v in self.__dict__.items()
-                if k in param_keys
-            }),
-            "wiring": {
-                k: v for k, v in self.__dict__.items()
-                if k in {"gaba_here", "bp_locs", "thetas", "probs"}
-            },
+            "params":
+                json.dumps({k: v
+                            for k, v in self.__dict__.items() if k in param_keys}),
+            "wiring":
+                {
+                    k: v
+                    for k, v in self.__dict__.items()
+                    if k in {"gaba_here", "bp_locs", "thetas", "probs"}
+                },
         }
 
         return net
 
 
-
 from scipy.optimize import curve_fit
+
 
 def gaba_coverage_testing():
     """Resulting plot shows the relationship of the set gaba coverage value and
@@ -336,20 +322,19 @@ def gaba_coverage_testing():
             g = (m0 * pt) + max(0, gaba_coverage - pt) * m1
         else:
             g = gaba_coverage * m0
-            
+
         gaba_here = []
         for i in range(reps):
             base = rand.uniform(-180, 180)
-            gaba_prob = p + (n - p) * (
-                1 - 0.98 / (1 + np.exp(np.abs(base) - 96) / 25))
+            gaba_prob = p + (n - p) * (1 - 0.98 / (1 + np.exp(np.abs(base) - 96) / 25))
             gaba_prob *= g
             gaba_here.append(rand.uniform(0, 1) < gaba_prob)
 
         return np.sum(gaba_here) / reps
-    
+
     x = np.concatenate([np.arange(50000) * 0.00002, (1 + np.arange(4700) * .01)])
     y = np.array([actual_coverage(g) for g in x])
-    
+
     plt.plot(x, y)
     plt.xlabel("GABA Coverage Value")
     plt.ylabel("Actual Probability")
@@ -357,10 +342,11 @@ def gaba_coverage_testing():
     plt.show()
 
     return x, y
-    
+
 
 def exp_rise(x, m, tau):
-    return m * (1 - np.exp(-x / tau)) 
+    return m * (1 - np.exp(-x / tau))
+
 
 if __name__ == "__main__":
     gaba_coverage_testing()
