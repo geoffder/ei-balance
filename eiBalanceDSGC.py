@@ -68,7 +68,7 @@ class Model:
         self.dend_Ra = 100
 
         self.diam_scaling_mode = None  # None | "order" | "cable"
-        self.diam_range = {"max": .5, "min": .5, "decay": 1, "scale": 1}
+        self.diam_range = {"max": 0.5, "min": 0.5, "decay": 1, "scale": 1}
 
         # global active properties
         self.TTX = False  # zero all Na conductances
@@ -122,66 +122,62 @@ class Model:
         self.NMDA_exc_lock = 0  # old excLock, remember to replace
 
         self.synprops = {
-            "E":
-                {
-                    "tau1": 0.1,  # excitatory conductance rise tau [ms]
-                    "tau2": 4,  # excitatory conductance decay tau [ms]
-                    "rev": 0,  # excitatory reversal potential [mV]
-                    "weight": 0.001,  # weight of exc NetCons [uS] .00023
-                    "prob": 0.5,  # probability of release
-                    "null_prob": 0.5,  # probability of release
-                    "pref_prob": 0.5,  # probability of release
-                    "delay": 0,  # [ms] mean temporal offset
-                    "null_offset": 0,  # [um] hard space offset on null side
-                    "pref_offset": 0,  # [um] hard space offset on pref side
-                    "var": 10,  # [ms] temporal variance of onset
-                },
-            "I":
-                {
-                    "tau1": 0.5,  # inhibitory conductance rise tau [ms]
-                    "tau2": 12,  # inhibitory conductance decay tau [ms]
-                    "rev": -60,  # inhibitory reversal potential [mV]
-                    "weight": 0.003,  # weight of inhibitory NetCons [uS]
-                    "prob": 0.8,  # probability of release
-                    "null_prob": 0.8,  # probability of release
-                    "pref_prob": 0.05,  # probability of release
-                    "delay": -5,  # [ms] mean temporal offset
-                    "null_offset": -5.5,  # [um] hard space offset on null
-                    "pref_offset": 3,  # [um] hard space offset on pref side
-                    "var": 10,  # [ms] temporal variance of onset
-                },
-            "AMPA":
-                {
-                    "tau1": 0.1,
-                    "tau2": 4,
-                    "rev": 0,
-                    "weight": 0.0,
-                    "prob": 0,
-                    "null_prob": 0,
-                    "pref_prob": 0,
-                    "delay": 0,
-                    "null_offset": 0,
-                    "pref_offset": 0,
-                    "var": 7,
-                },
-            "NMDA":
-                {
-                    "tau1": 2,
-                    "tau2": 7,
-                    "rev": 0,
-                    "weight": 0.0015,
-                    "prob": 0,
-                    "null_prob": 0,
-                    "pref_prob": 0,
-                    "delay": 0,  # [ms] mean temporal offset
-                    "null_offset": 0,
-                    "pref_offset": 0,
-                    "var": 7,
-                    "n": 0.25,  # SS: 0.213
-                    "gama": 0.08,  # SS: 0.074
-                    "Voff": 0,  # 1 -> voltage independent
-                    "Vset": -30,  # set voltage when independent
-                },
+            "E": {
+                "tau1": 0.1,  # excitatory conductance rise tau [ms]
+                "tau2": 4,  # excitatory conductance decay tau [ms]
+                "rev": 0,  # excitatory reversal potential [mV]
+                "weight": 0.001,  # weight of exc NetCons [uS] .00023
+                "prob": 0.5,  # probability of release
+                "null_prob": 0.5,  # probability of release
+                "pref_prob": 0.5,  # probability of release
+                "delay": 0,  # [ms] mean temporal offset
+                "null_offset": 0,  # [um] hard space offset on null side
+                "pref_offset": 0,  # [um] hard space offset on pref side
+                "var": 10,  # [ms] temporal variance of onset
+            },
+            "I": {
+                "tau1": 0.5,  # inhibitory conductance rise tau [ms]
+                "tau2": 12,  # inhibitory conductance decay tau [ms]
+                "rev": -60,  # inhibitory reversal potential [mV]
+                "weight": 0.003,  # weight of inhibitory NetCons [uS]
+                "prob": 0.8,  # probability of release
+                "null_prob": 0.8,  # probability of release
+                "pref_prob": 0.05,  # probability of release
+                "delay": -5,  # [ms] mean temporal offset
+                "null_offset": -5.5,  # [um] hard space offset on null
+                "pref_offset": 3,  # [um] hard space offset on pref side
+                "var": 10,  # [ms] temporal variance of onset
+            },
+            "AMPA": {
+                "tau1": 0.1,
+                "tau2": 4,
+                "rev": 0,
+                "weight": 0.0,
+                "prob": 0,
+                "null_prob": 0,
+                "pref_prob": 0,
+                "delay": 0,
+                "null_offset": 0,
+                "pref_offset": 0,
+                "var": 7,
+            },
+            "NMDA": {
+                "tau1": 2,
+                "tau2": 7,
+                "rev": 0,
+                "weight": 0.0015,
+                "prob": 0,
+                "null_prob": 0,
+                "pref_prob": 0,
+                "delay": 0,  # [ms] mean temporal offset
+                "null_offset": 0,
+                "pref_offset": 0,
+                "var": 7,
+                "n": 0.25,  # SS: 0.213
+                "gama": 0.08,  # SS: 0.074
+                "Voff": 0,  # 1 -> voltage independent
+                "Vset": -30,  # set voltage when independent
+            },
         }
 
         # light stimulus
@@ -208,11 +204,10 @@ class Model:
 
         # take direction, null, and preferred bounds and scale between
         self.dir_sigmoids = {
-            "prob":
-                lambda d, n, p: p + (n - p) * (1 - 0.98 / (1 + np.exp(d - 91) / 25)),
-            "offset":
-                lambda d, n, p: p + (n - p) *
-                (1 - 0.98 / (1 + np.exp(d - 74.69) / 24.36)),
+            "prob": lambda d, n, p: p
+            + (n - p) * (1 - 0.98 / (1 + np.exp(d - 91) / 25)),
+            "offset": lambda d, n, p: p
+            + (n - p) * (1 - 0.98 / (1 + np.exp(d - 74.69) / 24.36)),
         }
 
         self.null_rho = 0.9
@@ -235,7 +230,7 @@ class Model:
         self.sac_theta_mode = "PN"
 
         # recording stuff
-        self.downsample = {"Vm": 0.5, "iCa": .1, "g": .1}
+        self.downsample = {"Vm": 0.5, "iCa": 0.1, "g": 0.1}
         self.manipSyns = [167, 152, 99, 100, 14, 93, 135, 157]  # big set
         self.manipDends = [12, 165, 98, 94, 315, 0, 284, 167]  # big set
         self.record_g = True
@@ -409,11 +404,9 @@ class Model:
             dist_min = np.min(dists)
             dist_range = dist_max - dist_min
             for dist, dend in zip(dists, self.all_dends):
-                d = (
-                    self.diam_range["max"] -
-                    (self.diam_range["max"] - self.diam_range["min"]) *
-                    min(self.diam_range["scale"] * (dist - dist_min) / dist_range, 1)
-                )
+                d = self.diam_range["max"] - (
+                    self.diam_range["max"] - self.diam_range["min"]
+                ) * min(self.diam_range["scale"] * (dist - dist_min) / dist_range, 1)
                 # print(d)
                 dend.diam = d
 
@@ -423,7 +416,7 @@ class Model:
         if self.term_syn_only:
             h.n_syn = len(self.terminals)
         else:
-            for order in self.order_list[self.first_order:]:
+            for order in self.order_list[self.first_order :]:
                 h.n_syn += len(order)
         self.n_syn = int(h.n_syn)
 
@@ -435,33 +428,17 @@ class Model:
         self.syns = {
             "X": [],
             "Y": [],
-            "E": {
-                "stim": [],
-                "syn": h.e_syns,
-                "con": []
-            },
-            "I": {
-                "stim": [],
-                "syn": h.i_syns,
-                "con": []
-            },
-            "NMDA": {
-                "stim": [],
-                "syn": h.nmda_syns,
-                "con": []
-            },
-            "AMPA": {
-                "stim": [],
-                "syn": h.ampa_syns,
-                "con": []
-            },
+            "E": {"stim": [], "syn": h.e_syns, "con": []},
+            "I": {"stim": [], "syn": h.i_syns, "con": []},
+            "NMDA": {"stim": [], "syn": h.nmda_syns, "con": []},
+            "AMPA": {"stim": [], "syn": h.ampa_syns, "con": []},
         }
 
         if self.term_syn_only:
             dend_list = self.terminals
         else:
             dend_list = [
-                dend for order in self.order_list[self.first_order:] for dend in order
+                dend for order in self.order_list[self.first_order :] for dend in order
             ]
 
         for i, dend in enumerate(dend_list):
@@ -500,7 +477,9 @@ class Model:
                 # NOTE: Legacy used 10ms delay here (second int param)
                 self.syns[trans]["con"].append(
                     [
-                        h.NetCon(stim, self.syns[trans]["syn"][i], 0, 0, props["weight"])
+                        h.NetCon(
+                            stim, self.syns[trans]["syn"][i], 0, 0, props["weight"]
+                        )
                         for stim in self.syns[trans]["stim"][i]
                     ]
                 )
@@ -537,10 +516,7 @@ class Model:
         }
 
         self.sac_net = SacNetwork(
-            {
-                "X": self.syns["X"],
-                "Y": self.syns["Y"]
-            },
+            {"X": self.syns["X"], "Y": self.syns["Y"]},
             probs,
             self.sac_rho,
             self.sac_uniform_dist,
@@ -578,7 +554,7 @@ class Model:
                 rand_on[t] = r.repick()
 
             rand_on["E"] = rand_on["I"] * self.time_rho + (
-                rand_on["E"] * np.sqrt(1 - self.time_rho**2)
+                rand_on["E"] * np.sqrt(1 - self.time_rho ** 2)
             )
 
             for q in range(self.max_quanta):
@@ -597,9 +573,9 @@ class Model:
                     onset_times[t].append(rand_on[t])
 
                 if self.NMDA_exc_lock:
-                    self.syns["NMDA"]["stim"][s][q].start = (
-                        self.syns["E"]["stim"][s][q].start
-                    )
+                    self.syns["NMDA"]["stim"][s][q].start = self.syns["E"]["stim"][s][
+                        q
+                    ].start
 
         return onset_times
 
@@ -620,13 +596,14 @@ class Model:
             if t in ["E", "I"] and self.sac_net is not None:
                 sac_loc = self.sac_net.get_syn_loc(t, syn, rotation)
                 on_times[t] = (
-                    bar["start_time"] + (sac_loc[ax] - bar[ax + "_start"]) / bar["speed"]
+                    bar["start_time"]
+                    + (sac_loc[ax] - bar[ax + "_start"]) / bar["speed"]
                 )
             else:
                 offset = self.hard_offsets[t][dir_idx]
                 on_times[t] = (
-                    bar["start_time"] +
-                    (loc[ax] + offset - bar[ax + "_start"]) / bar["speed"]
+                    bar["start_time"]
+                    + (loc[ax] + offset - bar[ax + "_start"]) / bar["speed"]
                 )
 
         return on_times
@@ -648,7 +625,7 @@ class Model:
 
         for s in range(self.n_syn):
             bar_times = self.bar_sweep(s, stim["dir"])
-            if (sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[s]):
+            if sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[s]:
                 syn_rho = time_rho
             else:
                 # scale correlation of E and I by diff of their dend angles
@@ -665,8 +642,9 @@ class Model:
                 rand_on[t] = h.Random(self.seed).normal(0, 1)
                 self.seed += 1
 
-            rand_on["E"
-                   ] = rand_on["I"] * syn_rho + (rand_on["E"] * np.sqrt(1 - syn_rho**2))
+            rand_on["E"] = rand_on["I"] * syn_rho + (
+                rand_on["E"] * np.sqrt(1 - syn_rho ** 2)
+            )
 
             for q in range(self.max_quanta):
                 if q:
@@ -686,9 +664,9 @@ class Model:
 
                 # TODO: Maybe remove this option since I don't think it's used
                 if self.NMDA_exc_lock:
-                    self.syns["NMDA"]["stim"][s][q].start = (
-                        self.syns["E"]["stim"][s][q].start
-                    )
+                    self.syns["NMDA"]["stim"][s][q].start = self.syns["E"]["stim"][s][
+                        q
+                    ].start
 
         if locked_synapses is not None:
             # reset activation time to coincide with bar (no noise)
@@ -731,14 +709,14 @@ class Model:
 
         # correlate synaptic variance of ACH with GABA
         if sac is None or not self.sac_angle_rho_mode:
-            picks["E"] = picks["I"] * rho + (picks["E"] * np.sqrt(1 - rho**2))
+            picks["E"] = picks["I"] * rho + (picks["E"] * np.sqrt(1 - rho ** 2))
         else:
             # scale correlation of E and I by prox of their dend angles
             for i in range(self.n_syn):
                 if sac.gaba_here[i]:
                     syn_rho = rho - rho * sac.deltas[i] / 180
-                    picks["E"][i] = (
-                        picks["I"][i] * syn_rho + picks["E"][i] * np.sqrt(1 - syn_rho**2)
+                    picks["E"][i] = picks["I"][i] * syn_rho + picks["E"][i] * np.sqrt(
+                        1 - syn_rho ** 2
                     )
 
         probs = {}
@@ -760,7 +738,7 @@ class Model:
         for t in picks.keys():
             # determine release bool for each possible quanta
             q_probs = np.array(
-                [probs[t] * (self.quanta_Pr_decay**q) for q in range(self.max_quanta)]
+                [probs[t] * (self.quanta_Pr_decay ** q) for q in range(self.max_quanta)]
             )
             left = st.norm.ppf((1 - q_probs) / 2.0) * sdevs[t]
             right = st.norm.ppf(1 - (1 - q_probs) / 2.0) * sdevs[t]
@@ -775,7 +753,7 @@ class Model:
 
         if locked_synapses is not None:
             for s in locked_synapses["nums"]:
-                self.syns[t]["con"][s][0].weight[0] = (self.synprops["I"]["weight"] * 10)
+                self.syns[t]["con"][s][0].weight[0] = self.synprops["I"]["weight"] * 10
                 for t in ["E", "I"]:
                     self.syns[t]["stim"][s][0].number = locked_synapses[t]
 
@@ -861,4 +839,4 @@ if __name__ == "__main__":
     # dist.savefig(basest + "angle_dist.png", bbox_inches="tight")
 
     img = io.imread(os.path.join(nrn_path, "dsgc.png"))[:, :, 0]
-    dsgc.sac_net.plot_dends_overlay(img, separate=False, cmap="plasma")
+    dsgc.sac_net.plot_dends_overlay(img, separate=False, n_syn=30, cmap="plasma")

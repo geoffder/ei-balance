@@ -1019,7 +1019,7 @@ if __name__ == "__main__":
     # basest += "uni_var60_E90_I90_ARM_nonDirGABA/"
     # basest += "ttx/"
     # basest += "gaba_titration/ttx/gaba_scale_150p/"
-    basest += "committee_runs/spiking/non_ds_ach/"
+    basest += "committee_runs/spiking/non_ds_ach_70pr/"
     # basest += "spiking_cable_diam/"
     # basest += "ttx_cable_diam/"
     fig_pth = basest + "py_figs/"

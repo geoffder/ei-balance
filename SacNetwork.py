@@ -81,8 +81,9 @@ class SacNetwork:
                 for d in self.dir_labels:
                     prs.append(np.abs(self.thetas[t][-1] - d))
                     prs[-1] = np.abs(prs[-1] - 360) if prs[-1] > 180 else prs[-1]
-                    prs[-1] = pref + (null - pref
-                                     ) * (1 - 0.98 / (1 + np.exp((prs[-1] - 91) / 25)))
+                    prs[-1] = pref + (null - pref) * (
+                        1 - 0.98 / (1 + np.exp((prs[-1] - 91) / 25))
+                    )
 
                 self.probs[t].append(prs)
 
@@ -124,12 +125,12 @@ class SacNetwork:
             self.thetas[t].append(theta)
 
     def theta_picker_cardinal(self):
-        base = (self.rand.uniform(0, 1) // .25) * 90
+        base = (self.rand.uniform(0, 1) // 0.25) * 90
 
         if base == 180:
             gaba_prob = 2 * self.gaba_coverage * 1
         elif base == 90 or base == 270:
-            gaba_prob = 2 * self.gaba_coverage * .25
+            gaba_prob = 2 * self.gaba_coverage * 0.25
         else:
             gaba_prob = 2 * self.gaba_coverage * 0
 
@@ -153,10 +154,11 @@ class SacNetwork:
         base = self.rand.uniform(-180, 180)
         gaba_prob = p + (n - p) * (
             # 1 - 0.98 / (1 + np.exp(np.abs(base) - 91) / 25))
-            1 - 0.98 / (1 + np.exp(np.abs(base) - 96) / 25)
+            1
+            - 0.98 / (1 + np.exp(np.abs(base) - 96) / 25)
         )
 
-        pt = .45
+        pt = 0.45
         m0 = 2
         m1 = 82
         if self.gaba_coverage > pt:
@@ -209,7 +211,7 @@ class SacNetwork:
                 pick[t] = self.rand.normal(0, 1)
 
         if correlate:
-            pick["E"] = (pick["I"] * self.rho + pick["E"] * np.sqrt(1 - self.rho**2))
+            pick["E"] = pick["I"] * self.rho + pick["E"] * np.sqrt(1 - self.rho ** 2)
         return pick
 
     def find_origin(self):
@@ -225,8 +227,10 @@ class SacNetwork:
 
     def get_syn_loc(self, trans, num, rotation):
         x, y = rotate(
-            self.origin, self.bp_locs[trans]["X"][num], self.bp_locs[trans]["Y"][num],
-            rotation
+            self.origin,
+            self.bp_locs[trans]["X"][num],
+            self.bp_locs[trans]["Y"][num],
+            rotation,
         )
         return {"x": x, "y": y}
 
@@ -274,7 +278,17 @@ class SacNetwork:
 
         plt.show()
 
-    def plot_dends_overlay(self, dsgc, stim_angle=None, separate=False, cmap="jet"):
+    def plot_dends_overlay(
+        self,
+        dsgc,
+        x_off=-2,
+        y_off=-41,
+        px_per_um=2.55,
+        stim_angle=None,
+        separate=False,
+        n_syn=None,
+        cmap="jet",
+    ):
         if separate:
             fig, ax = plt.subplots(2, figsize=(8, 12))
         else:
@@ -284,9 +298,8 @@ class SacNetwork:
         # Need to adjust for that to make the scatter line up with the img
         dsgc = np.flip(dsgc, axis=0)
         x_px, y_px = dsgc.shape
-        x_off = 5.  # offset the whitespace
-        y_off = -38.
-        px_per_um = 2.5  # convert coordinates to pixels
+
+        # offset whitespace and convert um locations to px
         syn_xs = np.array(self.syn_locs["X"]) * px_per_um + x_off
         syn_ys = np.array(self.syn_locs["Y"]) * px_per_um + y_off
         ach_xs = np.array(self.bp_locs["E"]["X"]) * px_per_um + x_off
@@ -304,41 +317,49 @@ class SacNetwork:
             ax.set_xlim(-70, 600)
             ax.set_ylim(-70, 600)
 
-        for synX, synY, achX, achY, gabaX, gabaY, ePr, iPr in zip(
-            syn_xs,
-            syn_ys,
-            ach_xs,
-            ach_ys,
-            gaba_xs,
-            gaba_ys,
-            self.probs["E"],
-            self.probs["I"],
-        ):
+        idxs = np.random.choice(
+            len(syn_xs), size=len(syn_xs) if n_syn is None else n_syn, replace=False
+        )
+        for i in idxs:
             if not separate:
-                ax.plot([synX, achX], [synY, achY], c="g", alpha=0.5)
-                ax.plot([synX, gabaX], [synY, gabaY], c="m", alpha=0.5)
+                ax.plot(
+                    [syn_xs[i], ach_xs[i]], [syn_ys[i], ach_ys[i]], c="g", alpha=0.5
+                )
+                ax.plot(
+                    [syn_xs[i], gaba_xs[i]], [syn_ys[i], gaba_ys[i]], c="m", alpha=0.5
+                )
             else:
-                ax[0].plot([synX, achX], [synY, achY], c="g", alpha=0.5)
-                ax[1].plot([synX, gabaX], [synY, gabaY], c="m", alpha=0.5)
+                ax[0].plot(
+                    [syn_xs[i], ach_xs[i]], [syn_ys[i], ach_ys[i]], c="g", alpha=0.5
+                )
+                ax[1].plot(
+                    [syn_xs[i], gaba_xs[i]], [syn_ys[i], gaba_ys[i]], c="m", alpha=0.5
+                )
 
             if stim_angle is not None:
                 angle_idx = np.argwhere(self.dir_labels == np.array(stim_angle))[0][0]
                 colors = [plt.get_cmap(cmap)(1.0 * i / 10) for i in range(10)]
-                eClr = colors[int(ePr[angle_idx] / 0.1)]
+                eClr = colors[int(self.probs["E"][i][angle_idx] / 0.1)]
                 a = ax[0] if separate else ax
-                a.scatter(achX, achY, c=[eClr], s=120, alpha=0.5)
+                a.scatter(ach_xs[i], ach_ys[i], c=[eClr], s=120, alpha=0.5)
 
-                if not np.isnan(gabaX):
-                    iClr = colors[int(iPr[angle_idx] / 0.1)]
+                if not np.isnan(gaba_xs[i]):
+                    iClr = colors[int(self.probs["I"][i][angle_idx] / 0.1)]
                     a = ax[1] if separate else ax
-                    a.scatter(gabaX, gabaY, marker="v", c=[iClr], s=120, alpha=0.5)
+                    a.scatter(
+                        gaba_xs[i], gaba_ys[i], marker="v", c=[iClr], s=120, alpha=0.5
+                    )
             else:
                 if not separate:
-                    ax.scatter(achX, achY, c="g", s=120, alpha=0.5)
-                    ax.scatter(gabaX, gabaY, marker="v", c="m", s=120, alpha=0.5)
+                    ax.scatter(ach_xs[i], ach_ys[i], c="g", s=120, alpha=0.5)
+                    ax.scatter(
+                        gaba_xs[i], gaba_ys[i], marker="v", c="m", s=120, alpha=0.5
+                    )
                 else:
-                    ax[0].scatter(achX, achY, c="g", s=120, alpha=0.5)
-                    ax[1].scatter(gabaX, gabaY, marker="v", c="m", s=120, alpha=0.5)
+                    ax[0].scatter(ach_xs[i], ach_ys[i], c="g", s=120, alpha=0.5)
+                    ax[1].scatter(
+                        gaba_xs[i], gaba_ys[i], marker="v", c="m", s=120, alpha=0.5
+                    )
 
         plt.show()
 
@@ -362,15 +383,14 @@ class SacNetwork:
         param_keys = {"dir_pr", "rho", "theta_vars", "gaba_coverage", "offset", "seed"}
 
         net = {
-            "params":
-                json.dumps({k: v
-                            for k, v in self.__dict__.items() if k in param_keys}),
-            "wiring":
-                {
-                    k: v
-                    for k, v in self.__dict__.items()
-                    if k in {"gaba_here", "bp_locs", "thetas", "probs"}
-                },
+            "params": json.dumps(
+                {k: v for k, v in self.__dict__.items() if k in param_keys}
+            ),
+            "wiring": {
+                k: v
+                for k, v in self.__dict__.items()
+                if k in {"gaba_here", "bp_locs", "thetas", "probs"}
+            },
         }
 
         return net
@@ -390,12 +410,13 @@ def gaba_coverage_testing():
     The inflection point `pt`, initial slope m0 and final slope m1 are tested to
     confirm that they enable approximate scaling.
     """
+
     def actual_coverage(gaba_coverage, reps=100):
         p = 0
         n = 1
         rand = h.Random(1)
 
-        pt = .45
+        pt = 0.45
         m0 = 2
         m1 = 82
         if gaba_coverage > pt:
@@ -412,7 +433,7 @@ def gaba_coverage_testing():
 
         return np.sum(gaba_here) / reps
 
-    x = np.concatenate([np.arange(50000) * 0.00002, (1 + np.arange(4700) * .01)])
+    x = np.concatenate([np.arange(50000) * 0.00002, (1 + np.arange(4700) * 0.01)])
     y = np.array([actual_coverage(g) for g in x])
 
     plt.plot(x, y)
