@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 
 import json
 
+from scipy.optimize import curve_fit
+
 from modelUtils import rotate, wrap_180, wrap_360
 
 
@@ -228,8 +230,11 @@ class SacNetwork:
         )
         return {"x": x, "y": y}
 
-    def plot_dends(self, stim_angle=None, cmap="jet"):
-        fig, ax = plt.subplots(1, figsize=(8, 8))
+    def plot_dends(self, stim_angle=None, separate=False, cmap="jet"):
+        if separate:
+            fig, ax = plt.subplots(2, figsize=(8, 12))
+        else:
+            fig, ax = plt.subplots(1, figsize=(8, 8))
 
         for synX, synY, achX, achY, gabaX, gabaY, ePr, iPr in zip(
             self.syn_locs["X"],
@@ -241,21 +246,99 @@ class SacNetwork:
             self.probs["E"],
             self.probs["I"],
         ):
-            ax.plot([synX, achX], [synY, achY], c="g", alpha=0.5)
-            ax.plot([synX, gabaX], [synY, gabaY], c="m", alpha=0.5)
+            if not separate:
+                ax.plot([synX, achX], [synY, achY], c="g", alpha=0.5)
+                ax.plot([synX, gabaX], [synY, gabaY], c="m", alpha=0.5)
+            else:
+                ax[0].plot([synX, achX], [synY, achY], c="g", alpha=0.5)
+                ax[1].plot([synX, gabaX], [synY, gabaY], c="m", alpha=0.5)
 
             if stim_angle is not None:
                 angle_idx = np.argwhere(self.dir_labels == np.array(stim_angle))[0][0]
                 colors = [plt.get_cmap(cmap)(1.0 * i / 10) for i in range(10)]
                 eClr = colors[int(ePr[angle_idx] / 0.1)]
-                ax.scatter(achX, achY, c=[eClr], s=120, alpha=0.5)
+                a = ax[0] if separate else ax
+                a.scatter(achX, achY, c=[eClr], s=120, alpha=0.5)
 
                 if not np.isnan(gabaX):
                     iClr = colors[int(iPr[angle_idx] / 0.1)]
-                    ax.scatter(gabaX, gabaY, marker="v", c=[iClr], s=120, alpha=0.5)
+                    a = ax[1] if separate else ax
+                    a.scatter(gabaX, gabaY, marker="v", c=[iClr], s=120, alpha=0.5)
             else:
-                ax.scatter(achX, achY, c="g", s=120, alpha=0.5)
-                ax.scatter(gabaX, gabaY, marker="v", c="m", s=120, alpha=0.5)
+                if not separate:
+                    ax.scatter(achX, achY, c="g", s=120, alpha=0.5)
+                    ax.scatter(gabaX, gabaY, marker="v", c="m", s=120, alpha=0.5)
+                else:
+                    ax[0].scatter(achX, achY, c="g", s=120, alpha=0.5)
+                    ax[1].scatter(gabaX, gabaY, marker="v", c="m", s=120, alpha=0.5)
+
+        plt.show()
+
+    def plot_dends_overlay(self, dsgc, stim_angle=None, separate=False, cmap="jet"):
+        if separate:
+            fig, ax = plt.subplots(2, figsize=(8, 12))
+        else:
+            fig, ax = plt.subplots(1, figsize=(8, 8))
+
+        # NOTE: in neuron, origin is bottom left, and in pyplot it is top_left.
+        # Need to adjust for that to make the scatter line up with the img
+        dsgc = np.flip(dsgc, axis=0)
+        x_px, y_px = dsgc.shape
+        x_off = 5.  # offset the whitespace
+        y_off = -38.
+        px_per_um = 2.5  # convert coordinates to pixels
+        syn_xs = np.array(self.syn_locs["X"]) * px_per_um + x_off
+        syn_ys = np.array(self.syn_locs["Y"]) * px_per_um + y_off
+        ach_xs = np.array(self.bp_locs["E"]["X"]) * px_per_um + x_off
+        ach_ys = np.array(self.bp_locs["E"]["Y"]) * px_per_um + y_off
+        gaba_xs = np.array(self.bp_locs["I"]["X"]) * px_per_um + x_off
+        gaba_ys = np.array(self.bp_locs["I"]["Y"]) * px_per_um + y_off
+
+        if separate:
+            for a in ax:
+                a.imshow(dsgc, cmap="gray")
+                a.set_xlim(-70, 600)
+                a.set_ylim(-70, 600)
+        else:
+            ax.imshow(dsgc, cmap="gray")
+            ax.set_xlim(-70, 600)
+            ax.set_ylim(-70, 600)
+
+        for synX, synY, achX, achY, gabaX, gabaY, ePr, iPr in zip(
+            syn_xs,
+            syn_ys,
+            ach_xs,
+            ach_ys,
+            gaba_xs,
+            gaba_ys,
+            self.probs["E"],
+            self.probs["I"],
+        ):
+            if not separate:
+                ax.plot([synX, achX], [synY, achY], c="g", alpha=0.5)
+                ax.plot([synX, gabaX], [synY, gabaY], c="m", alpha=0.5)
+            else:
+                ax[0].plot([synX, achX], [synY, achY], c="g", alpha=0.5)
+                ax[1].plot([synX, gabaX], [synY, gabaY], c="m", alpha=0.5)
+
+            if stim_angle is not None:
+                angle_idx = np.argwhere(self.dir_labels == np.array(stim_angle))[0][0]
+                colors = [plt.get_cmap(cmap)(1.0 * i / 10) for i in range(10)]
+                eClr = colors[int(ePr[angle_idx] / 0.1)]
+                a = ax[0] if separate else ax
+                a.scatter(achX, achY, c=[eClr], s=120, alpha=0.5)
+
+                if not np.isnan(gabaX):
+                    iClr = colors[int(iPr[angle_idx] / 0.1)]
+                    a = ax[1] if separate else ax
+                    a.scatter(gabaX, gabaY, marker="v", c=[iClr], s=120, alpha=0.5)
+            else:
+                if not separate:
+                    ax.scatter(achX, achY, c="g", s=120, alpha=0.5)
+                    ax.scatter(gabaX, gabaY, marker="v", c="m", s=120, alpha=0.5)
+                else:
+                    ax[0].scatter(achX, achY, c="g", s=120, alpha=0.5)
+                    ax[1].scatter(gabaX, gabaY, marker="v", c="m", s=120, alpha=0.5)
 
         plt.show()
 
@@ -291,9 +374,6 @@ class SacNetwork:
         }
 
         return net
-
-
-from scipy.optimize import curve_fit
 
 
 def gaba_coverage_testing():
