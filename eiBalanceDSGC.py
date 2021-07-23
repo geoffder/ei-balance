@@ -2,6 +2,7 @@ from neuron import h, gui
 
 # science/math libraries
 import numpy as np
+from skimage import io
 import scipy.stats as st  # for probabilistic distributions
 
 # general libraries
@@ -698,7 +699,7 @@ class Model:
 
         return onset_times
 
-    def set_failures(self, stim, locked_synapses=None):
+    def set_failures(self, stim, locked_synapses=None, ret_pearson=False):
         """
         Determine number of quantal activations of each synapse occur on a
         trial. Psuedo-random numbers generated for each synapse are compared
@@ -778,8 +779,11 @@ class Model:
                 for t in ["E", "I"]:
                     self.syns[t]["stim"][s][0].number = locked_synapses[t]
 
-        pearson = st.pearsonr(successes["E"].flatten(), successes["I"].flatten())
-        return pearson[0]
+        if ret_pearson:
+            pr = st.pearsonr(successes["E"].flatten(), successes["I"].flatten())
+            return pr[0]
+        else:
+            return None
 
     def update_noise(self):
         # set HHst noise seeds
@@ -825,21 +829,21 @@ class Model:
 if __name__ == "__main__":
     plat = platform.system()
     if plat == "Linux":
-        basest = "/mnt/Data/NEURONoutput/sac_net/"
-        # basest += "ttx/"
-        # basest += "gaba_titration/ttx/"
-        basest += "committee_runs/"
+        nrn_path = "/mnt/Data/NEURONoutput/sac_net/"
+        # proj_path = os.path.join(nrn_path, "ttx/")
+        # proj_path = os.path.join(nrn_path, "gaba_titration/ttx/")
+        proj_path = os.path.join(nrn_path, "committee_runs/")
     else:
         basest = "D:\\NEURONoutput\\"
         windows_gui_fix()
 
-    os.makedirs(basest, exist_ok=True)
+    os.makedirs(proj_path, exist_ok=True)
 
     h.xopen("new_balance.ses")  # open neuron gui session
 
     dsgc = Model(configs.sac_mode_config())
     # dsgc = Model(configs.offset_mode_config())
-    rig = Rig(dsgc, basest)
+    rig = Rig(dsgc, proj_path)
     rig.synaptic_density()
 
     # rig.dir_run(3)
@@ -848,9 +852,13 @@ if __name__ == "__main__":
     # rig.gaba_coverage_run(n_nets=3, n_trials=3, rho_steps=[0., 1.])
     # rig.gaba_titration_run(n_nets=3, n_trials=3, rho_steps=[0., 1.])
     # rig.vc_dir_run(10)
-    dsgc.sac_net.plot_dends(0, cmap="plasma")
+    # rig.sac_net_vc_run(n_nets=3, n_trials=10)
+    # dsgc.sac_net.plot_dends(None, separate=False, cmap="plasma")
     # locs = dsgc.get_recording_locations()
     # rig.offset_run(1)
 
     # dist = rig.sac_angle_distribution()
     # dist.savefig(basest + "angle_dist.png", bbox_inches="tight")
+
+    img = io.imread(os.path.join(nrn_path, "dsgc.png"))[:, :, 0]
+    dsgc.sac_net.plot_dends_overlay(img, separate=False, cmap="plasma")
