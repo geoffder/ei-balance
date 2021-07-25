@@ -835,8 +835,10 @@ if __name__ == "__main__":
     # locs = dsgc.get_recording_locations()
     # rig.offset_run(1)
 
-    # dist = rig.sac_angle_distribution()
+    dist = rig.sac_angle_distribution(bins=[12])
     # dist.savefig(basest + "angle_dist.png", bbox_inches="tight")
 
     img = io.imread(os.path.join(nrn_path, "dsgc.png"))[:, :, 0]
-    dsgc.sac_net.plot_dends_overlay(img, separate=False, n_syn=30, cmap="plasma")
+    dsgc.sac_net.plot_dends_overlay(
+        img, separate=False, stim_angle=0, n_syn=20, cmap="plasma"
+    )
