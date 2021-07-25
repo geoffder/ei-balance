@@ -2,12 +2,14 @@ from neuron import h, gui
 
 import numpy as np
 import matplotlib.pyplot as plt
-
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 import json
 
 from scipy.optimize import curve_fit
 
 from modelUtils import rotate, wrap_180, wrap_360
+from general_utils import clean_axes
 
 
 class SacNetwork:
@@ -281,21 +283,23 @@ class SacNetwork:
     def plot_dends_overlay(
         self,
         dsgc,
+        dsgc_alpha=0.35,
+        sac_alpha=0.7,
         x_off=-2,
         y_off=-41,
         px_per_um=2.55,
         stim_angle=None,
         separate=False,
         n_syn=None,
-        cmap="jet",
+        cmap="plasma",
     ):
         if separate:
             fig, ax = plt.subplots(2, figsize=(8, 12))
         else:
             fig, ax = plt.subplots(1, figsize=(8, 8))
+            ax = [ax]
 
-        # NOTE: in neuron, origin is bottom left, and in pyplot it is top_left.
-        # Need to adjust for that to make the scatter line up with the img
+        # flip y-axis of image to match it up with coordinate system
         dsgc = np.flip(dsgc, axis=0)
         x_px, y_px = dsgc.shape
 
@@ -307,60 +311,113 @@ class SacNetwork:
         gaba_xs = np.array(self.bp_locs["I"]["X"]) * px_per_um + x_off
         gaba_ys = np.array(self.bp_locs["I"]["Y"]) * px_per_um + y_off
 
-        if separate:
-            for a in ax:
-                a.imshow(dsgc, cmap="gray")
-                a.set_xlim(-70, 600)
-                a.set_ylim(-70, 600)
-        else:
-            ax.imshow(dsgc, cmap="gray")
-            ax.set_xlim(-70, 600)
-            ax.set_ylim(-70, 600)
+        for a in ax:
+            a.imshow(dsgc, alpha=dsgc_alpha, cmap="gray")
+            a.set_xlim(-70, 600)
+            a.set_ylim(-70, 600)
 
         idxs = np.random.choice(
             len(syn_xs), size=len(syn_xs) if n_syn is None else n_syn, replace=False
         )
         for i in idxs:
             if not separate:
-                ax.plot(
-                    [syn_xs[i], ach_xs[i]], [syn_ys[i], ach_ys[i]], c="g", alpha=0.5
+                ax[0].plot(
+                    [syn_xs[i], ach_xs[i]],
+                    [syn_ys[i], ach_ys[i]],
+                    c="g",
+                    alpha=sac_alpha,
                 )
-                ax.plot(
-                    [syn_xs[i], gaba_xs[i]], [syn_ys[i], gaba_ys[i]], c="m", alpha=0.5
+                ax[0].plot(
+                    [syn_xs[i], gaba_xs[i]],
+                    [syn_ys[i], gaba_ys[i]],
+                    c="m",
+                    alpha=sac_alpha,
                 )
             else:
                 ax[0].plot(
-                    [syn_xs[i], ach_xs[i]], [syn_ys[i], ach_ys[i]], c="g", alpha=0.5
+                    [syn_xs[i], ach_xs[i]],
+                    [syn_ys[i], ach_ys[i]],
+                    c="g",
+                    alpha=sac_alpha,
                 )
                 ax[1].plot(
-                    [syn_xs[i], gaba_xs[i]], [syn_ys[i], gaba_ys[i]], c="m", alpha=0.5
+                    [syn_xs[i], gaba_xs[i]],
+                    [syn_ys[i], gaba_ys[i]],
+                    c="m",
+                    alpha=sac_alpha,
                 )
 
             if stim_angle is not None:
                 angle_idx = np.argwhere(self.dir_labels == np.array(stim_angle))[0][0]
-                colors = [plt.get_cmap(cmap)(1.0 * i / 10) for i in range(10)]
-                eClr = colors[int(self.probs["E"][i][angle_idx] / 0.1)]
-                a = ax[0] if separate else ax
-                a.scatter(ach_xs[i], ach_ys[i], c=[eClr], s=120, alpha=0.5)
+                colors = [plt.get_cmap(cmap)(1.0 * i / 100) for i in range(100)]
+                eClr = colors[int(self.probs["E"][i][angle_idx] / 0.01)]
+                scat = ax[0].scatter(
+                    ach_xs[i], ach_ys[i], c=[eClr], s=120, alpha=sac_alpha
+                )
 
                 if not np.isnan(gaba_xs[i]):
-                    iClr = colors[int(self.probs["I"][i][angle_idx] / 0.1)]
-                    a = ax[1] if separate else ax
-                    a.scatter(
-                        gaba_xs[i], gaba_ys[i], marker="v", c=[iClr], s=120, alpha=0.5
-                    )
-            else:
-                if not separate:
-                    ax.scatter(ach_xs[i], ach_ys[i], c="g", s=120, alpha=0.5)
-                    ax.scatter(
-                        gaba_xs[i], gaba_ys[i], marker="v", c="m", s=120, alpha=0.5
-                    )
-                else:
-                    ax[0].scatter(ach_xs[i], ach_ys[i], c="g", s=120, alpha=0.5)
-                    ax[1].scatter(
-                        gaba_xs[i], gaba_ys[i], marker="v", c="m", s=120, alpha=0.5
+                    iClr = colors[int(self.probs["I"][i][angle_idx] / 0.01)]
+                    ax[-1].scatter(
+                        gaba_xs[i],
+                        gaba_ys[i],
+                        marker="v",
+                        c=[iClr],
+                        s=120,
+                        alpha=sac_alpha,
                     )
 
+            else:
+                if not separate:
+                    ax[0].scatter(ach_xs[i], ach_ys[i], c="g", s=120, alpha=sac_alpha)
+                    ax[0].scatter(
+                        gaba_xs[i],
+                        gaba_ys[i],
+                        marker="v",
+                        c="m",
+                        s=120,
+                        alpha=sac_alpha,
+                    )
+                else:
+                    ax[0].scatter(ach_xs[i], ach_ys[i], c="g", s=120, alpha=sac_alpha)
+                    ax[1].scatter(
+                        gaba_xs[i],
+                        gaba_ys[i],
+                        marker="v",
+                        c="m",
+                        s=120,
+                        alpha=sac_alpha,
+                    )
+
+        if stim_angle is not None:
+
+            cbar = fig.colorbar(
+                ScalarMappable(Normalize(vmin=0.0, vmax=1.0), cmap=cmap),
+                ax=ax[0],
+                orientation="horizontal",
+                pad=0.0,
+                shrink=0.75,
+            )
+            cbar.ax.tick_params(labelsize=12.0)
+            cbar.set_label("Release Probability", fontsize=12)
+
+        ach_circ = ax[0].scatter([], [], c="g", s=120)
+        gaba_tri = ax[0].scatter([], [], c="m", marker="v", s=120)
+        fig.legend(
+            [ach_circ, gaba_tri],
+            ["ACh", "GABA"],
+            ncol=1,
+            frameon=False,
+            fontsize=12,
+            handlelength=2,
+            loc="lower left",
+            bbox_to_anchor=(0.15, 0.25),
+            borderpad=1,
+            handletextpad=1,
+            title_fontsize=12,
+        )
+
+        clean_axes(ax, remove_spines=["left", "right", "top", "bottom"])
+        fig.tight_layout()
         plt.show()
 
     def hist_angle(self, bins=[8, 12, 16]):
