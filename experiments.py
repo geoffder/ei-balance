@@ -11,6 +11,7 @@ import json
 
 # local imports
 from modelUtils import find_spikes
+from general_utils import clean_axes
 
 
 class Rig:
@@ -108,8 +109,8 @@ class Rig:
         if self.model.sac_mode:
             vars = self.model.sac_theta_vars
             print(
-                "sacRho: %.2f\ttheta vars: E=%d, I=%d" %
-                (self.model.sac_rho, vars["E"], vars["I"])
+                "sacRho: %.2f\ttheta vars: E=%d, I=%d"
+                % (self.model.sac_rho, vars["E"], vars["I"])
             )
 
         for k, v in metrics.items():
@@ -176,24 +177,20 @@ class Rig:
         all_data = {
             "params": json.dumps(params),
             "metrics": metrics,
-            "soma":
-                {
+            "soma": {
+                k: self.stack_trials(n_trials, n_dirs, v)
+                for k, v in self.soma_data.items()
+            },
+            "dendrites": {
+                "locs": self.model.get_recording_locations(),
+                "Vm": self.stack_trials(n_trials, n_dirs, self.dend_data["Vm"]),
+                "iCa": self.stack_trials(n_trials, n_dirs, self.dend_data["iCa"]),
+                "g": {
                     k: self.stack_trials(n_trials, n_dirs, v)
-                    for k, v in self.soma_data.items()
+                    for k, v in self.dend_data["g"].items()
                 },
-            "dendrites":
-                {
-                    "locs": self.model.get_recording_locations(),
-                    "Vm": self.stack_trials(n_trials, n_dirs, self.dend_data["Vm"]),
-                    "iCa": self.stack_trials(n_trials, n_dirs, self.dend_data["iCa"]),
-                    "g":
-                        {
-                            k: self.stack_trials(n_trials, n_dirs, v)
-                            for k, v in self.dend_data["g"].items()
-                        },
-                },
-            "syn_locs": {ax: np.array(self.model.syns[ax])
-                         for ax in ["X", "Y"]}
+            },
+            "syn_locs": {ax: np.array(self.model.syns[ax]) for ax in ["X", "Y"]},
         }
 
         if self.model.sac_net is not None:
@@ -203,7 +200,7 @@ class Rig:
 
         return metrics
 
-    def rho_dir_run(self, n_trials=10, step=.1, seed_reset=True):
+    def rho_dir_run(self, n_trials=10, step=0.1, seed_reset=True):
         """Repeat dir_run() experiments over a range of correlation (rho)
         values. First with spatial only, then temporal, then spatio-temporal
         correlations between excitation and inhibition.
@@ -225,19 +222,14 @@ class Rig:
     def offset_run(self, n_trials=10):
         offset_conds = {
             "control": {},  # no change
-            "no_offset":
-                {
-                    trans: {pn + "_offset": 0
-                            for pn in ["pref", "null"]}
-                    for trans in ["E", "I"]
-                },
-            "symmetric":
-                {
-                    "E": {pn + "_offset": -50
-                          for pn in ["pref", "null"]},
-                    "I": {pn + "_offset": -55
-                          for pn in ["pref", "null"]},
-                },
+            "no_offset": {
+                trans: {pn + "_offset": 0 for pn in ["pref", "null"]}
+                for trans in ["E", "I"]
+            },
+            "symmetric": {
+                "E": {pn + "_offset": -50 for pn in ["pref", "null"]},
+                "I": {pn + "_offset": -55 for pn in ["pref", "null"]},
+            },
         }
 
         gaba_prefix = "dir_gaba"
@@ -245,9 +237,9 @@ class Rig:
             self.model.seed = 0
             self.model.nz_seed = 0
             if non_dir_gaba:
-                self.model.synprops["I"]["pref_prob"] = (
-                    self.model.synprops["I"]["null_prob"]
-                )
+                self.model.synprops["I"]["pref_prob"] = self.model.synprops["I"][
+                    "null_prob"
+                ]
                 gaba_prefix = "non_dir_gaba"
 
             for cond, offsets in offset_conds.items():
@@ -255,7 +247,7 @@ class Rig:
                 self.model.update_params({"synprops": offsets})
                 self.dir_run(n_trials, prefix=prefix, plot_summary=False)
 
-    def sac_net_run(self, n_nets=3, n_trials=3, rho_steps=[0, .9]):
+    def sac_net_run(self, n_nets=3, n_trials=3, rho_steps=[0, 0.9]):
         """"""
         base_seed = self.model.sac_initial_seed
         metrics = {}
@@ -281,8 +273,8 @@ class Rig:
         self,
         n_nets=3,
         n_trials=3,
-        rho_steps=[0., .9],
-        cov_steps=[.1, .15, .25, .30, .40, .45, .50, .55, .60, .70]
+        rho_steps=[0.0, 0.9],
+        cov_steps=[0.1, 0.15, 0.25, 0.30, 0.40, 0.45, 0.50, 0.55, 0.60, 0.70],
     ):
         base_data_path = self.data_path[:]
         base_seed = self.model.sac_initial_seed
@@ -300,14 +292,16 @@ class Rig:
         self,
         n_nets=3,
         n_trials=3,
-        rho_steps=[0., .9],
-        multi=[.10, .15, .25, .50, .75, 1.0, 1.5]
+        rho_steps=[0.0, 0.9],
+        multi=[0.10, 0.15, 0.25, 0.50, 0.75, 1.0, 1.5],
     ):
         base_data_path = self.data_path[:]
-        base_gaba_weight = self.model.synprops["I"]["weight"] * 1.
+        base_gaba_weight = self.model.synprops["I"]["weight"] * 1.0
 
         for m in multi:
-            self.data_path = os.path.join(base_data_path, "gaba_scale_%ip" % int(m * 100))
+            self.data_path = os.path.join(
+                base_data_path, "gaba_scale_%ip" % int(m * 100)
+            )
             os.makedirs(self.data_path, exist_ok=True)
 
             weight = base_gaba_weight * m
@@ -345,22 +339,10 @@ class Rig:
         rec.record(VC._ref_i)
 
         conditions = {
-            "E": {
-                "trans": ["E", "AMPA"],
-                "holding": -60
-            },
-            "ACH": {
-                "trans": ["E"],
-                "holding": -60
-            },
-            "AMPA": {
-                "trans": ["AMPA"],
-                "holding": -60
-            },
-            "GABA": {
-                "trans": ["I"],
-                "holding": 0
-            },
+            "E": {"trans": ["E", "AMPA"], "holding": -60},
+            "ACH": {"trans": ["E"], "holding": -60},
+            "AMPA": {"trans": ["AMPA"], "holding": -60},
+            "GABA": {"trans": ["I"], "holding": 0},
         }
 
         rec_data = {k: [] for k in conditions.keys()}
@@ -409,17 +391,18 @@ class Rig:
 
         all_data = {
             "params": json.dumps(params),
-            "soma":
-                {
-                    k: self.stack_trials(n_trials, n_dirs, rec_data[k])
-                    for k in conditions.keys()
-                }
+            "soma": {
+                k: self.stack_trials(n_trials, n_dirs, rec_data[k])
+                for k in conditions.keys()
+            },
         }
 
         self.pack_hdf(self.data_path + prefix + "vc_dir_run", all_data)
         return all_data
 
-    def sac_net_vc_run(self, n_nets=3, n_trials=3, rho_steps=[0, .9], simultaneous=True):
+    def sac_net_vc_run(
+        self, n_nets=3, n_trials=3, rho_steps=[0, 0.9], simultaneous=True
+    ):
         """"""
         base_seed = self.model.sac_initial_seed
         metrics = {}
@@ -452,7 +435,7 @@ class Rig:
 
         h.run()
 
-    def rough_rho_compare(self, n_trials=10, rhos=[0, 1.], seed_reset=True):
+    def rough_rho_compare(self, n_trials=10, rhos=[0, 1.0], seed_reset=True):
         metrics = []
         first_seed = self.model
         for r in rhos:
@@ -461,10 +444,10 @@ class Rig:
                 self.model.nz_seed = 0
             prefix = "rho_sp%.2f_tm%.2f_" % (r, r)
             m = self.dir_run(
-                n_trials, rhos={
-                    "space": r,
-                    "time": r
-                }, prefix=prefix, plot_summary=False
+                n_trials,
+                rhos={"space": r, "time": r},
+                prefix=prefix,
+                plot_summary=False,
             )
             metrics.append(m)
 
@@ -482,9 +465,9 @@ class Rig:
             seed += 1000
             self.model.build_sac_net(initial_seed=seed)
             iThetas.append(
-                np.array(self.model.sac_net.thetas["I"])[np.array(
-                    self.model.sac_net.gaba_here
-                )]
+                np.array(self.model.sac_net.thetas["I"])[
+                    np.array(self.model.sac_net.gaba_here)
+                ]
             )
             eThetas.append(self.model.sac_net.thetas["E"])
             total_gaba += np.sum(self.model.sac_net.gaba_here)
@@ -494,14 +477,17 @@ class Rig:
         print("Average GABA synapse count: %.2f" % (total_gaba / n_nets))
 
         fig, axes = plt.subplots(1, len(bins))
+        axes = axes if len(bins) > 1 else [axes]
 
         for j, numBins in enumerate(bins):
             binAx = [i * 360 / numBins for i in range(numBins)]
-            axes[j].hist(eThetas, bins=binAx, color="r", alpha=0.5)
-            axes[j].hist(iThetas, bins=binAx, color="c", alpha=0.5)
+            axes[j].hist(eThetas, bins=binAx, color="g", alpha=0.5)
+            axes[j].hist(iThetas, bins=binAx, color="m", alpha=0.5)
             axes[j].set_title("Bin Size: %.1f" % (360 / numBins))
-            axes[j].set_xlabel("SAC Dendrite Angle")
+            axes[j].set_xlabel("SAC Dendrite Angle", fontsize=12.0)
             axes[j].set_yticks([])
+
+        clean_axes(axes, ticksize=12.0)
 
         return fig
 
@@ -511,8 +497,8 @@ class Rig:
         density = len(self.model.syns["X"]) / np.sum(dend_lens)
         print("# of synapses = %i" % len(self.model.syns["X"]))
         print(
-            "There are %.4f synapses per micron (for %s dendrites)." %
-            (density, "all" if all_tree else "synaptic")
+            "There are %.4f synapses per micron (for %s dendrites)."
+            % (density, "all" if all_tree else "synaptic")
         )
 
     @staticmethod
@@ -529,7 +515,7 @@ class Rig:
         ypts = np.multiply(response, np.sin(dirs))
         xsum = np.sum(xpts)
         ysum = np.sum(ypts)
-        DSi = np.sqrt(xsum**2 + ysum**2) / np.sum(response)
+        DSi = np.sqrt(xsum ** 2 + ysum ** 2) / np.sum(response)
         theta = np.arctan2(ysum, xsum) * 180 / np.pi
 
         return DSi, theta
@@ -581,6 +567,7 @@ class Rig:
     def pack_hdf(pth, data_dict):
         """Takes data organized in a python dict, and creates an hdf5 with the
         same structure."""
+
         def rec(data, grp):
             for k, v in data.items():
                 if type(v) is dict:
