@@ -16,6 +16,7 @@ def merge(old, new):
 def pack_hdf(pth, data_dict):
     """Takes data organized in a python dict, and creates an hdf5 with the
     same structure."""
+
     def rec(data, grp):
         for k, v in data.items():
             if type(v) is dict:
@@ -35,14 +36,26 @@ def unpack_hdf(group):
     }
 
 
-def clean_axes(axes):
+def clean_axes(axes, remove_spines=["right", "top"], ticksize=11):
     """A couple basic changes I often make to pyplot axes. If input is an
     iterable of axes (e.g. from plt.subplots()), apply recursively."""
     if hasattr(axes, "__iter__"):
         for a in axes:
-            clean_axes(a)
+            clean_axes(a, remove_spines=remove_spines)
     else:
-        axes.spines["right"].set_visible(False)
-        axes.spines["top"].set_visible(False)
-        for ticks in (axes.get_yticklabels()):
-            ticks.set_fontsize(11)
+        for r in remove_spines:
+            axes.spines[r].set_visible(False)
+        axes.tick_params(
+            axis="both",
+            which="both",  # applies to major and minor
+            **{r: False for r in remove_spines},  # remove ticks
+            **{"label%s" % r: False for r in remove_spines}  # remove labels
+        )
+        for ticks in axes.get_yticklabels():
+            ticks.set_fontsize(ticksize)
+        for ticks in axes.get_xticklabels():
+            ticks.set_fontsize(ticksize)
+
+
+# TODO: adapt this gist into a scale-bar utility that would suit my usual needs
+# https://gist.github.com/dmeliza/3251476
