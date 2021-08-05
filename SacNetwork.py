@@ -83,8 +83,15 @@ class SacNetwork:
                 for d in self.dir_labels:
                     prs.append(np.abs(self.thetas[t][-1] - d))
                     prs[-1] = np.abs(prs[-1] - 360) if prs[-1] > 180 else prs[-1]
+                    # prs[-1] = pref + (null - pref) * (
+                    #     1 - 0.98 / (1 + np.exp((prs[-1] - 91) / 25))
+                    # )
+                    # NOTE: smoother fall. TESTING
+                    # prs[-1] = pref + (null - pref) * (
+                    #     1 - 1 / (1 + np.exp((prs[-1] - 90) * 0.75))
+                    # )
                     prs[-1] = pref + (null - pref) * (
-                        1 - 0.98 / (1 + np.exp((prs[-1] - 91) / 25))
+                        1 - 1 / (1 + np.exp((prs[-1] - 90) * 0.05))
                     )
 
                 self.probs[t].append(prs)
@@ -156,9 +163,15 @@ class SacNetwork:
         base = self.rand.uniform(-180, 180)
         gaba_prob = p + (n - p) * (
             # 1 - 0.98 / (1 + np.exp(np.abs(base) - 91) / 25))
+            # 1
+            # - 0.98 / (1 + np.exp(np.abs(base) - 96) / 25)
             1
-            - 0.98 / (1 + np.exp(np.abs(base) - 96) / 25)
+            - 1 / (1 + np.exp(np.abs(base) - 96) / 25)
+            # NOTE: see how big a diff this makes. (0.98 vs 1)
+            # It does make the histogram sharper due to fewer dends in the 0 bin
         )
+        # NOTE: smoother fall. TESTING
+        # gaba_prob = p + (n - p) * (1 - 1 / (1 + np.exp((np.abs(base) - 90) * 0.05)))
 
         pt = 0.45
         m0 = 2
