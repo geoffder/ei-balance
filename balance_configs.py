@@ -34,18 +34,18 @@ def sac_mode_config():
             "E": {
                 "var": 15,  # 10,  # 12,  # 15,
                 "delay": 5,  # 5,
-                "null_prob": 0.05,
-                "pref_prob": 0.95,  # 0.8,
-                "weight": 0.0015,  # 0.0012 # 0.0015,
+                "null_prob": 0.0,
+                "pref_prob": 1.0,  # 0.8,
+                "weight": 0.0015,  # 0.0015,
                 "tau1": 0.1,
                 "tau2": 4,
             },
             "I": {
                 "var": 15,  # 10,  # 12,  # 15,
                 "delay": 0,
-                "null_prob": 0.05,
-                "pref_prob": 0.95,  # 0.8,
-                "weight": 0.006,
+                "null_prob": 0.0,
+                "pref_prob": 1.0,  # 0.8,
+                "weight": 0.006,  # 0.006,
                 "tau1": 0.5,
                 "tau2": 16,
                 "rev": -65,  # -60.,
@@ -55,7 +55,7 @@ def sac_mode_config():
                 "delay": 0,
                 "null_prob": 0.8,  # 0.8,  # 0.4,  # 0.8,
                 "pref_prob": 0.8,  # 0.8,  # 0.4,  # 0.8,
-                "weight": 0.002,  # 0.0045,  # 0.0030, .0045 might also be good
+                "weight": 0.002,  # 0.002,  # 0.0045,
                 "tau1": 2,
                 "tau2": 7,
             },
@@ -78,7 +78,7 @@ def sac_mode_config():
         "light_bar": {"speed": 1.0, "x_motion": True, "x_start": -60, "y_start": -70},
         # SAC Network
         "sac_mode": True,
-        "sac_rho": 0.0,
+        "sac_rho": 1.0,
         "sac_angle_rho_mode": True,
         "sac_uniform_dist": {0: True, 1: False},
         "sac_shared_var": 60,  # 45,
@@ -148,6 +148,11 @@ def sac_mode_config():
 
     if 0:
         params["vc_pas"] = True
+
+    # non-ds ACH
+    if 0:
+        params["synprops"]["E"]["null_prob"] = 0.5
+        params["synprops"]["E"]["pref_prob"] = 0.5
 
     return params
 
