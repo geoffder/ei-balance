@@ -1,3 +1,4 @@
+import numpy as np
 import h5py as h5
 
 
@@ -57,5 +58,32 @@ def clean_axes(axes, remove_spines=["right", "top"], ticksize=11):
             ticks.set_fontsize(ticksize)
 
 
-# TODO: adapt this gist into a scale-bar utility that would suit my usual needs
-# https://gist.github.com/dmeliza/3251476
+def find_bsln_return(
+    arr, bsln_start=0, bsln_end=None, offset=0.0, step=10, pre_step=False
+):
+    idx = np.argmax(arr[bsln_end:]) + (0 if bsln_end is None else bsln_end)
+    last_min = idx
+    bsln = np.mean(arr[bsln_start:bsln_end]) + offset
+    if step > 0:
+        last = len(arr) - 1
+        stop = lambda next: next <= last
+        get_min = lambda i: np.argmin(arr[i : i + step]) + i
+    else:
+        stop = lambda next: next >= 0
+        get_min = lambda i: np.argmin(arr[i + step : i]) + i + step
+
+    while stop(idx + step):
+        min_idx = get_min(idx)
+        if arr[min_idx] < bsln:
+            return last_min if pre_step else min_idx
+        else:
+            last_min = min_idx
+            idx += step
+
+    return min_idx
+
+
+def find_rise_bsln(
+    arr, bsln_start=0, bsln_end=None, offset=0.0, step=10, pre_step=False
+):
+    return find_bsln_return(arr, bsln_start, bsln_end, offset, -step, pre_step)
