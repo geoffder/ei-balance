@@ -1,4 +1,4 @@
-from neuron import h, gui
+from neuron import h
 
 import numpy as np
 import matplotlib.pyplot as plt

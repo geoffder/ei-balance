@@ -1,4 +1,4 @@
-from neuron import h, gui
+from neuron import h
 
 # science/math libraries
 import numpy as np
