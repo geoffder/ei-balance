@@ -14,6 +14,7 @@ from modelUtils import (
     cable_dist_to_soma,
 )
 from SacNetwork import SacNetwork
+from NetQuanta import NetQuanta
 from experiments import Rig
 import balance_configs as configs
 
@@ -405,26 +406,20 @@ class Model:
 
     def create_synapses(self):
         # number of synapses
-        h("n_syn = 0")
         if self.term_syn_only:
-            h.n_syn = len(self.terminals)
+            self.n_syn = len(self.terminals)
         else:
+            self.n_syn = 0
             for order in self.order_list[self.first_order :]:
-                h.n_syn += len(order)
-        self.n_syn = int(h.n_syn)
-
-        # create *named* hoc objects for each synapse (for gui compatibility)
-        h("objref e_syns[n_syn], i_syns[n_syn]")
-        h("objref nmda_syns[n_syn], ampa_syns[n_syn]")
+                self.n_syn += len(order)
 
         # complete synapses are made up of a NetStim, Syn, and NetCon
+        locs = []
         self.syns = {
-            "X": [],
-            "Y": [],
-            "E": {"stim": [], "syn": h.e_syns, "con": []},
-            "I": {"stim": [], "syn": h.i_syns, "con": []},
-            "NMDA": {"stim": [], "syn": h.nmda_syns, "con": []},
-            "AMPA": {"stim": [], "syn": h.ampa_syns, "con": []},
+            "E": {"syn": [], "con": []},
+            "I": {"syn": [], "con": []},
+            "NMDA": {"syn": [], "con": []},
+            "AMPA": {"syn": [], "con": []},
         }
 
         if self.term_syn_only:
@@ -441,43 +436,49 @@ class Model:
             # place them in the middle since only one syn per dend
             pts = int(h.n3d())
             if pts % 2:  # odd number of points
-                self.syns["X"].append(h.x3d((pts - 1) / 2))
-                self.syns["Y"].append(h.y3d((pts - 1) / 2))
+                u = (pts - 1) / 2
+                locs.append([h.x3d(u), h.y3d(u), h.z3d(u)])
             else:
-                self.syns["X"].append((h.x3d(pts / 2) + h.x3d((pts / 2) - 1)) / 2.0)
-                self.syns["Y"].append((h.y3d(pts / 2) + h.y3d((pts / 2) - 1)) / 2.0)
+                u1 = pts  / 2
+                u2 = (pts - 1) / 2
+                locs.append([(h.x3d(u1) + h.x3d(u2)) / 2.,
+                            (h.y3d(u1) + h.y3d(u2)) / 2.,
+                            (h.z3d(u1) + h.z3d(u2)) / 2.])
 
             for trans, props in self.synprops.items():
                 if trans == "NMDA":
-                    self.syns[trans]["syn"][i] = h.Exp2NMDA(0.5)
+                    self.syns[trans]["syn"].append(h.Exp2NMDA(0.5))
                     # NMDA voltage settings
                     self.syns[trans]["syn"][i].n = props["n"]
                     self.syns[trans]["syn"][i].gama = props["gama"]
                     self.syns[trans]["syn"][i].Voff = props["Voff"]
                     self.syns[trans]["syn"][i].Vset = props["Vset"]
                 else:
-                    self.syns[trans]["syn"][i] = h.Exp2Syn(0.5)
+                    self.syns[trans]["syn"].append(h.Exp2Syn(0.5))
 
                 self.syns[trans]["syn"][i].tau1 = props["tau1"]
                 self.syns[trans]["syn"][i].tau2 = props["tau2"]
                 self.syns[trans]["syn"][i].e = props["rev"]
 
-                # create NetStims to drive the synapses through NetCons
-                self.syns[trans]["stim"].append(
-                    [build_stim() for _ in range(self.max_quanta)]
-                )
-
-                # NOTE: Legacy used 10ms delay here (second int param)
+                # TODO: instead of having max_quanta stim "slots", and setting the time
+                # (and number 0 or 1) of events for each synapse, just add events to the NetQuanta
+                # NetQuanta (wraps NetCon) for scheduling and applying conductance events
                 self.syns[trans]["con"].append(
-                    [
-                        h.NetCon(
-                            stim, self.syns[trans]["syn"][i], 0, 0, props["weight"]
-                        )
-                        for stim in self.syns[trans]["stim"][i]
-                    ]
+                    NetQuanta(self.syns[trans]["syn"][i], props["weight"], delay=props["delay"])
                 )
-
             h.pop_section()
+        self.syn_locs = np.array(locs)
+
+    def init_synapses(self):
+        """Initialize the events in each NetQuanta (NetCon wrapper)."""
+        for syns in self.syns.values():
+            for nq in syns["con"]:
+                nq.initialize()
+
+    def clear_synapses(self):
+        for syns in self.syns.values():
+            for nq in syns["con"]:
+                nq.clear_events()
 
     def config_DSGC(self):
         self.config_soma()
@@ -509,7 +510,7 @@ class Model:
         }
 
         self.sac_net = SacNetwork(
-            {"X": self.syns["X"], "Y": self.syns["Y"]},
+            {"X": self.syn_locs[0], "Y": self.syn_locs[1]},
             probs,
             self.sac_rho,
             self.sac_uniform_dist,
