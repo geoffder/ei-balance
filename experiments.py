@@ -19,6 +19,7 @@ class Rig:
         self.model = model
         self.data_path = data_path
         self.model.soma.push()
+        self.initialize_handler = h.FInitializeHandler(self.model.init_synapses)
 
     def place_electrodes(self):
         self.soma_rec = h.Vector()
@@ -122,7 +123,7 @@ class Rig:
         fig1 = self.polar_plot(self.model.dir_labels, metrics, show_plot)
         return fig1
 
-    def run(self, stim, locked_synapses=None):
+    def run(self, stim):
         """Initialize model, set synapse onset and release numbers, update
         membrane noise seeds and run the model. Calculate somatic response and
         return to calling function."""
@@ -131,18 +132,19 @@ class Rig:
         if stim["type"] == "flash":
             self.model.flash_onsets()
         elif stim["type"] == "bar":
-            self.model.bar_onsets(stim, locked_synapses)
+            self.model.bar_onsets(stim)
 
-        self.model.set_failures(stim, locked_synapses)
+        # self.model.set_failures(stim)
 
         self.model.update_noise()
 
         self.clear_recordings()
         h.run()
         self.dump_recordings()
+        self.model.clear_synapses()
 
     def dir_run(
-        self, n_trials=10, locked_synapses=None, rhos=None, prefix="", plot_summary=True
+        self, n_trials=10, rhos=None, prefix="", plot_summary=True
     ):
         """Run model through 8 directions for a number of trials and save the
         data. Offets and probabilities of release for inhibition are updated
@@ -168,7 +170,7 @@ class Rig:
                 print("%d" % self.model.dir_labels[i], end=" ", flush=True)
 
                 stim["dir"] = i
-                self.run(stim, locked_synapses=locked_synapses)
+                self.run(stim)
 
             print("")  # next line
 
@@ -190,7 +192,8 @@ class Rig:
                     for k, v in self.dend_data["g"].items()
                 },
             },
-            "syn_locs": {ax: np.array(self.model.syns[ax]) for ax in ["X", "Y"]},
+            # "syn_locs": {ax: np.array(self.model.syns[ax]) for ax in ["X", "Y"]},
+            "syn_locs": self.model.syn_locs,
         }
 
         if self.model.sac_net is not None:
@@ -494,8 +497,9 @@ class Rig:
     def synaptic_density(self, all_tree=False):
         first = 0 if all_tree else self.model.first_order
         dend_lens = [d.L for order in self.model.order_list[first:] for d in order]
-        density = len(self.model.syns["X"]) / np.sum(dend_lens)
-        print("# of synapses = %i" % len(self.model.syns["X"]))
+        n = self.model.syn_locs.shape[0]
+        density = n / np.sum(dend_lens)
+        print("# of synapses = %i" % n)
         print(
             "There are %.4f synapses per micron (for %s dendrites)."
             % (density, "all" if all_tree else "synaptic")
