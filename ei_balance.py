@@ -6,7 +6,6 @@ import scipy.stats as st  # for probabilistic distributions
 
 # local imports
 from modelUtils import (
-    build_stim,
     map_tree,
     find_origin,
     rotate,
@@ -17,6 +16,7 @@ from SacNetwork import SacNetwork
 from NetQuanta import NetQuanta
 from experiments import Rig
 import balance_configs as configs
+
 
 class Model:
     def __init__(self, params=None):
@@ -392,7 +392,7 @@ class Model:
         # set dendrite diameters
         if self.diam_scaling_mode == "order":
             diam = self.diam_range["max"]
-            for i, order in enumerate(self.order_list):
+            for order in self.order_list:
                 for dend in order:
                     dend.diam = diam
                 diam *= self.diam_range["decay"]
@@ -443,11 +443,15 @@ class Model:
                 u = (pts - 1) / 2
                 locs.append([h.x3d(u), h.y3d(u), h.z3d(u)])
             else:
-                u1 = pts  / 2
+                u1 = pts / 2
                 u2 = (pts - 1) / 2
-                locs.append([(h.x3d(u1) + h.x3d(u2)) / 2.,
-                            (h.y3d(u1) + h.y3d(u2)) / 2.,
-                            (h.z3d(u1) + h.z3d(u2)) / 2.])
+                locs.append(
+                    [
+                        (h.x3d(u1) + h.x3d(u2)) / 2.0,
+                        (h.y3d(u1) + h.y3d(u2)) / 2.0,
+                        (h.z3d(u1) + h.z3d(u2)) / 2.0,
+                    ]
+                )
 
             for trans, props in self.synprops.items():
                 if trans == "NMDA":
@@ -468,7 +472,11 @@ class Model:
                 # (and number 0 or 1) of events for each synapse, just add events to the NetQuanta
                 # NetQuanta (wraps NetCon) for scheduling and applying conductance events
                 self.syns[trans]["con"].append(
-                    NetQuanta(self.syns[trans]["syn"][i], props["weight"], delay=props["delay"])
+                    NetQuanta(
+                        self.syns[trans]["syn"][i],
+                        props["weight"],
+                        delay=props["delay"],
+                    )
                 )
             h.pop_section()
         self.syn_locs = np.array(locs)
@@ -552,7 +560,7 @@ class Model:
                 rand_on[t] = r.repick()
 
             rand_on["E"] = rand_on["I"] * self.time_rho + (
-                rand_on["E"] * np.sqrt(1 - self.time_rho ** 2)
+                rand_on["E"] * np.sqrt(1 - self.time_rho**2)
             )
 
             for q in range(self.max_quanta):
@@ -591,7 +599,7 @@ class Model:
         on_times = {}
 
         # distance to synapse divided by speed
-        for t, props in self.synprops.items():
+        for t in self.synprops.keys():
             if t in ["E", "I"] and self.sac_net is not None:
                 sac_loc = self.sac_net.get_syn_loc(t, syn, r)
                 on_times[t] = (
@@ -607,7 +615,7 @@ class Model:
 
         return on_times
 
-    def bar_onsets(self, stim ):
+    def bar_onsets(self, stim):
         """
         Calculate onset times for each synapse based on when the simulated bar
         would be passing over their location, modified by spatial offsets.
@@ -621,7 +629,7 @@ class Model:
         # store timings for return (fine to ignore return)
         onset_times = {trans: [] for trans in ["E", "I", "AMPA", "NMDA"]}
 
-        rand_on = {trans: 0. for trans in ["E", "I", "AMPA", "NMDA"]}
+        rand_on = {trans: 0.0 for trans in ["E", "I", "AMPA", "NMDA"]}
 
         for s in range(self.n_syn):
             bar_times = self.bar_sweep(s, stim["dir"])
@@ -641,116 +649,118 @@ class Model:
             for t in self.synprops.keys():
                 # rand_on[t] = h.Random(self.seed).normal(0, 1)
                 # self.seed += 1
-                rand_on[t] = self.np_rng.normal(loc=0., scale=1.)
+                rand_on[t] = self.np_rng.normal(loc=0.0, scale=1.0)
                 onset_times[t].append(rand_on[t])
 
             rand_on["E"] = rand_on["I"] * syn_rho + (
-                rand_on["E"] * np.sqrt(1 - syn_rho ** 2)
+                rand_on["E"] * np.sqrt(1 - syn_rho**2)
             )
 
             successes = self.get_failures(s, stim, space_rho)
             for t, props in self.synprops.items():
-                q_delay = 0.
+                q_delay = 0.0
                 for success in successes[t]:
                     if success:
                         self.syns[t]["con"][s].add_event(
-                            bar_times[t] + q_delay +  rand_on[t] * props["var"]
-                           )
+                            bar_times[t] + q_delay + rand_on[t] * props["var"]
+                        )
                     # add variable delay til next quanta
-                    q_delay += self.np_rng.normal(self.quanta_inter, self.quanta_inter_var)
+                    q_delay += self.np_rng.normal(
+                        self.quanta_inter, self.quanta_inter_var
+                    )
 
         return onset_times
 
     # TODO: this needs to be combined with onset timing in order to fit in with the
     # NetQuanta paradigm. Can it be re-written as a function that can do one synapse at
     # a time, such that it can easily be inserted into the onsets functions?
-    def set_failures(self, stim, locked_synapses=None, ret_pearson=False):
-        """
-        Determine number of quantal activations of each synapse occur on a
-        trial. Psuedo-random numbers generated for each synapse are compared
-        against thresholds set by probability of release to determine if the
-        "pre-synapse" succeeds or fails to release neurotransmitter.
-        """
-        sac = self.sac_net
+    # def set_failures(self, stim, locked_synapses=None, ret_pearson=False):
+    #     """
+    #     Determine number of quantal activations of each synapse occur on a
+    #     trial. Psuedo-random numbers generated for each synapse are compared
+    #     against thresholds set by probability of release to determine if the
+    #     "pre-synapse" succeeds or fails to release neurotransmitter.
+    #     """
+    #     sac = self.sac_net
 
-        space_rho = stim.get("rhos", {"space": self.space_rho})["space"]
+    #     space_rho = stim.get("rhos", {"space": self.space_rho})["space"]
 
-        # numbers above can result in NaNs
-        rho = 0.986 if space_rho > 0.986 else space_rho
+    #     # numbers above can result in NaNs
+    #     rho = 0.986 if space_rho > 0.986 else space_rho
 
-        # calculate input rho required to achieve the desired output rho
-        # exponential fit: y = y0 + A * exp(-invTau * x)
-        # y0 = 1.0461; A = -0.93514; invTau = 3.0506
-        rho = 1.0461 - 0.93514 * np.exp(-3.0506 * rho)
+    #     # calculate input rho required to achieve the desired output rho
+    #     # exponential fit: y = y0 + A * exp(-invTau * x)
+    #     # y0 = 1.0461; A = -0.93514; invTau = 3.0506
+    #     rho = 1.0461 - 0.93514 * np.exp(-3.0506 * rho)
 
-        rand_succ = {}
-        for t in self.synprops.keys():
-            rand_succ[t] = h.Random(self.seed)
-            rand_succ[t].normal(0, 1)
-            self.seed += 1
+    #     rand_succ = {}
+    #     for t in self.synprops.keys():
+    #         rand_succ[t] = h.Random(self.seed)
+    #         rand_succ[t].normal(0, 1)
+    #         self.seed += 1
 
-        picks = {
-            t: np.array([rand_succ[t].repick() for i in range(self.n_syn)])
-            for t in self.synprops.keys()
-        }
+    #     picks = {
+    #         t: np.array([rand_succ[t].repick() for i in range(self.n_syn)])
+    #         for t in self.synprops.keys()
+    #     }
 
-        # correlate synaptic variance of ACH with GABA
-        if sac is None or not self.sac_angle_rho_mode:
-            picks["E"] = picks["I"] * rho + (picks["E"] * np.sqrt(1 - rho ** 2))
-        else:
-            # scale correlation of E and I by prox of their dend angles
-            for i in range(self.n_syn):
-                if sac.gaba_here[i]:
-                    syn_rho = rho - rho * sac.deltas[i] / 180
-                    picks["E"][i] = picks["I"][i] * syn_rho + picks["E"][i] * np.sqrt(
-                        1 - syn_rho ** 2
-                    )
+    #     # correlate synaptic variance of ACH with GABA
+    #     if sac is None or not self.sac_angle_rho_mode:
+    #         picks["E"] = picks["I"] * rho + (picks["E"] * np.sqrt(1 - rho**2))
+    #     else:
+    #         # scale correlation of E and I by prox of their dend angles
+    #         for i in range(self.n_syn):
+    #             if sac.gaba_here[i]:
+    #                 syn_rho = rho - rho * sac.deltas[i] / 180
+    #                 picks["E"][i] = picks["I"][i] * syn_rho + picks["E"][i] * np.sqrt(
+    #                     1 - syn_rho**2
+    #                 )
 
-        probs = {}
-        for t, props in self.synprops.items():
-            if stim["type"] == "flash":
-                probs[t] = np.full(self.n_syn, props["prob"])
-            elif sac is not None and t in ["E", "I"]:
-                probs[t] = sac.probs[t][:, stim["dir"]]
-            else:
-                # calculate probability of release
-                p = self.dir_sigmoids["prob"](
-                    self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
-                )
-                probs[t] = np.full(self.n_syn, p)
+    #     probs = {}
+    #     for t, props in self.synprops.items():
+    #         if stim["type"] == "flash":
+    #             probs[t] = np.full(self.n_syn, props["prob"])
+    #         elif sac is not None and t in ["E", "I"]:
+    #             probs[t] = sac.probs[t][:, stim["dir"]]
+    #         else:
+    #             # calculate probability of release
+    #             p = self.dir_sigmoids["prob"](
+    #                 self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
+    #             )
+    #             probs[t] = np.full(self.n_syn, p)
 
-        sdevs = {k: np.std(v) for k, v in picks.items()}
-        successes = {}
+    #     sdevs = {k: np.std(v) for k, v in picks.items()}
+    #     successes = {}
 
-        for t in picks.keys():
-            # determine release bool for each possible quanta
-            q_probs = np.array(
-                [probs[t] * (self.quanta_Pr_decay ** q) for q in range(self.max_quanta)]
-            )
-            left = st.norm.ppf((1 - q_probs) / 2.0) * sdevs[t]
-            right = st.norm.ppf(1 - (1 - q_probs) / 2.0) * sdevs[t]
-            successes[t] = (left < picks[t]) * (picks[t] < right)
+    #     for t in picks.keys():
+    #         # determine release bool for each possible quanta
+    #         q_probs = np.array(
+    #             [probs[t] * (self.quanta_Pr_decay**q) for q in range(self.max_quanta)]
+    #         )
+    #         left = st.norm.ppf((1 - q_probs) / 2.0) * sdevs[t]
+    #         right = st.norm.ppf(1 - (1 - q_probs) / 2.0) * sdevs[t]
+    #         successes[t] = (left < picks[t]) * (picks[t] < right)
 
-            for i in range(self.n_syn):
-                for q in range(self.max_quanta):
-                    if successes[t][q][i]:
-                        self.syns[t]["stim"][i][q].number = 1
-                    else:
-                        self.syns[t]["stim"][i][q].number = 0
+    #         for i in range(self.n_syn):
+    #             for q in range(self.max_quanta):
+    #                 if successes[t][q][i]:
+    #                     self.syns[t]["stim"][i][q].number = 1
+    #                 else:
+    #                     self.syns[t]["stim"][i][q].number = 0
 
-        if locked_synapses is not None:
-            for s in locked_synapses["nums"]:
-                self.syns[t]["con"][s][0].weight[0] = self.synprops["I"]["weight"] * 10
-                for t in ["E", "I"]:
-                    self.syns[t]["stim"][s][0].number = locked_synapses[t]
+    #     if locked_synapses is not None:
+    #         for s in locked_synapses["nums"]:
+    #             self.syns[t]["con"][s][0].weight[0] = self.synprops["I"]["weight"] * 10
+    #             for t in ["E", "I"]:
+    #                 self.syns[t]["stim"][s][0].number = locked_synapses[t]
 
-        if ret_pearson:
-            pr = st.pearsonr(successes["E"].flatten(), successes["I"].flatten())
-            return pr[0]
-        else:
-            return None
+    #     if ret_pearson:
+    #         pr = st.pearsonr(successes["E"].flatten(), successes["I"].flatten())
+    #         return pr[0]
+    #     else:
+    #         return None
 
-    def get_failures(self, idx, stim, space_rho ):
+    def get_failures(self, idx, stim, space_rho):
         """
         Determine number of quantal activations of each synapse occur on a
         trial. Psuedo-random numbers generated for each synapse are compared
@@ -776,19 +786,19 @@ class Model:
 
         picks = {
             # t: rand_succ[t].repick()
-            t: self.np_rng.normal(loc=0., scale=1.)
+            t: self.np_rng.normal(loc=0.0, scale=1.0)
             for t in self.synprops.keys()
         }
 
         # correlate synaptic variance of ACH with GABA
         if sac is None or not self.sac_angle_rho_mode:
-            picks["E"] = picks["I"] * rho + (picks["E"] * np.sqrt(1 - rho ** 2))
+            picks["E"] = picks["I"] * rho + (picks["E"] * np.sqrt(1 - rho**2))
         else:
             # scale correlation of E and I by prox of their dend angles
             if sac.gaba_here[idx]:
                 syn_rho = rho - rho * sac.deltas[idx] / 180
                 picks["E"] = picks["I"] * syn_rho + picks["E"] * np.sqrt(
-                    1 - syn_rho ** 2
+                    1 - syn_rho**2
                 )
 
         probs = {}
@@ -808,13 +818,13 @@ class Model:
         # TODO: this adjustment should be flat since it is just happening for a single
         # synapse, but not sure what the value should be. Need to replace accordingly
         # for the initial re-write, then alter to be more appropriate with the NetQuanta impl
-        sdevs = {k: 1. for k in picks.keys()}
+        sdevs = {k: 1.0 for k in picks.keys()}
         successes = {}
 
         for t in picks.keys():
             # determine release bool for each possible quanta
             q_probs = np.array(
-                [probs[t] * (self.quanta_Pr_decay ** q) for q in range(self.max_quanta)]
+                [probs[t] * (self.quanta_Pr_decay**q) for q in range(self.max_quanta)]
             )
             left = st.norm.ppf((1 - q_probs) / 2.0) * sdevs[t]
             right = st.norm.ppf(1 - (1 - q_probs) / 2.0) * sdevs[t]
