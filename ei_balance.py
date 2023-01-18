@@ -24,6 +24,7 @@ class Model:
         if params is not None:
             self.update_params(params)
         self.set_hoc_params()
+        self.np_rng = np.random.default_rng(self.seed)
 
         if self.TTX:
             self.apply_TTX()
@@ -38,8 +39,6 @@ class Model:
             self.build_sac_net()
         else:
             self.sac_net = None
-
-        self.np_rng = np.random.default_rng(self.seed)
 
     def set_default_params(self):
         # hoc environment parameters
@@ -522,7 +521,7 @@ class Model:
         }
 
         self.sac_net = SacNetwork(
-            {"X": self.syn_locs[:, 0], "Y": self.syn_locs[:, 1]},
+            self.syn_locs[:, :2],
             probs,
             self.sac_rho,
             self.sac_uniform_dist,
@@ -530,8 +529,8 @@ class Model:
             self.sac_theta_vars,
             self.sac_gaba_coverage,
             self.dir_labels,
+            self.np_rng,
             self.sac_offset,
-            self.sac_initial_seed,
             self.sac_theta_mode,
         )
 
@@ -540,48 +539,39 @@ class Model:
         Calculate onset times for each synapse randomly as though stimulus was
         a flash. Timing jitter is applied with pseudo-random number generators.
         """
-        # distribution to pull mean onset times for each site from
-        mOn = h.Random(self.seed)
-        mOn.normal(self.flash_mean, self.flash_variance)
-        self.seed += 1
 
         # store timings for return (fine to ignore return)
         onset_times = {trans: [] for trans in ["E", "I", "AMPA", "NMDA"]}
-
-        rand_on = {trans: 0 for trans in ["E", "I", "AMPA", "NMDA"]}
+        rand_on = {trans: 0.0 for trans in ["E", "I", "AMPA", "NMDA"]}
+        stim = {
+            "type": "flash",
+            "rhos": {"time": self.time_rho, "space": self.space_rho},
+        }
 
         for s in range(self.n_syn):
-            onset = mOn.repick()
+            # normally distributed mean onset time for this site (jittered around)
+            onset = self.np_rng.normal(self.flash_mean, self.flash_variance)
 
             for t in self.synprops.keys():
-                r = h.Random(self.seed)
-                r.normal(0, 1)
-                self.seed += 1
-                rand_on[t] = r.repick()
+                rand_on[t] = self.np_rng.normal(0, 1)
+                onset_times[t].append(rand_on[t])
 
             rand_on["E"] = rand_on["I"] * self.time_rho + (
                 rand_on["E"] * np.sqrt(1 - self.time_rho**2)
             )
 
-            for q in range(self.max_quanta):
-                if q:
+            successes = self.get_failures(s, stim)
+            for t, props in self.synprops.items():
+                for success in successes[t]:
+                    if success:
+                        self.syns[t]["con"][s].add_event(
+                            onset + rand_on[t] * props["var"]
+                        )
+
                     # add variable delay til next quanta (if there is one)
-                    quanta_delay = h.Random(self.seed)
-                    quanta_delay.normal(self.quanta_inter, self.quanta_inter_var)
-                    self.seed += 1
-                    onset += quanta_delay.repick()
-
-                for t, props in self.synprops.items():
-                    self.syns[t]["stim"][s][q].start = (
-                        onset + props["delay"] + rand_on[t] * props["var"]
+                    onset += self.np_rng.normal(
+                        self.quanta_inter, self.quanta_inter_var
                     )
-
-                    onset_times[t].append(rand_on[t])
-
-                if self.NMDA_exc_lock:
-                    self.syns["NMDA"]["stim"][s][q].start = self.syns["E"]["stim"][s][
-                        q
-                    ].start
 
         return onset_times
 
@@ -591,7 +581,6 @@ class Model:
         """
         bar = self.light_bar
         r = -self.dir_rads[dir_idx]
-        # x, y = rotate(self.origin, self.syns["X"][syn], self.syns["Y"][syn], rotation)
         x, y = rotate(self.origin, self.syn_locs[syn, 0], self.syn_locs[syn, 1], r)
         loc = {"x": x, "y": y}
         ax = "x" if bar["x_motion"] else "y"
@@ -624,7 +613,6 @@ class Model:
         sac = self.sac_net
 
         time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
-        space_rho = stim.get("rhos", {"space": self.space_rho})["space"]
 
         # store timings for return (fine to ignore return)
         onset_times = {trans: [] for trans in ["E", "I", "AMPA", "NMDA"]}
@@ -640,15 +628,10 @@ class Model:
                 syn_rho = time_rho - time_rho * sac.deltas[s] / 180
 
             # shared jitter
-            jit_rand = h.Random(self.seed)
-            jit_rand.normal(0, 1)
-            self.seed += 1
-            jit = jit_rand.repick()
+            jit = self.np_rng.normal(0, 1)
             bar_times = {k: v + jit * self.jitter for k, v in bar_times.items()}
 
             for t in self.synprops.keys():
-                # rand_on[t] = h.Random(self.seed).normal(0, 1)
-                # self.seed += 1
                 rand_on[t] = self.np_rng.normal(loc=0.0, scale=1.0)
                 onset_times[t].append(rand_on[t])
 
@@ -656,7 +639,7 @@ class Model:
                 rand_on["E"] * np.sqrt(1 - syn_rho**2)
             )
 
-            successes = self.get_failures(s, stim, space_rho)
+            successes = self.get_failures(s, stim)
             for t, props in self.synprops.items():
                 q_delay = 0.0
                 for success in successes[t]:
@@ -671,96 +654,7 @@ class Model:
 
         return onset_times
 
-    # TODO: this needs to be combined with onset timing in order to fit in with the
-    # NetQuanta paradigm. Can it be re-written as a function that can do one synapse at
-    # a time, such that it can easily be inserted into the onsets functions?
-    # def set_failures(self, stim, locked_synapses=None, ret_pearson=False):
-    #     """
-    #     Determine number of quantal activations of each synapse occur on a
-    #     trial. Psuedo-random numbers generated for each synapse are compared
-    #     against thresholds set by probability of release to determine if the
-    #     "pre-synapse" succeeds or fails to release neurotransmitter.
-    #     """
-    #     sac = self.sac_net
-
-    #     space_rho = stim.get("rhos", {"space": self.space_rho})["space"]
-
-    #     # numbers above can result in NaNs
-    #     rho = 0.986 if space_rho > 0.986 else space_rho
-
-    #     # calculate input rho required to achieve the desired output rho
-    #     # exponential fit: y = y0 + A * exp(-invTau * x)
-    #     # y0 = 1.0461; A = -0.93514; invTau = 3.0506
-    #     rho = 1.0461 - 0.93514 * np.exp(-3.0506 * rho)
-
-    #     rand_succ = {}
-    #     for t in self.synprops.keys():
-    #         rand_succ[t] = h.Random(self.seed)
-    #         rand_succ[t].normal(0, 1)
-    #         self.seed += 1
-
-    #     picks = {
-    #         t: np.array([rand_succ[t].repick() for i in range(self.n_syn)])
-    #         for t in self.synprops.keys()
-    #     }
-
-    #     # correlate synaptic variance of ACH with GABA
-    #     if sac is None or not self.sac_angle_rho_mode:
-    #         picks["E"] = picks["I"] * rho + (picks["E"] * np.sqrt(1 - rho**2))
-    #     else:
-    #         # scale correlation of E and I by prox of their dend angles
-    #         for i in range(self.n_syn):
-    #             if sac.gaba_here[i]:
-    #                 syn_rho = rho - rho * sac.deltas[i] / 180
-    #                 picks["E"][i] = picks["I"][i] * syn_rho + picks["E"][i] * np.sqrt(
-    #                     1 - syn_rho**2
-    #                 )
-
-    #     probs = {}
-    #     for t, props in self.synprops.items():
-    #         if stim["type"] == "flash":
-    #             probs[t] = np.full(self.n_syn, props["prob"])
-    #         elif sac is not None and t in ["E", "I"]:
-    #             probs[t] = sac.probs[t][:, stim["dir"]]
-    #         else:
-    #             # calculate probability of release
-    #             p = self.dir_sigmoids["prob"](
-    #                 self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
-    #             )
-    #             probs[t] = np.full(self.n_syn, p)
-
-    #     sdevs = {k: np.std(v) for k, v in picks.items()}
-    #     successes = {}
-
-    #     for t in picks.keys():
-    #         # determine release bool for each possible quanta
-    #         q_probs = np.array(
-    #             [probs[t] * (self.quanta_Pr_decay**q) for q in range(self.max_quanta)]
-    #         )
-    #         left = st.norm.ppf((1 - q_probs) / 2.0) * sdevs[t]
-    #         right = st.norm.ppf(1 - (1 - q_probs) / 2.0) * sdevs[t]
-    #         successes[t] = (left < picks[t]) * (picks[t] < right)
-
-    #         for i in range(self.n_syn):
-    #             for q in range(self.max_quanta):
-    #                 if successes[t][q][i]:
-    #                     self.syns[t]["stim"][i][q].number = 1
-    #                 else:
-    #                     self.syns[t]["stim"][i][q].number = 0
-
-    #     if locked_synapses is not None:
-    #         for s in locked_synapses["nums"]:
-    #             self.syns[t]["con"][s][0].weight[0] = self.synprops["I"]["weight"] * 10
-    #             for t in ["E", "I"]:
-    #                 self.syns[t]["stim"][s][0].number = locked_synapses[t]
-
-    #     if ret_pearson:
-    #         pr = st.pearsonr(successes["E"].flatten(), successes["I"].flatten())
-    #         return pr[0]
-    #     else:
-    #         return None
-
-    def get_failures(self, idx, stim, space_rho):
+    def get_failures(self, idx, stim):
         """
         Determine number of quantal activations of each synapse occur on a
         trial. Psuedo-random numbers generated for each synapse are compared
@@ -770,24 +664,16 @@ class Model:
         sac = self.sac_net
 
         # numbers above can result in NaNs
-        rho = 0.986 if space_rho > 0.986 else space_rho
+        rho = stim.get("rhos", {"space": self.space_rho})["space"]
+        rho = 0.986 if rho > 0.986 else rho
 
         # calculate input rho required to achieve the desired output rho
         # exponential fit: y = y0 + A * exp(-invTau * x)
         # y0 = 1.0461; A = -0.93514; invTau = 3.0506
         rho = 1.0461 - 0.93514 * np.exp(-3.0506 * rho)
 
-        # rand_succ = {}
-        # for t in self.synprops.keys():
-        #     rand_succ[t] = h.Random(self.seed)
-        #     rand_succ[t].normal(0, 1)
-
-        #     self.seed += 1
-
         picks = {
-            # t: rand_succ[t].repick()
-            t: self.np_rng.normal(loc=0.0, scale=1.0)
-            for t in self.synprops.keys()
+            t: self.np_rng.normal(loc=0.0, scale=1.0) for t in self.synprops.keys()
         }
 
         # correlate synaptic variance of ACH with GABA
@@ -816,8 +702,8 @@ class Model:
 
         # sdevs = {k: np.std(v) for k, v in picks.items()}
         # TODO: this adjustment should be flat since it is just happening for a single
-        # synapse, but not sure what the value should be. Need to replace accordingly
-        # for the initial re-write, then alter to be more appropriate with the NetQuanta impl
+        # synapse, but the sdev should still be 1 though, since the distribution shouldn't
+        # be scaled by the correlation operation
         sdevs = {k: 1.0 for k in picks.keys()}
         successes = {}
 

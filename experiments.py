@@ -134,8 +134,6 @@ class Rig:
         elif stim["type"] == "bar":
             self.model.bar_onsets(stim)
 
-        # self.model.set_failures(stim)
-
         self.model.update_noise()
 
         self.clear_recordings()
@@ -143,9 +141,7 @@ class Rig:
         self.dump_recordings()
         self.model.clear_synapses()
 
-    def dir_run(
-        self, n_trials=10, rhos=None, prefix="", plot_summary=True
-    ):
+    def dir_run(self, n_trials=10, rhos=None, prefix="", plot_summary=True):
         """Run model through 8 directions for a number of trials and save the
         data. Offets and probabilities of release for inhibition are updated
         here before calling run() to execute the model.
@@ -519,7 +515,7 @@ class Rig:
         ypts = np.multiply(response, np.sin(dirs))
         xsum = np.sum(xpts)
         ysum = np.sum(ypts)
-        DSi = np.sqrt(xsum ** 2 + ysum ** 2) / np.sum(response)
+        DSi = np.sqrt(xsum**2 + ysum**2) / np.sum(response)
         theta = np.arctan2(ysum, xsum) * 180 / np.pi
 
         return DSi, theta
