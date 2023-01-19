@@ -14,7 +14,7 @@ from modelUtils import (
 )
 from SacNetwork import SacNetwork
 from NetQuanta import NetQuanta
-from experiments import Rig
+from Rig import Rig
 import balance_configs as configs
 
 
@@ -232,7 +232,6 @@ class Model:
 
         self.seed = 0  # 10000#1
         self.nz_seed = 0  # 10000
-        self.sac_initial_seed = 0
 
     def update_params(self, params):
         """Update self members with key-value pairs from supplied dict."""
@@ -278,6 +277,7 @@ class Model:
 
     def set_hoc_params(self):
         """Set hoc NEURON environment model run parameters."""
+        h.finitialize()
         h.tstop = self.tstop
         h.steps_per_ms = self.steps_per_ms
         h.dt = self.dt
@@ -505,12 +505,9 @@ class Model:
             for trans, p in self.synprops.items()
         }
 
-    def build_sac_net(self, rho=None, initial_seed=None):
+    def build_sac_net(self, rho=None):
         if rho is not None:
             self.sac_rho = rho
-
-        if initial_seed is not None:
-            self.sac_initial_seed = initial_seed
 
         probs = {
             t: {
@@ -695,10 +692,9 @@ class Model:
                 probs[t] = sac.probs[t][idx, stim["dir"]]
             else:
                 # calculate probability of release
-                p = self.dir_sigmoids["prob"](
+                probs[t] = self.dir_sigmoids["prob"](
                     self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
                 )
-                probs[t] = p
 
         # sdevs = {k: np.std(v) for k, v in picks.items()}
         # TODO: this adjustment should be flat since it is just happening for a single
@@ -743,7 +739,7 @@ class Model:
                 self.nz_seed += 1
 
     def get_recording_locations(self):
-        locs = {"X": [], "Y": []}
+        locs = []
         per = self.rec_per_sec
         for dend in self.all_dends:
             dend.push()
@@ -752,9 +748,8 @@ class Model:
             # Rough coordinates based on indexing the list of 3d points
             # assigned to the current section. Number of points vary.
             for s in range(per):
-                locs["X"].append(h.x3d(s * (pts - 1) / per))
-                locs["Y"].append(h.y3d(s * (pts - 1) / per))
+                locs.append([h.x3d(s * (pts - 1) / per), h.y3d(s * (pts - 1) / per)])
 
             h.pop_section()
 
-        return np.array([locs["X"], locs["Y"]])
+        return np.array(locs)

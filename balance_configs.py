@@ -85,7 +85,6 @@ def sac_mode_config():
         "sac_theta_vars": {"E": 60, "I": 60},
         "sac_gaba_coverage": 0.5,
         "sac_offset": 30,
-        "sac_initial_seed": 1,  # 100,
         "sac_theta_mode": "PN",
     }
 

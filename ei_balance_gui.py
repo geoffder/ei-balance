@@ -1,9 +1,7 @@
 from ei_balance import *
-from neuron import h
 
 import os
 from skimage import io
-from experiments import Rig
 import balance_configs as configs
 
 

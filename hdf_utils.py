@@ -1,7 +1,9 @@
+import numpy as np
 import h5py as h5
 from typing import Union
 
 INT_PREFIX = "packed_int_"
+FLOAT_PREFIX = "packed_float_"
 
 
 def pack_dataset(h5_file, data_dict, compression="gzip"):
@@ -12,10 +14,21 @@ def pack_dataset(h5_file, data_dict, compression="gzip"):
 
     def rec(data, grp):
         for k, v in data.items():
-            k = "%s%i" % (INT_PREFIX, k) if isinstance(k, int) else k
+            if isinstance(k, int):
+                k = "%s%i" % (INT_PREFIX, k)
+            elif isinstance(k, float):
+                k = "%s%f" % (FLOAT_PREFIX, k)
+            else:
+                k = k
+
             if type(v) is dict:
                 rec(v, grp.create_group(k))
-            elif isinstance(v, float) or isinstance(v, int):
+            elif (
+                isinstance(v, float)
+                or isinstance(v, int)
+                or isinstance(v, str)
+                or isinstance(v, np.integer)
+            ):
                 grp.create_dataset(k, data=v)  # can't compress scalars
             else:
                 grp.create_dataset(k, data=v, compression=compression)
@@ -36,8 +49,11 @@ def unpack_hdf(group):
     """Recursively unpack an hdf5 of nested Groups (and Datasets) to dict."""
 
     def fix_key(k):
-        if isinstance(k, str) and k.startswith(INT_PREFIX):
-            return int(k[len(INT_PREFIX) :])
+        if isinstance(k, str):
+            if k.startswith(INT_PREFIX):
+                return int(k[len(INT_PREFIX) :])
+            if k.startswith(FLOAT_PREFIX):
+                return float(k[len(FLOAT_PREFIX) :])
         else:
             return k
 
