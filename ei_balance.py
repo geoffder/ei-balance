@@ -285,16 +285,13 @@ class Model:
         h.celsius = self.celsius
 
     def load_DSGC(self):
-        h('load_file("RGCmodelGD.hoc")')
+        _ = h.load_file("RGCmodelGD.hoc")
         self.RGC = h.DSGC(0, 0)
         self.soma = self.RGC.soma
         self.all_dends = self.RGC.dend
-
         self.origin = find_origin(self.all_dends)
         self.soma.push()
-
         self.order_list, self.terminals, self.non_terms = map_tree(self.RGC)
-        print("Number of terminal dendrites: %d" % len(self.terminals))
 
     def config_soma(self):
         """Build and set membrane properties of soma compartment"""
@@ -753,3 +750,6 @@ class Model:
             h.pop_section()
 
         return np.array(locs)
+
+    def n_terminals(self):
+        return len(self.terminals)

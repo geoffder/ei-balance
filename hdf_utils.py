@@ -54,6 +54,7 @@ def unpack_hdf(group):
                 return int(k[len(INT_PREFIX) :])
             if k.startswith(FLOAT_PREFIX):
                 return float(k[len(FLOAT_PREFIX) :])
+            return k
         else:
             return k
 

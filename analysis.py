@@ -484,7 +484,7 @@ def sac_rho_polars(
         polar_plot(
             m,
             dirs,
-            title="rho " + r,
+            title="rho " + str(r),
             radius=max_spikes,
             net_shadows=net_shadows,
             save=save,
