@@ -1,4 +1,5 @@
 # science/math libraries
+from typing import Tuple, Optional
 import numpy as np
 from scipy import signal
 from scipy.stats import linregress
@@ -13,15 +14,8 @@ import json
 
 # local libraries
 from modelUtils import rotate, scale_180_from_360, wrap_180
+from hdf_utils import unpack_hdf
 from general_utils import clean_axes
-
-
-def unpack_hdf(group):
-    """Recursively unpack an hdf5 of nested Groups (and Datasets) to dict."""
-    return {
-        k: v[()] if type(v) is h5._hl.dataset.Dataset else unpack_hdf(v)
-        for k, v in group.items()
-    }
 
 
 def spike_transform(vm, kernel_sz, kernel_var, thresh=0):
@@ -45,8 +39,7 @@ def spike_transform(vm, kernel_sz, kernel_var, thresh=0):
 
 
 def gauss_conv(vm, kernel_sz, kernel_var):
-    """Gaussian convolution of input recordings (without spike detection step).
-    """
+    """Gaussian convolution of input recordings (without spike detection step)."""
     kernel = signal.gaussian(kernel_sz, kernel_var)
     og_shape = vm.shape
     vm = vm.reshape(-1, vm.shape[-1])
@@ -68,7 +61,7 @@ def calc_tuning(data, dirs, dir_ax=0):
     xsums = np.multiply(data, np.cos(rads)).sum(axis=0)
     ysums = np.multiply(data, np.sin(rads)).sum(axis=0)
     DSi = np.squeeze(
-        np.sqrt(xsums ** 2 + ysums ** 2) / (np.sum(data, axis=0) + 0.000001)
+        np.sqrt(xsums**2 + ysums**2) / (np.sum(data, axis=0) + 0.000001)
     )
     theta = np.squeeze(np.arctan2(ysums, xsums) * 180 / np.pi)
 
@@ -233,10 +226,12 @@ def tuning_gif(
     ax[1].set_xlim(time.min(), time.max())
     ax[2].set_xlim(time.min(), time.max())
     ax[1].set_ylim(
-        data["soma"]["theta"].min(), data["soma"]["theta"].max(),
+        data["soma"]["theta"].min(),
+        data["soma"]["theta"].max(),
     )
     ax[2].set_ylim(
-        data["soma"]["DSi"].min(), data["soma"]["DSi"].max(),
+        data["soma"]["DSi"].min(),
+        data["soma"]["DSi"].max(),
     )
 
     rate_diff = data["soma"]["DSi"].shape[0] // data["tree"]["DSi"].shape[1]
@@ -362,6 +357,8 @@ def polar_plot(
     save=False,
     save_pth="",
     save_ext="png",
+    fig: Optional[plt.FigureBase] = None,
+    sub_loc=111,
 ):
     # re-sort directions and make circular for polar axes
     circ_vals = metrics["spikes"].transpose(2, 0, 1)[np.array(dirs).argsort()]
@@ -378,8 +375,10 @@ def polar_plot(
     )
     avg_theta = np.radians(avg_theta)
 
-    fig = plt.figure(figsize=(5, 6))
-    ax = fig.add_subplot(111, projection="polar")
+    if fig is None:
+        fig = plt.figure(figsize=(5, 6))
+
+    ax = fig.add_subplot(sub_loc, projection="polar")
 
     # plot trials lighter
     if net_shadows:
@@ -691,7 +690,11 @@ def spike_rasters(
     data = data if rho is None else {rho: data[rho]}
     if bin_ms < 1:
         fig, axes = plt.subplots(
-            1, len(data), figsize=(12, 6), sharey="row", squeeze=False,
+            1,
+            len(data),
+            figsize=(12, 6),
+            sharey="row",
+            squeeze=False,
         )
     else:
         fig, axes = plt.subplots(

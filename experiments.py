@@ -47,8 +47,10 @@ def sacnet_run(
             )
             res = pool.map(_sacnet_repeat, [idx + i for i in range(n)])
             for i in range(n):
-                pack_dataset(pckg, {idx + i: res[0]})
-                del res[0]  # delete head
+                # pack_dataset(pckg, {idx + i: res[0]}, compression=None)
+                data = {r: {idx + i: res[0][r]} for r in res[0].keys()}
+                pack_dataset(pckg, data, compression=None)
+                del data, res[0]  # delete head
             idx = idx + n
     print("Done!")
 
