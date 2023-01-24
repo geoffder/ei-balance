@@ -3,7 +3,9 @@ Functions returning parameter dictionaries for the DSGC balance model.
 """
 
 
-def sac_mode_config():
+def sac_mode_config(
+    ttx=False, leaky=False, high_kv=False, non_ds_ach=False, vc_mode=False
+):
     params = {
         # hoc settings
         "tstop": 350,
@@ -122,13 +124,13 @@ def sac_mode_config():
         # params["synprops"]["NMDA"]["weight"] *= 1.5
 
     # TTX
-    if 0:
+    if ttx:
         params["soma_Na"] = 0.0
         params["prime_Na"] = 0.0
         params["dend_Na"] = 0.0
 
     # MORE LEAK
-    if 0:
+    if leaky:
         params["soma_gleak_hh"] = 0.0001667 * 2
         params["soma_gleak_pas"] = 0.0001667 * 2
         params["prime_gleak_hh"] = 0.0001667 * 2
@@ -137,7 +139,7 @@ def sac_mode_config():
         params["dend_gleak_pas"] = 0.0001667 * 2
 
     # MORE Kv
-    if 0:
+    if high_kv:
         params["soma_K"] = 0.15
         params["prime_K"] = 0.15
         # params["dend_K"]  = 0.15
@@ -145,11 +147,11 @@ def sac_mode_config():
         # params["synprops"]["NMDA"]["weight"] *= 0
         # params["synprops"]["I"]["weight"]    *= 2.
 
-    if 0:
+    if vc_mode:
         params["vc_pas"] = True
 
     # non-ds ACH
-    if 0:
+    if non_ds_ach:
         params["synprops"]["E"]["null_prob"] = 0.5
         params["synprops"]["E"]["pref_prob"] = 0.5
 

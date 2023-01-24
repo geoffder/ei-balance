@@ -4,6 +4,7 @@ import numpy as np
 from scipy import signal
 from scipy.stats import linregress
 import matplotlib.pyplot as plt
+from matplotlib.figure import FigureBase
 from matplotlib.animation import FuncAnimation
 import seaborn as sns
 
@@ -357,7 +358,7 @@ def polar_plot(
     save=False,
     save_pth="",
     save_ext="png",
-    fig: Optional[plt.FigureBase] = None,
+    fig: Optional[FigureBase] = None,
     sub_loc=111,
 ):
     # re-sort directions and make circular for polar axes
@@ -496,8 +497,8 @@ def sac_rho_polars(
     return polar_figs
 
 
-def sac_rho_violins(metrics, dir_labels, viol_inner="box"):
-    fig, ax = plt.subplots(4, 1, sharex=True, figsize=(6, 10))
+def sac_rho_violins(metrics, dir_labels, viol_inner="box", **plot_kwargs):
+    fig, ax = plt.subplots(4, 1, sharex=True, **plot_kwargs)
 
     labels = [k for k, v in metrics.items() for _ in range(v["DSis"].size)]
     dsis = np.concatenate([r["DSis"].flatten() for r in metrics.values()])
@@ -643,8 +644,8 @@ def plot_tree_tuning(tuning_dict, net_idx, trial=None, dsi_size=True, dsi_mul=25
     return fig
 
 
-def ds_scatter(tuning_dict, x_max=None):
-    fig, axes = plt.subplots(1, len(tuning_dict), figsize=(12, 6))
+def ds_scatter(tuning_dict, x_max=None, **plot_kwargs):
+    fig, axes = plt.subplots(1, len(tuning_dict), sharey=True, **plot_kwargs)
     dsi_max = 0.0
 
     # sort dict so rho increases left to right
@@ -655,10 +656,11 @@ def ds_scatter(tuning_dict, x_max=None):
         }
         dsi_max = max(dsi_max, np.max(pts["DSi"]))
         ax.scatter(pts["DSi"], pts["theta"], c="black", alpha=0.1)
-        ax.set_ylim(-180, 180)
         ax.set_xlabel("DSi", size=14)
-        ax.set_ylabel("theta (°)", size=14)
         ax.set_title("rho = %s" % rho, fontsize=18)
+
+    axes[0].set_ylim(-180, 180)
+    axes[0].set_ylabel("theta (°)", size=14)
 
     for ax in axes:
         if x_max is None:
@@ -679,31 +681,32 @@ def spike_rasters(
     offsets=None,
     colour="black",
     spike_vmax=None,
+    **plot_kwargs,
 ):
     """Plot spike-time raster for each direction, at each rho level. Spikes are
     pooled across trials, and also networks unless a net_idx is specified.
     Optionally, display binned tuning calculations beneath raster."""
-    dt = data["0.00"][0]["params"]["dt"]
-    rec_sz = data["0.00"][0]["soma"]["Vm"].shape[-1]
-    rel_dirs = [d if d <= 180 else d - 360 for d in dir_labels]
+    dt = data[0.0][0]["params"]["dt"]
+    rec_sz = data[0.0][0]["soma"]["Vm"].shape[-1]
+    rel_dirs = [d if d <= 180 else d - 360 for d in dirs]
 
     data = data if rho is None else {rho: data[rho]}
     if bin_ms < 1:
         fig, axes = plt.subplots(
             1,
             len(data),
-            figsize=(12, 6),
             sharey="row",
             squeeze=False,
+            **plot_kwargs,
         )
     else:
         fig, axes = plt.subplots(
             4,
             len(data),
-            figsize=(12, 8) if rho is None else (7, 8),
             sharex="col",
             sharey="row",
             gridspec_kw={"height_ratios": [0.6, 0.133, 0.133, 0.133]},
+            **plot_kwargs,
         )
         pts_per_bin = int(bin_ms / dt)
         bin_pts = np.array(
@@ -780,16 +783,16 @@ def spike_rasters(
     return fig
 
 
-def time_evolution(data, dirs, kernel_var=30, net_idx=None):
+def time_evolution(data, dirs, kernel_var=30, net_idx=None, **plot_kwargs):
     """Apply a continuous transform to spike somatic spike train and use to
     calculate theta and DSi for each moment in time. Display spike waveforms
     (aggregate mean with per network means) for each direction, with theta and
     DSi below."""
-    dt = data["0.00"][0]["params"]["dt"]
-    rec_sz = data["0.00"][0]["soma"]["Vm"].shape[-1]
+    dt = data[0.00][0]["params"]["dt"]
+    rec_sz = data[0.00][0]["soma"]["Vm"].shape[-1]
     time = np.linspace(0, rec_sz * dt, rec_sz)
 
-    fig, axes = plt.subplots(10, len(data), sharex="col", sharey="row", figsize=(10, 8))
+    fig, axes = plt.subplots(10, len(data), sharex="col", sharey="row", **plot_kwargs)
     # unzip axes from rows in to column-major organization
     axes = [[a[i] for a in axes] for i in range(len(data))]
 
@@ -882,7 +885,7 @@ def get_sac_deltas(sac_thetas):
 
 
 def get_syn_rec_lookups(rec_locs, syn_locs):
-    """VERY hacky way of getting which recordings correspond to with synapses.
+    """VERY hacky way of getting which recordings correspond to which synapses.
     Doing this as a quick way of looking at how pre-synaptic (SAC) arrangement
     impacts the post-synapse. Right now since the # of synapses are fewer than
     the recs, and they cover a variable amount of the tree, there isn't anything
@@ -894,10 +897,10 @@ def get_syn_rec_lookups(rec_locs, syn_locs):
     """
     syn_to_rec = {}
     rec_to_syn = {}
-    for i in range(syn_locs["X"].size):
+    for i in range(syn_locs.shape[0]):
         rec_idx = np.argmin(
-            np.abs((syn_locs["X"][i] - rec_locs[0]))
-            + np.abs((syn_locs["Y"][i] - rec_locs[1]))
+            np.abs((syn_locs[i, 0] - rec_locs[0]))
+            + np.abs((syn_locs[i, 1] - rec_locs[1]))
         )
         syn_to_rec[i] = rec_idx
         rec_to_syn[rec_idx] = i
@@ -921,7 +924,7 @@ def get_postsyn_avg_tuning(tuning_dict, lookups):
     return d
 
 
-def plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas, rhos=["0.00"]):
+def plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas, rhos=[0.00]):
     """TODO: 4 panels. Cols: rhos Rows (Y): theta, dsi, sharedx: delta"""
     fig, axes = plt.subplots(3, len(rhos), sharex="col", figsize=(6 * len(rhos), 10))
     if len(rhos) > 1:
@@ -968,7 +971,7 @@ def plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas, rhos=["0.00
 
 
 def plot_theta_diff_vs_abs_theta(
-    post_syn_avg_tuning, sac_deltas, rhos=["0.00"], bin_sz=10
+    post_syn_avg_tuning, sac_deltas, rhos=[0.00], bin_sz=10
 ):
     fig, axes = plt.subplots(1, len(rhos))
     if len(rhos) > 1:

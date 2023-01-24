@@ -60,9 +60,8 @@ def pack_hdf(pth, data_dict, compression: Optional[str] = None):
         pack_dataset(pckg, data_dict, compression=compression)
 
 
-def unpack_hdf_(group):
+def unpack_hdf_rec(group):
     """Recursively unpack an hdf5 of nested Groups (and Datasets) to dict."""
-
     return {
         unpack_key(k): v[()] if type(v) is h5.Dataset else unpack_hdf(v)
         for k, v in group.items()
@@ -70,7 +69,7 @@ def unpack_hdf_(group):
 
 
 def unpack_hdf(h5_group):
-    """Recursively unpack an hdf5 of nested Groups (and Datasets) to dict."""
+    """Unpack an hdf5 of nested Groups (and Datasets) to dict."""
     d = {}
     items = [list(h5_group.items())]
     grps = [d]
