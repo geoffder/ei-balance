@@ -29,15 +29,4 @@ if __name__ == "__main__":
     # rig.gaba_titration_run(n_nets=3, n_trials=3, rho_steps=[0., 1.])
     # rig.vc_dir_run(10)
     # rig.sac_net_vc_run(n_nets=3, n_trials=10)
-    # dsgc.sac_net.plot_dends(None, separate=False, cmap="plasma")
-    # locs = dsgc.get_recording_locations()
     # rig.offset_run(1)
-
-    # dist = rig.sac_angle_distribution(bins=[12])
-    # dist.savefig(proj_path + "angle_dist.png", bbox_inches="tight")
-
-    # img = io.imread(os.path.join(nrn_path, "dsgc.png"))[:, :, 0]
-    # dsgc.sac_net.plot_dends_overlay(
-    #     img, separate=False, stim_angle=0, n_syn=20, cmap="plasma"
-    # )
-    # dsgc.sac_net.plot_dends_overlay(img, separate=False, stim_angle=None, n_syn=10)

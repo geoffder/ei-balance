@@ -14,7 +14,7 @@ def merge(old, new):
     return old
 
 
-def clean_axes(axes, remove_spines=["right", "top"], ticksize=11):
+def clean_axes(axes, remove_spines=["right", "top"], ticksize=11.0):
     """A couple basic changes I often make to pyplot axes. If input is an
     iterable of axes (e.g. from plt.subplots()), apply recursively."""
     if hasattr(axes, "__iter__"):

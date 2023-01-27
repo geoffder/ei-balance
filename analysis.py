@@ -6,6 +6,8 @@ from scipy.stats import linregress
 import matplotlib.pyplot as plt
 from matplotlib.figure import FigureBase
 from matplotlib.animation import FuncAnimation
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 import seaborn as sns
 
 # general libraries
@@ -17,6 +19,7 @@ import json
 from modelUtils import rotate, scale_180_from_360, wrap_180
 from hdf_utils import unpack_hdf
 from general_utils import clean_axes
+from ei_balance import Model
 
 
 def spike_transform(vm, kernel_sz, kernel_var, thresh=0):
@@ -1142,3 +1145,145 @@ if __name__ == "__main__":
         save_fig(evol, "spike_evolution")
 
     plt.show()
+
+
+def sac_angle_distribution(config, n_nets=100, bins=[8, 12, 16], **plot_kwargs):
+    """Plot SAC dendrite angle distribution histograms, aggregating over a
+    number of generated networks to get a more accurate estimate."""
+    model = Model(config)
+    iThetas, eThetas = [], []
+    total_gaba = 0
+
+    for _ in range(n_nets):
+        model.build_sac_net()
+        iThetas.append(model.sac_net.thetas["I"][model.sac_net.gaba_here])
+        eThetas.append(model.sac_net.thetas["E"])
+        total_gaba += np.sum(model.sac_net.gaba_here)
+
+    iThetas = np.concatenate(iThetas)
+    eThetas = np.concatenate(eThetas)
+    print("Average GABA synapse count: %.2f" % (total_gaba / n_nets))
+
+    fig, axes = plt.subplots(1, len(bins), **plot_kwargs)
+    axes = axes if len(bins) > 1 else [axes]
+
+    for j, numBins in enumerate(bins):
+        binAx = [i * 360 / numBins for i in range(numBins)]
+        lbl_e, lbl_i = ("ACh", "GABA") if not j else (None, None)
+        axes[j].hist(eThetas, bins=binAx, color="g", alpha=0.5, label=lbl_e)
+        axes[j].hist(iThetas, bins=binAx, color="m", alpha=0.5, label=lbl_i)
+        if len(bins) > 1:
+            axes[j].set_title("Bin Size: %.1f" % (360 / numBins))
+        axes[j].set_xlabel("SAC Dendrite Angle", fontsize=12.0)
+        axes[j].set_yticks([])
+
+    fig.legend(frameon=False, fontsize=14)
+    clean_axes(axes, ticksize=12.0)
+
+    return fig, axes
+
+
+def plot_dends_overlay(
+    fig,
+    ax,
+    dsgc_img,
+    syn_locs,
+    bp_locs,
+    probs,
+    dirs,
+    dsgc_alpha=0.35,
+    sac_alpha=0.7,
+    x_off=-2,
+    y_off=-41,
+    px_per_um=2.55,
+    stim_angle=None,
+    n_syn=None,
+    cmap="plasma",
+):
+    # flip y-axis of image to match it up with coordinate system
+    dsgc_img = np.flip(dsgc_img, axis=0)
+
+    # offset whitespace and convert um locations to px
+    syn_xs = syn_locs[:, 0] * px_per_um + x_off
+    syn_ys = syn_locs[:, 1] * px_per_um + y_off
+    ach_xs = np.array(bp_locs["E"][:, 0]) * px_per_um + x_off
+    ach_ys = np.array(bp_locs["E"][:, 1]) * px_per_um + y_off
+    gaba_xs = np.array(bp_locs["I"][:, 0]) * px_per_um + x_off
+    gaba_ys = np.array(bp_locs["I"][:, 1]) * px_per_um + y_off
+
+    ax.imshow(dsgc_img, alpha=dsgc_alpha, cmap="gray")
+    ax.set_xlim(-70, 600)
+    ax.set_ylim(-70, 600)
+
+    idxs = np.random.choice(
+        len(syn_xs), size=len(syn_xs) if n_syn is None else n_syn, replace=False
+    )
+    for i in idxs:
+        ax.plot(
+            [syn_xs[i], ach_xs[i]],
+            [syn_ys[i], ach_ys[i]],
+            c="g",
+            alpha=sac_alpha,
+        )
+        ax.plot(
+            [syn_xs[i], gaba_xs[i]],
+            [syn_ys[i], gaba_ys[i]],
+            c="m",
+            alpha=sac_alpha,
+        )
+        if stim_angle is not None:
+            angle_idx = np.argwhere(dirs == np.array(stim_angle))[0][0]
+            colors = [plt.get_cmap(cmap)(1.0 * i / 100) for i in range(100)]
+            eClr = colors[int(probs["E"][i][angle_idx] / 0.01)]
+            scat = ax.scatter(ach_xs[i], ach_ys[i], c=[eClr], s=120, alpha=sac_alpha)
+
+            if not np.isnan(gaba_xs[i]):
+                iClr = colors[int(probs["I"][i][angle_idx] / 0.01)]
+                ax.scatter(
+                    gaba_xs[i],
+                    gaba_ys[i],
+                    marker="v",
+                    c=[iClr],
+                    s=120,
+                    alpha=sac_alpha,
+                )
+
+        else:
+            ax.scatter(ach_xs[i], ach_ys[i], c="g", s=120, alpha=sac_alpha)
+            ax.scatter(
+                gaba_xs[i],
+                gaba_ys[i],
+                marker="v",
+                c="m",
+                s=120,
+                alpha=sac_alpha,
+            )
+
+    if stim_angle is not None:
+        cbar = fig.colorbar(
+            ScalarMappable(Normalize(vmin=0.0, vmax=1.0), cmap=cmap),
+            ax=ax,
+            orientation="horizontal",
+            pad=0.0,
+            shrink=0.75,
+        )
+        cbar.ax.tick_params(labelsize=12.0)
+        cbar.set_label("Release Probability", fontsize=12)
+
+    ach_circ = ax.scatter([], [], c="g", s=120)
+    gaba_tri = ax.scatter([], [], c="m", marker="v", s=120)
+    ax.legend(
+        [ach_circ, gaba_tri],
+        ["ACh", "GABA"],
+        ncol=1,
+        frameon=False,
+        fontsize=12,
+        handlelength=2,
+        loc="upper right",
+        bbox_to_anchor=(0.35, 0.25),
+        borderpad=1,
+        handletextpad=1,
+        title_fontsize=12,
+    )
+
+    clean_axes(ax, remove_spines=["left", "right", "top", "bottom"])

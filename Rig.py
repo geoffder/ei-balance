@@ -459,43 +459,6 @@ class Rig:
         figs = [self.plot_results(m, show_plot=False) for m in metrics]
         plt.show()
 
-    def sac_angle_distribution(self, n_nets=100, bins=[8, 12, 16]):
-        """Plot SAC dendrite angle distribution histograms, aggregating over a
-        number of generated networks to get a more accurate estimate."""
-        seed = self.model.sac_initial_seed
-        iThetas, eThetas = [], []
-        total_gaba = 0
-
-        for _ in range(n_nets):
-            seed += 1000
-            self.model.build_sac_net(initial_seed=seed)
-            iThetas.append(
-                np.array(self.model.sac_net.thetas["I"])[
-                    np.array(self.model.sac_net.gaba_here)
-                ]
-            )
-            eThetas.append(self.model.sac_net.thetas["E"])
-            total_gaba += np.sum(self.model.sac_net.gaba_here)
-
-        iThetas = np.concatenate(iThetas).flatten()
-        eThetas = np.array(eThetas).flatten()
-        print("Average GABA synapse count: %.2f" % (total_gaba / n_nets))
-
-        fig, axes = plt.subplots(1, len(bins))
-        axes = axes if len(bins) > 1 else [axes]
-
-        for j, numBins in enumerate(bins):
-            binAx = [i * 360 / numBins for i in range(numBins)]
-            axes[j].hist(eThetas, bins=binAx, color="g", alpha=0.5)
-            axes[j].hist(iThetas, bins=binAx, color="m", alpha=0.5)
-            axes[j].set_title("Bin Size: %.1f" % (360 / numBins))
-            axes[j].set_xlabel("SAC Dendrite Angle", fontsize=12.0)
-            axes[j].set_yticks([])
-
-        clean_axes(axes, ticksize=12.0)
-
-        return fig
-
     def synaptic_density(self, all_tree=False):
         first = 0 if all_tree else self.model.first_order
         dend_lens = [d.L for order in self.model.order_list[first:] for d in order]
