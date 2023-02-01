@@ -18,6 +18,8 @@ def sacnet_run(
     n_trials=3,
     rho_steps=[0.0, 1.0],
     pool_sz=8,
+    vc_mode=False,
+    vc_simul=True,
 ):
     global _sacnet_repeat  # required to allow pickling for Pool
 
@@ -31,9 +33,14 @@ def sacnet_run(
         for rho in rho_steps:
             runner.model.nz_seed = 0
             runner.model.build_sac_net(rho=rho)
-            data[rho] = runner.dir_run(
-                n_trials, save_name=None, plot_summary=False, quiet=True
-            )
+            if vc_mode:
+                data[rho] = runner.vc_dir_run(
+                    n_trials, simultaneous=vc_simul, save_name=None, quiet=True
+                )
+            else:
+                data[rho] = runner.dir_run(
+                    n_trials, save_name=None, plot_summary=False, quiet=True
+                )
 
         return data
 
@@ -47,7 +54,6 @@ def sacnet_run(
             )
             res = pool.map(_sacnet_repeat, [idx + i for i in range(n)])
             for i in range(n):
-                # pack_dataset(pckg, {idx + i: res[0]}, compression=None)
                 data = {r: {idx + i: res[0][r]} for r in res[0].keys()}
                 pack_dataset(pckg, data, compression=None)
                 del data, res[0]  # delete head

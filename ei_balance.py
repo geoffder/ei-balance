@@ -237,6 +237,10 @@ class Model:
         """Update self members with key-value pairs from supplied dict."""
         self.__dict__ = merge(self.__dict__, params)
 
+    def reset_rng(self):
+        self.nz_seed = 0
+        self.np_rng = np.random.default_rng(self.seed)
+
     def apply_TTX(self):
         self.TTX = True
         self.soma_Na = 0

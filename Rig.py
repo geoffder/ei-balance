@@ -8,10 +8,12 @@ import matplotlib.pyplot as plt
 import os
 import h5py as h5
 import json
+from typing import List
 
 # local imports
 from modelUtils import find_spikes
 from general_utils import clean_axes
+from hdf_utils import pack_hdf
 
 
 class Rig:
@@ -201,12 +203,20 @@ class Rig:
             all_data["sac_net"] = self.model.sac_net.get_wiring_dict()
 
         if save_name is not None:
-            self.pack_hdf(os.path.join(self.data_path, save_name), all_data)
+            pack_hdf(os.path.join(self.data_path, save_name), all_data)
             return metrics
         else:
             return all_data
 
-    def rho_dir_run(self, n_trials=10, step=0.1, seed_reset=True):
+    def rho_dir_run(
+        self,
+        n_trials=10,
+        step=0.1,
+        seed_reset=True,
+        save_prefix=None,
+        plot_summary=True,
+        quiet=False,
+    ):
         """Repeat dir_run() experiments over a range of correlation (rho)
         values. First with spatial only, then temporal, then spatio-temporal
         correlations between excitation and inhibition.
@@ -216,14 +226,26 @@ class Rig:
         for dimensions in [["space"], ["time"], ["space", "time"]]:
             for i in range(int(1 / step)):
                 if seed_reset:
-                    self.model.seed = 0
-                    self.model.nz_seed = 0
+                    self.model.reset_rng()
 
                 for dim in dimensions:
                     rhos[dim] = i * step
 
-                prefix = "rho_sp%.2f_tm%.2f_" % (rhos["space"], rhos["time"])
-                self.dir_run(n_trials, rhos=rhos, prefix=prefix, plot_summary=False)
+                if save_prefix is not None:
+                    save_name = "rho_sp%.2f_tm%.2f_dir_run" % (
+                        rhos["space"],
+                        rhos["time"],
+                    )
+                else:
+                    save_name = None
+
+                self.dir_run(
+                    n_trials,
+                    rhos=rhos,
+                    save_name=save_name,
+                    plot_summary=plot_summary,
+                    quiet=quiet,
+                )
 
     def offset_run(self, n_trials=10):
         offset_conds = {
@@ -318,17 +340,27 @@ class Rig:
 
         self.data_path = base_data_path[:]
 
-    def vc_dir_run(self, n_trials=10, simultaneous=True, prefix=""):
+    def vc_dir_run(
+        self, n_trials=10, rhos=None, simultaneous=True, save_name=None, quiet=False
+    ):
         """Similar to dir_run(), but running in voltage-clamp mode to record
         current at the soma. All other inputs are blocked when recording a
         particular syanptic input. Start script with vcPas=1 to block
         membrane channels prior to voltage-clamp experiments.
         """
-        print("Voltage-Clamp Directional Run. Trials: %d" % n_trials)
+        if not quiet:
+            print("Voltage-Clamp Directional Run. Trials: %d" % n_trials)
 
         n_dirs = len(self.model.dirs)
         stim = {"type": "bar", "dir": 0}
         params = self.model.get_params_dict()  # for logging
+
+        if rhos is not None:
+            stim["rhos"] = rhos
+            params["space_rho"] = rhos.get("space", 0)
+            params["time_rho"] = rhos.get("time", 0)
+            self.model.space_rho = params["space_rho"]
+            self.model.time_rho = params["time_rho"]
 
         # create voltage clamp
         h("objref VC")
@@ -353,46 +385,47 @@ class Rig:
         rec_data = {k: [] for k in conditions.keys()}
 
         for cond, settings in conditions.items():
-            print("Condition: %s" % cond)
+            if not quiet:
+                print("Condition: %s" % cond)
 
             if simultaneous:
-                self.model.seed = 0
-                self.model.nz_seed = 0
+                self.model.reset_rng()
 
             VC.amp1 = settings["holding"]
 
             for t, ps in self.model.synprops.items():
                 weight = ps["weight"] if t in settings["trans"] else 0
                 for netcon in self.model.syns[t]["con"]:
-                    for quanta in netcon:
-                        quanta.weight[0] = weight
+                    netcon.weight = weight
 
             for j in range(n_trials):
-                print("trial %d..." % j, end=" ", flush=True)
+                if not quiet:
+                    print("trial %d..." % j, end=" ", flush=True)
 
                 for i in range(n_dirs):
-                    print("%d" % self.model.dir_labels[i], end=" ", flush=True)
+                    if not quiet:
+                        print("%d" % self.model.dir_labels[i], end=" ", flush=True)
 
                     stim["dir"] = i
 
                     h.init()
 
                     self.model.bar_onsets(stim)
-                    self.model.set_failures(stim)
                     self.model.update_noise()
 
                     rec.resize(0)
                     h.run()
                     rec_data[cond].append(np.round(rec, decimals=5))
+                    self.model.clear_synapses()
 
-                print("")  # next line
+                if not quiet:
+                    print("")  # next line
 
         # reset all synaptic connection weights
         for cond, settings in conditions.items():
             for t, ps in self.model.synprops.items():
                 for netcon in self.model.syns[t]["con"]:
-                    for quanta in netcon:
-                        quanta.weight[0] = ps["weight"]
+                    netcon.weight = ps["weight"]
 
         all_data = {
             "params": json.dumps(params),
@@ -400,29 +433,16 @@ class Rig:
                 k: self.stack_trials(n_trials, n_dirs, rec_data[k])
                 for k in conditions.keys()
             },
+            "syn_locs": self.model.syn_locs,
         }
 
-        self.pack_hdf(self.data_path + prefix + "vc_dir_run", all_data)
-        return all_data
+        if self.model.sac_net is not None:
+            all_data["sac_net"] = self.model.sac_net.get_wiring_dict()
 
-    def sac_net_vc_run(
-        self, n_nets=3, n_trials=3, rho_steps=[0, 0.9], simultaneous=True
-    ):
-        """"""
-        base_seed = self.model.sac_initial_seed
-        metrics = {}
-        for rho in rho_steps:
-            initial_seed = base_seed
-            self.model.seed = 0
-            self.model.nz_seed = 0
-            metrics[str(rho)] = []
-            for i in range(n_nets):
-                initial_seed += 1000
-                prefix = "sac_rho%.2f_init_seed%i_" % (rho, initial_seed)
-                self.model.build_sac_net(rho=rho, initial_seed=initial_seed)
-                metrics[str(rho)].append(
-                    self.vc_dir_run(n_trials, simultaneous=simultaneous, prefix=prefix)
-                )
+        if save_name is not None:
+            pack_hdf(os.path.join(self.data_path, save_name), all_data)
+        else:
+            return all_data
 
     def mini_test(self, idx, starts):
         """Turn off all synapses but for one and test. Input dict in form of
@@ -439,25 +459,6 @@ class Rig:
             self.model.syns[t]["stim"][idx][0].start = time
 
         h.run()
-
-    def rough_rho_compare(self, n_trials=10, rhos=[0, 1.0], seed_reset=True):
-        metrics = []
-        first_seed = self.model
-        for r in rhos:
-            if seed_reset:
-                self.model.seed = 0
-                self.model.nz_seed = 0
-            prefix = "rho_sp%.2f_tm%.2f_" % (r, r)
-            m = self.dir_run(
-                n_trials,
-                rhos={"space": r, "time": r},
-                prefix=prefix,
-                plot_summary=False,
-            )
-            metrics.append(m)
-
-        figs = [self.plot_results(m, show_plot=False) for m in metrics]
-        plt.show()
 
     def synaptic_density(self, all_tree=False):
         first = 0 if all_tree else self.model.first_order
@@ -479,78 +480,20 @@ class Rig:
         return vm, area, thresh_count
 
     @staticmethod
-    def calc_DS(dirs, response):
-        xpts = np.multiply(response, np.cos(dirs))
-        ypts = np.multiply(response, np.sin(dirs))
+    def calc_DS(dirs: np.ndarray, response: np.ndarray):
+        xpts = response * np.cos(dirs)
+        ypts = response * np.sin(dirs)
         xsum = np.sum(xpts)
         ysum = np.sum(ypts)
-        DSi = np.sqrt(xsum**2 + ysum**2) / np.sum(response)
+        DSi = np.sqrt(xsum**2.0 + ysum**2.0) / np.sum(response)
         theta = np.arctan2(ysum, xsum) * 180 / np.pi
 
         return DSi, theta
 
     @staticmethod
-    def polar_plot(dirs, metrics, show_plot=True):
-        # resort directions and make circular for polar axes
-        circ_vals = metrics["spikes"].T[np.array(dirs).argsort()]
-        circ_vals = np.concatenate([circ_vals, circ_vals[0, :].reshape(1, -1)], axis=0)
-        circle = np.radians([0, 45, 90, 135, 180, 225, 270, 315, 0])
-
-        peak = np.max(circ_vals)  # to set axis max
-        avg_theta = np.radians(metrics["avg_theta"])
-        avg_DSi = metrics["avg_DSi"]
-        thetas = np.radians(metrics["thetas"])
-        DSis = np.array(metrics["DSis"])
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection="polar")
-
-        # plot trials lighter
-        ax.plot(circle, circ_vals, color=".75")
-        ax.plot([thetas, thetas], [np.zeros_like(DSis), DSis * peak], color=".75")
-
-        # plot avg darker
-        ax.plot(circle, np.mean(circ_vals, axis=1), color=".0", linewidth=2)
-        ax.plot([avg_theta, avg_theta], [0.0, avg_DSi * peak], color=".0", linewidth=2)
-
-        # misc settings
-        ax.set_rlabel_position(-22.5)  # labels away from line
-        ax.set_rmax(peak)
-        ax.set_rticks([peak])
-        ax.set_thetagrids([0, 90, 180, 270])
-
-        if show_plot:
-            plt.show()
-
-        return fig
-
-    @staticmethod
-    def stack_trials(n_trials, n_dirs, data_list):
+    def stack_trials(n_trials, n_dirs, data_list: List[np.ndarray]):
         """Stack a list of run recordings [ndarrays of shape (recs, samples)]
         into a single ndarray of shape (trials, directions, recs, samples).
         """
-        stack = np.stack(data_list, axis=0)
+        stack: np.ndarray = np.stack(data_list, axis=0)
         return stack.reshape(n_trials, n_dirs, *stack.shape[1:])
-
-    @staticmethod
-    def pack_hdf(pth, data_dict):
-        """Takes data organized in a python dict, and creates an hdf5 with the
-        same structure."""
-
-        def rec(data, grp):
-            for k, v in data.items():
-                if type(v) is dict:
-                    rec(v, grp.create_group(k))
-                else:
-                    grp.create_dataset(k, data=v)
-
-        with h5.File(pth + ".h5", "w") as pckg:
-            rec(data_dict, pckg)
-
-    @staticmethod
-    def unpack_hdf(group):
-        """Recursively unpack an hdf5 of nested Groups (and Datasets) to dict."""
-        return {
-            k: v[()] if type(v) is h5._hl.dataset.Dataset else Rig.unpack_hdf(v)
-            for k, v in group.items()
-        }
