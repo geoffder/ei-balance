@@ -1048,105 +1048,6 @@ def rough_gaba_coverage_scaling():
     plt.show()
 
 
-# TODO: "Zoom-in" on synapses / recordings locations that have drammatically off
-# post-synaptic tuning (mainly TTX of course), and log what the SAC angles were.
-# Another way of trying to bring out the effect a bit more cleanly.
-
-# TODO: put the suite of plotting functions into a function that can be called
-# on all folders in a directory. Will save some pain in re-running titration and
-# coverage experiments
-
-# TODO: Enable rasters, tuning evolution, and violins to adjust to different
-# preferred directions as well.
-if __name__ == "__main__":
-    basest = "/mnt/Data/NEURONoutput/sac_net/"
-    # basest += "uni_var60_E90_I90_ARM_nonDirGABA/"
-    # basest += "ttx/"
-    # basest += "gaba_titration/ttx/gaba_scale_150p/"
-    # basest += "committee_runs/spiking/control/"
-    # basest += "committee_runs/spiking/non_ds_ach_50pr/"
-    basest += "test_sigmoid/spiking/non_ds_ach_50pr/"
-    # basest += "spiking_cable_diam/"
-    # basest += "ttx_cable_diam/"
-    fig_pth = basest + "py_figs/"
-    fig_exts = ["png", "svg"]
-
-    def save_fig(f, n):
-        for ext in fig_exts:
-            f.savefig(fig_pth + n + "." + ext, bbox_inches="tight")
-
-    if not os.path.isdir(fig_pth):
-        os.mkdir(fig_pth)
-
-    dir_labels = [225, 270, 315, 0, 45, 90, 135, 180]
-    # NOTE: calculated from avg VC recordings of E current (for current settings)
-    # dir_field_offsets = [9.1, 17.1, 26.2, 14.7, 2.0, 12.5, 11.0, 0.0]  # ms
-    # dir_field_offsets = [9.6, 19.1, 36.2, 9.2, 0.0, 20.5, 31.0, 2.0]  # ms
-    dir_field_offsets = [11.0, 18.8, 37.8, 13.8, 0.8, 19.3, 16.0, 0.0]  # ms
-
-    sac_data = load_sac_rho_data(basest)
-    sac_metrics = get_sac_metrics(sac_data)
-    tuning = analyze_tree(sac_data, dir_labels, pref=0, thresh=-57)
-
-    sac_thetas = get_sac_thetas(sac_data)
-    sac_deltas = get_sac_deltas(sac_thetas)
-
-    ttx = True
-    if ttx:
-        rec_locs = sac_data["0.00"][0]["dendrites"]["locs"]
-        syn_locs = sac_data["0.00"][0]["syn_locs"]
-        syn_rec_lookups = get_syn_rec_lookups(rec_locs, syn_locs)
-        post_syn_avg_tuning = get_postsyn_avg_tuning(tuning, syn_rec_lookups)
-        theta_diffs = plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas)
-        theta_diff_bins = plot_theta_diff_vs_abs_theta(post_syn_avg_tuning, sac_deltas)
-        save_fig(theta_diffs, "theta_diff_tuning_net")
-        save_fig(theta_diff_bins, "theta_diff_bins_net")
-
-    polars = sac_rho_polars(
-        sac_metrics,
-        dir_labels,
-        net_shadows=True,
-        save=True,
-        save_pth=fig_pth,
-        save_ext="svg",
-    )
-
-    # make_sac_rec_gifs(
-    #     fig_pth, sac_data, dir_labels, rhos=[], rec_key="trans_Vm",
-    #     sample_inter=10, gif_inter=50,
-    # )
-
-    # make_sac_tuning_gifs(
-    #     fig_pth, sac_data, dir_labels, rhos=[], rec_key="spk_Vm",
-    #     sample_inter=10, gif_inter=50,
-    # )
-    for net_idx in range(len(sac_data["0.00"])):
-        tree = plot_tree_tuning(tuning, net_idx, dsi_mul=500)
-        save_fig(tree, "tree_tuning_net%i" % net_idx)
-
-    violins = sac_rho_violins(sac_metrics, dir_labels)
-    scatter = ds_scatter(tuning)
-    rasters = spike_rasters(
-        sac_data,
-        dir_labels,
-        rho="1.00",
-        bin_ms=50,
-        offsets=dir_field_offsets,
-        colour="black",
-        spike_vmax=160,
-    )
-    evol = time_evolution(sac_data, dir_labels, kernel_var=45)
-
-    if 1:
-        save_fig(violins, "selectivity_violins")
-        save_fig(tree, "tree_tuning")
-        save_fig(scatter, "ds_scatter")
-        save_fig(rasters, "spike_rasters")
-        save_fig(evol, "spike_evolution")
-
-    plt.show()
-
-
 def sac_angle_distribution(config, n_nets=100, bins=[8, 12, 16], **plot_kwargs):
     """Plot SAC dendrite angle distribution histograms, aggregating over a
     number of generated networks to get a more accurate estimate."""
@@ -1287,3 +1188,102 @@ def plot_dends_overlay(
     )
 
     clean_axes(ax, remove_spines=["left", "right", "top", "bottom"])
+
+
+# TODO: "Zoom-in" on synapses / recordings locations that have drammatically off
+# post-synaptic tuning (mainly TTX of course), and log what the SAC angles were.
+# Another way of trying to bring out the effect a bit more cleanly.
+
+# TODO: put the suite of plotting functions into a function that can be called
+# on all folders in a directory. Will save some pain in re-running titration and
+# coverage experiments
+
+# TODO: Enable rasters, tuning evolution, and violins to adjust to different
+# preferred directions as well.
+if __name__ == "__main__":
+    basest = "/mnt/Data/NEURONoutput/sac_net/"
+    # basest += "uni_var60_E90_I90_ARM_nonDirGABA/"
+    # basest += "ttx/"
+    # basest += "gaba_titration/ttx/gaba_scale_150p/"
+    # basest += "committee_runs/spiking/control/"
+    # basest += "committee_runs/spiking/non_ds_ach_50pr/"
+    basest += "test_sigmoid/spiking/non_ds_ach_50pr/"
+    # basest += "spiking_cable_diam/"
+    # basest += "ttx_cable_diam/"
+    fig_pth = basest + "py_figs/"
+    fig_exts = ["png", "svg"]
+
+    def save_fig(f, n):
+        for ext in fig_exts:
+            f.savefig(fig_pth + n + "." + ext, bbox_inches="tight")
+
+    if not os.path.isdir(fig_pth):
+        os.mkdir(fig_pth)
+
+    dir_labels = [225, 270, 315, 0, 45, 90, 135, 180]
+    # NOTE: calculated from avg VC recordings of E current (for current settings)
+    # dir_field_offsets = [9.1, 17.1, 26.2, 14.7, 2.0, 12.5, 11.0, 0.0]  # ms
+    # dir_field_offsets = [9.6, 19.1, 36.2, 9.2, 0.0, 20.5, 31.0, 2.0]  # ms
+    dir_field_offsets = [11.0, 18.8, 37.8, 13.8, 0.8, 19.3, 16.0, 0.0]  # ms
+
+    sac_data = load_sac_rho_data(basest)
+    sac_metrics = get_sac_metrics(sac_data)
+    tuning = analyze_tree(sac_data, dir_labels, pref=0, thresh=-57)
+
+    sac_thetas = get_sac_thetas(sac_data)
+    sac_deltas = get_sac_deltas(sac_thetas)
+
+    ttx = True
+    if ttx:
+        rec_locs = sac_data["0.00"][0]["dendrites"]["locs"]
+        syn_locs = sac_data["0.00"][0]["syn_locs"]
+        syn_rec_lookups = get_syn_rec_lookups(rec_locs, syn_locs)
+        post_syn_avg_tuning = get_postsyn_avg_tuning(tuning, syn_rec_lookups)
+        theta_diffs = plot_theta_diff_tuning_scatters(post_syn_avg_tuning, sac_deltas)
+        theta_diff_bins = plot_theta_diff_vs_abs_theta(post_syn_avg_tuning, sac_deltas)
+        save_fig(theta_diffs, "theta_diff_tuning_net")
+        save_fig(theta_diff_bins, "theta_diff_bins_net")
+
+    polars = sac_rho_polars(
+        sac_metrics,
+        dir_labels,
+        net_shadows=True,
+        save=True,
+        save_pth=fig_pth,
+        save_ext="svg",
+    )
+
+    # make_sac_rec_gifs(
+    #     fig_pth, sac_data, dir_labels, rhos=[], rec_key="trans_Vm",
+    #     sample_inter=10, gif_inter=50,
+    # )
+
+    # make_sac_tuning_gifs(
+    #     fig_pth, sac_data, dir_labels, rhos=[], rec_key="spk_Vm",
+    #     sample_inter=10, gif_inter=50,
+    # )
+    for net_idx in range(len(sac_data["0.00"])):
+        tree = plot_tree_tuning(tuning, net_idx, dsi_mul=500)
+        save_fig(tree, "tree_tuning_net%i" % net_idx)
+
+    violins = sac_rho_violins(sac_metrics, dir_labels)
+    scatter = ds_scatter(tuning)
+    rasters = spike_rasters(
+        sac_data,
+        dir_labels,
+        rho="1.00",
+        bin_ms=50,
+        offsets=dir_field_offsets,
+        colour="black",
+        spike_vmax=160,
+    )
+    evol = time_evolution(sac_data, dir_labels, kernel_var=45)
+
+    if 1:
+        save_fig(violins, "selectivity_violins")
+        save_fig(tree, "tree_tuning")
+        save_fig(scatter, "ds_scatter")
+        save_fig(rasters, "spike_rasters")
+        save_fig(evol, "spike_evolution")
+
+    plt.show()
