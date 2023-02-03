@@ -9,6 +9,7 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 import seaborn as sns
+import bottleneck as bn
 
 # general libraries
 import os  # make folders for file output
@@ -21,6 +22,10 @@ from hdf_utils import unpack_hdf
 from general_utils import clean_axes
 from ei_balance import Model
 
+
+def nearest_index(arr, v):
+    """Index of value closest to v in ndarray `arr`"""
+    return bn.nanargmin(np.abs(arr - v))
 
 def spike_transform(vm, kernel_sz, kernel_var, thresh=0):
     """Trying out a dead simple gaussian kernel transform to apply to Vm.
