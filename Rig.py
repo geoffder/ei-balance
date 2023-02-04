@@ -29,8 +29,13 @@ class Rig:
         self.soma_data = {"Vm": [], "area": [], "thresh_count": []}
 
         step = self.model.seg_step
-        self.recs = {"Vm": [], "iCa": [], "g": {t: [] for t in ["E", "I"]}}
-        self.dend_data = {"Vm": [], "iCa": [], "g": {t: [] for t in ["E", "I"]}}
+        self.recs = {"Vm": [], "iCa": [], "cai": [], "g": {t: [] for t in ["E", "I"]}}
+        self.dend_data = {
+            "Vm": [],
+            "iCa": [],
+            "cai": [],
+            "g": {t: [] for t in ["E", "I"]},
+        }
 
         for n, dend in enumerate(self.model.all_dends):
             for i in range(self.model.rec_per_sec):
@@ -39,6 +44,9 @@ class Rig:
 
                 self.recs["iCa"].append(h.Vector())
                 self.recs["iCa"][-1].record(dend(i * step)._ref_ica)
+
+                self.recs["cai"].append(h.Vector())
+                self.recs["cai"][-1].record(dend(i * step)._ref_cai)
 
         for n in range(self.model.n_syn):
             for t in self.recs["g"].keys():
@@ -51,7 +59,7 @@ class Rig:
         self.soma_data["area"].append(np.round(area, decimals=3))
         self.soma_data["thresh_count"].append(count)
 
-        for r in ["Vm", "iCa"]:
+        for r in ["Vm", "iCa", "cai"]:
             if self.model.downsample[r] < 1:
                 for rec in self.recs[r]:
                     rec.resample(rec, self.model.downsample[r])
@@ -68,7 +76,7 @@ class Rig:
     def clear_recordings(self):
         self.soma_rec.resize(0)
 
-        for r in ["Vm", "iCa"]:
+        for r in ["Vm", "iCa", "cai"]:
             for i in range(len(self.recs["Vm"])):
                 self.recs[r][i].resize(0)
 
@@ -181,7 +189,8 @@ class Rig:
         metrics = self.summary(n_trials, plot=plot_summary, quiet=quiet)
 
         all_data = {
-            "params": json.dumps(params),
+            # "params": json.dumps(params),
+            "params": params,
             "metrics": metrics,
             "soma": {
                 k: self.stack_trials(n_trials, n_dirs, v)
@@ -191,6 +200,7 @@ class Rig:
                 "locs": self.model.get_recording_locations(),
                 "Vm": self.stack_trials(n_trials, n_dirs, self.dend_data["Vm"]),
                 "iCa": self.stack_trials(n_trials, n_dirs, self.dend_data["iCa"]),
+                "cai": self.stack_trials(n_trials, n_dirs, self.dend_data["cai"]),
                 "g": {
                     k: self.stack_trials(n_trials, n_dirs, v)
                     for k, v in self.dend_data["g"].items()
@@ -428,7 +438,8 @@ class Rig:
                     netcon.weight = ps["weight"]
 
         all_data = {
-            "params": json.dumps(params),
+            "params": params,
+            # "params": json.dumps(params),
             "soma": {
                 k: self.stack_trials(n_trials, n_dirs, rec_data[k])
                 for k in conditions.keys()
@@ -485,7 +496,7 @@ class Rig:
         ypts = response * np.sin(dirs)
         xsum = np.sum(xpts)
         ysum = np.sum(ypts)
-        DSi = np.sqrt(xsum**2.0 + ysum**2.0) / np.sum(response)
+        DSi = np.sqrt(xsum**2.0 + ysum**2.0) / (np.sum(response) + 1e-6)
         theta = np.arctan2(ysum, xsum) * 180 / np.pi
 
         return DSi, theta

@@ -191,7 +191,7 @@ class Model:
         self.flash_variance = 400  # variance of flash release onset
         self.jitter = 60  # [ms] 10
 
-        self.dir_labels = [225, 270, 315, 0, 45, 90, 135, 180]
+        self.dir_labels = np.array([225, 270, 315, 0, 45, 90, 135, 180])
         self.dir_rads = np.radians(self.dir_labels)
         self.dirs = [135, 90, 45, 0, 45, 90, 135, 180]
         self.dir_inds = np.array(self.dir_labels).argsort()
@@ -225,9 +225,7 @@ class Model:
         self.sac_theta_mode = "PN"
 
         # recording stuff
-        self.downsample = {"Vm": 0.5, "iCa": 0.1, "g": 0.1}
-        self.manipSyns = [167, 152, 99, 100, 14, 93, 135, 157]  # big set
-        self.manipDends = [12, 165, 98, 94, 315, 0, 284, 167]  # big set
+        self.downsample = {"Vm": 0.5, "iCa": 0.1, "cai": 0.1, "g": 0.1}
         self.record_g = True
 
         self.seed = 0  # 10000#1
@@ -306,6 +304,7 @@ class Model:
 
         if self.active_soma:
             self.soma.insert("HHst")
+            self.soma.insert("cad")
             self.soma.gnabar_HHst = self.soma_Na
             self.soma.gkbar_HHst = self.soma_K
             self.soma.gkmbar_HHst = self.soma_Km
@@ -322,6 +321,7 @@ class Model:
         if self.active_terms:
             for dend in self.terminals:
                 dend.insert("HHst")
+                dend.insert("cad")
                 dend.gnabar_HHst = self.dend_Na
                 dend.gkbar_HHst = self.dend_K
                 dend.gkmbar_HHst = self.dend_Km
@@ -336,6 +336,7 @@ class Model:
             else:
                 for dend in self.non_terms:
                     dend.insert("HHst")
+                    dend.insert("cad")
                     dend.gnabar_HHst = 0
                     dend.gkbar_HHst = self.dend_K
                     dend.gkmbar_HHst = self.dend_Km
@@ -347,6 +348,7 @@ class Model:
                 if self.active_dend:
                     for dend in order:
                         dend.insert("HHst")
+                        dend.insert("cad")
                         dend.gnabar_HHst = self.dend_Na
                         dend.gkbar_HHst = self.dend_K
                         dend.gkmbar_HHst = self.dend_Km
@@ -360,6 +362,7 @@ class Model:
                 else:
                     for dend in order:
                         dend.insert("HHst")
+                        dend.insert("cad")
                         dend.gnabar_HHst = 0
                         dend.gkbar_HHst = self.dend_K
                         dend.gkmbar_HHst = self.dend_Km
@@ -370,6 +373,7 @@ class Model:
         for dend in self.order_list[0]:
             if self.active_dend:
                 dend.insert("HHst")
+                dend.insert("cad")
                 dend.gnabar_HHst = self.prime_Na
                 dend.gkbar_HHst = self.prime_K
                 dend.gkmbar_HHst = self.prime_Km

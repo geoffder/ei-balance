@@ -10,6 +10,7 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 import seaborn as sns
 import bottleneck as bn
+from skimage import io
 
 # general libraries
 import os  # make folders for file output
@@ -23,9 +24,20 @@ from general_utils import clean_axes
 from ei_balance import Model
 
 
+def get_dsgc_img():
+    img = np.flip(io.imread("assets/dsgc.png"), axis=0)
+    y_px, x_px, _ = img.shape
+    px_per_um = 2.55
+    x_off = 2 / px_per_um
+    y_off = 43 / px_per_um
+    extent = (x_off, x_off + x_px / px_per_um, y_off + y_px / px_per_um, y_off)
+    return img, extent
+
+
 def nearest_index(arr, v):
     """Index of value closest to v in ndarray `arr`"""
     return bn.nanargmin(np.abs(arr - v))
+
 
 def spike_transform(vm, kernel_sz, kernel_var, thresh=0):
     """Trying out a dead simple gaussian kernel transform to apply to Vm.
@@ -35,7 +47,7 @@ def spike_transform(vm, kernel_sz, kernel_var, thresh=0):
     """
     kernel = signal.gaussian(kernel_sz, kernel_var)
     og_shape = vm.shape
-    vm = vm.reshape(-1, vm.shape[-1])
+    vm = vm[:].reshape(-1, vm.shape[-1])
 
     spks, conv = np.zeros_like(vm), np.zeros_like(vm)
 
@@ -519,7 +531,7 @@ def sac_rho_violins(metrics, dir_labels, viol_inner="box", **plot_kwargs):
         k: v["spikes"].transpose().reshape(v["spikes"].shape[-1], -1)
         for k, v in metrics.items()
     }
-    idxs = [dir_labels.index(d) for d in [135, 180, 225]]
+    idxs = [np.argwhere(dir_labels == d)[0][0] for d in [135, 180, 225]]
 
     for a, idx in zip(ax[1:], idxs):
         spks = np.concatenate([r[idx] for r in dir_spks.values()])
@@ -839,7 +851,8 @@ def time_evolution(data, dirs, kernel_var=30, net_idx=None, **plot_kwargs):
     ymax = net_means.max()
     for col in axes:
         for ax in col[:-2]:
-            ax.set_ylim(0, ymax)
+            if ymax > 0:
+                ax.set_ylim(0, ymax)
         col[-1].set_xlim(time.min(), time.max())
         col[-1].set_xlabel("Time (ms)", size=14)
 
@@ -885,10 +898,8 @@ def get_sac_deltas(sac_thetas):
     Compare these to DSi/preferred theta of each synaptic site to gain insight
     into the importance of SAC dendrite alignment.
     NOTE: Includes nans, where there is no inhibitory input."""
-    deltas = {
-        r: np.vectorize(wrap_180)(thetas["E"] - thetas["I"])
-        for r, thetas in sac_thetas.items()
-    }
+    wrap = np.vectorize(wrap_180)
+    deltas = {r: wrap(thetas["E"] - thetas["I"]) for r, thetas in sac_thetas.items()}
     return deltas
 
 
@@ -1092,34 +1103,30 @@ def sac_angle_distribution(config, n_nets=100, bins=[8, 12, 16], **plot_kwargs):
 def plot_dends_overlay(
     fig,
     ax,
-    dsgc_img,
     syn_locs,
     bp_locs,
     probs,
     dirs,
     dsgc_alpha=0.35,
     sac_alpha=0.7,
-    x_off=-2,
-    y_off=-41,
-    px_per_um=2.55,
     stim_angle=None,
     n_syn=None,
     cmap="plasma",
 ):
     # flip y-axis of image to match it up with coordinate system
-    dsgc_img = np.flip(dsgc_img, axis=0)
+    dsgc_img, extent = get_dsgc_img()
 
     # offset whitespace and convert um locations to px
-    syn_xs = syn_locs[:, 0] * px_per_um + x_off
-    syn_ys = syn_locs[:, 1] * px_per_um + y_off
-    ach_xs = np.array(bp_locs["E"][:, 0]) * px_per_um + x_off
-    ach_ys = np.array(bp_locs["E"][:, 1]) * px_per_um + y_off
-    gaba_xs = np.array(bp_locs["I"][:, 0]) * px_per_um + x_off
-    gaba_ys = np.array(bp_locs["I"][:, 1]) * px_per_um + y_off
+    syn_xs = syn_locs[:, 0]
+    syn_ys = syn_locs[:, 1]
+    ach_xs = bp_locs["E"][:, 0]
+    ach_ys = bp_locs["E"][:, 1]
+    gaba_xs = bp_locs["I"][:, 0]
+    gaba_ys = bp_locs["I"][:, 1]
 
-    ax.imshow(dsgc_img, alpha=dsgc_alpha, cmap="gray")
-    ax.set_xlim(-70, 600)
-    ax.set_ylim(-70, 600)
+    ax.imshow(dsgc_img, extent=extent, alpha=dsgc_alpha, cmap="gray")
+    ax.set_xlim(-30, 230)
+    ax.set_ylim(-30, 260)
 
     idxs = np.random.choice(
         len(syn_xs), size=len(syn_xs) if n_syn is None else n_syn, replace=False

@@ -5,10 +5,17 @@ from matplotlib.widgets import TextBox, Slider
 
 
 class MotionResponse:
-    def __init__(self, net_data, delta=1, figsize=(5, 6)):
+    def __init__(
+        self,
+        net_data,
+        tree_k="Vm",
+        dsgc_alpha=0.35,
+        delta=1,
+        figsize=(5, 6),
+    ):
         self.delta = delta
         self.soma = net_data["soma"]["Vm"]
-        self.tree = net_data["dendrites"]["Vm"]
+        self.tree = net_data["dendrites"][tree_k]
         self.dirs = net_data["params"]["dir_labels"]
 
         self.n_trials = self.soma.shape[0]
@@ -17,9 +24,14 @@ class MotionResponse:
 
         self.build_fig(figsize)
 
+        dsgc_img, extent = ana.get_dsgc_img()
+        self.tree_ax.imshow(dsgc_img, alpha=dsgc_alpha, extent=extent, cmap="gray")
+        self.tree_ax.set_xlim(-30, 230)
+        self.tree_ax.set_ylim(-30, 260)
+
         self.rate_diff = self.soma_pts // self.tree_pts
         self.tree_t = 0
-
+        # locs = net_data["dendrites"]["locs"] * px_per_um + np.array([x_off, y_off])
         locs = net_data["dendrites"]["locs"]
         vmin, vmax = np.min(self.tree), np.max(self.tree)
         self.scat = self.tree_ax.scatter(
@@ -30,10 +42,8 @@ class MotionResponse:
         self.stim = self.tree_ax.plot(
             self.sweeps[0]["x"], self.sweeps[0]["y"], c="black", linewidth=3, alpha=0.5
         )[0]
-        self.tree_ax.set_xlim(-30, 230)
-        self.tree_ax.set_ylim(-30, 260)
 
-        self.time = np.linspace(
+        self.time: np.ndarray = np.linspace(
             0, self.soma_pts * net_data["params"]["dt"], self.soma_pts
         )
         self.line = self.soma_ax.plot(self.time, self.soma[0, 0])[0]

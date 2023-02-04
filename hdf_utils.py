@@ -1,3 +1,4 @@
+from locale import Error
 import numpy as np
 import h5py as h5
 from typing import Optional, Union, Any
@@ -94,15 +95,16 @@ def unpack_hdf(h5_group):
 class Workspace:
     _data: Union[dict, h5.File]
 
-    def __init__(self, path=None):
-        if path is None:
-            self.is_hdf = False
-            self._data = {}
-        else:
-            self.is_hdf = True
-            self._data = h5.File(path, mode="w")
+    def __init__(self, data: Union[dict, h5.File], read_only=False):
+        self.read_only = read_only
+        self._data = data
+        self.is_hdf = not (data is dict)
 
     def __setitem__(self, key, item):
+        if self.read_only:
+            raise ValueError("Workspace is read-only.")
+
+        key = pack_key(key) if self.is_hdf else key
         if self.is_hdf and key in self._data:
             try:
                 self._data[key][...] = item  # type:ignore
@@ -117,7 +119,16 @@ class Workspace:
             self._data[key] = item
 
     def __getitem__(self, key):
-        return self._data[key]
+        if self.is_hdf:
+            v = self._data[pack_key(key)]
+            if type(v) is h5.Group:
+                return Workspace(v, read_only=self.read_only)  # type:ignore
+            elif type(v) is h5.Dataset and v.shape == ():
+                return v[()]
+            else:
+                return v
+        else:
+            return self._data[key]
 
     def __repr__(self):
         return repr(self._data)
@@ -126,27 +137,42 @@ class Workspace:
         return len(self._data)
 
     def __delitem__(self, key):
+        if self.read_only:
+            raise ValueError("Workspace is read-only.")
+
+        key = pack_key(key) if self.is_hdf else key
         del self._data[key]
 
-    def __contains__(self, item):
-        return item in self._data
+    def __contains__(self, k):
+        k = pack_key(k) if self.is_hdf else k
+        return k in self._data
 
     def __iter__(self):
         return iter(self._data)
 
     def has_key(self, k):
+        k = pack_key(k) if self.is_hdf else k
         return k in self._data
 
     def keys(self):
-        return self._data.keys()
+        if self.is_hdf:
+            return map(unpack_key, self._data.keys())
+        else:
+            return self._data.keys()
 
     def values(self):
         return self._data.values()
 
     def items(self):
-        return self._data.items()
+        if self.is_hdf:
+            return map(lambda kv: (unpack_key(kv[0]), kv[1]), self._data.items())
+        else:
+            return self._data.items()
 
     def create_group(self, key):
+        if self.read_only:
+            raise ValueError("Workspace is read-only.")
+
         if self.is_hdf:
             if key in self._data:
                 del self._data[key]
