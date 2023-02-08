@@ -1,6 +1,7 @@
 # science/math libraries
 from typing import Tuple, Optional
 import numpy as np
+import bottleneck as bn
 from scipy import signal
 from scipy.stats import linregress
 import matplotlib.pyplot as plt
@@ -9,7 +10,6 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 import seaborn as sns
-import bottleneck as bn
 from skimage import io
 
 # general libraries
@@ -79,10 +79,10 @@ def calc_tuning(data, dirs, dir_ax=0):
     data = data.reshape(data.shape[0], -1)
     rads = np.radians(dirs).reshape(-1, 1)
 
-    xsums = np.multiply(data, np.cos(rads)).sum(axis=0)
-    ysums = np.multiply(data, np.sin(rads)).sum(axis=0)
+    xsums = bn.nansum(np.multiply(data, np.cos(rads)), axis=0)
+    ysums = bn.nansum(np.multiply(data, np.sin(rads)), axis=0)
     DSi = np.squeeze(
-        np.sqrt(xsums**2 + ysums**2) / (np.sum(data, axis=0) + 0.000001)
+        np.sqrt(xsums**2 + ysums**2) / (bn.nansum(data, axis=0) + 0.000001)
     )
     theta = np.squeeze(np.arctan2(ysums, xsums) * 180 / np.pi)
 
@@ -556,9 +556,9 @@ def dendritic_ds(tree_recs, dirs, pref=0, thresh=None, bin_pts=None):
     if thresh is not None:
         tree_recs = np.clip(tree_recs, thresh, None) - thresh
     else:
-        tree_recs = tree_recs - tree_recs.min()
+        tree_recs = tree_recs - bn.nanmin(tree_recs)
 
-    areas = np.sum(tree_recs, axis=3)
+    areas = bn.nansum(tree_recs, axis=3)
 
     # direction selective tuning for each recording location on tree
     DSis, thetas = calc_tuning(areas, dirs, dir_ax=1)
@@ -579,7 +579,7 @@ def analyze_tree(data, dirs, rec_key="Vm", pref=0, thresh=None, bin_pts=None):
         tuning[rho] = {}
         for i in nets.keys():
             tree_recs = data[rho][i]["dendrites"][rec_key]
-            avg_recs = np.mean(tree_recs, axis=0, keepdims=True)
+            avg_recs = np.expand_dims(bn.nanmean(tree_recs, axis=0), 0)
             tuning[rho][i] = {
                 "trials": dendritic_ds(
                     tree_recs, dirs, pref=pref, thresh=thresh, bin_pts=bin_pts

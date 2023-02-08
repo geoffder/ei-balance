@@ -53,8 +53,6 @@ class MotionResponse:
         self.soma_ax.set_xlim(self.time.min(), self.time.max())
         self.soma_ax.set_ylim(-70, 30)
 
-        self.build_trial_slide_ax()
-        self.build_dir_slide_ax()
         self.connect_events()
 
         self.update()

@@ -184,3 +184,5 @@ class Workspace:
     def close(self):
         if self.is_hdf:
             self._data.close()  # type:ignore
+        else:
+            print("Workspace is backed by a dict, nothing to close.")
