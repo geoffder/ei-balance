@@ -31,8 +31,8 @@ def pack_dataset(
 ):
     """Takes data organized in a python dict, and stores it in the given hdf5
     with the same structure. Keys are converted to strings to comply to hdf5
-    group naming convention. In `unpack_hdf`, if the key is all digits, it will
-    be converted back from string."""
+    group naming convention. In `unpack_hdf`, if the key is prefixed as a packed
+    number, it will be converted back from string."""
 
     def rec(data, grp):
         for k, v in data.items():
