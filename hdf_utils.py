@@ -1,4 +1,3 @@
-from locale import Error
 import numpy as np
 import h5py as h5
 from typing import Optional, Union, Any
