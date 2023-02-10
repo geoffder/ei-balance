@@ -96,11 +96,11 @@ class NrnObjref:
         self.name = name
         self.n = 1
         h("objref %s[%i]" % (name, n))
-        self.ref = h.__getattribute__(name) 
+        self.ref = h.__getattribute__(name)
 
     def __len__(self):
         return self.n
-    
+
     def __getitem__(self, i):
         return self.ref[i]
 
@@ -109,7 +109,7 @@ class NrnObjref:
 
     def __iter__(self):
         return iter(self.ref)
-    
+
     def set(self, obj, i=0):
         self.ref[i] = obj
 
@@ -275,20 +275,26 @@ def merge(old, new):
 
 def wrap_360(theta):
     """Wrap degrees from -180 -> 180 scale and super 360 to 0 -> 360 scale."""
-    theta %= 360
-    if theta < 0:
-        return theta + 360
-    else:
+    if np.isnan(theta):
         return theta
+    else:
+        theta = theta % 360
+        if theta < 0:
+            return theta + 360
+        else:
+            return theta
 
 
 def wrap_180(theta):
     """Wrap degrees from 360 scale (and super 180) to 0 -> 180 scale."""
-    theta %= 360
-    if theta > 180:
-        return 360 - theta
-    else:
+    if np.isnan(theta):
         return theta
+    else:
+        theta %= 360
+        if theta > 180:
+            return 360 - theta
+        else:
+            return theta
 
 
 def scale_180_from_360(theta):

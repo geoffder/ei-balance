@@ -164,6 +164,7 @@ class MotionResponse:
         self.scat.axes.figure.canvas.draw()
 
     def connect_events(self):
+        self.fig.canvas.capture_scroll = True
         self.fig.canvas.mpl_connect("scroll_event", self.on_scroll)
         self.trial_slider.on_changed(self.on_trial_slide)
         self.dir_slider.on_changed(self.on_dir_slide)
