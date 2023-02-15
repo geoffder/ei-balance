@@ -4,7 +4,7 @@ Functions returning parameter dictionaries for the DSGC balance model.
 
 
 def sac_mode_config(
-    ttx=False, leaky=False, high_kv=False, non_ds_ach=False, vc_mode=False
+        ttx=False, leaky=False, high_kv=False, non_ds_ach=False, offset_ampa_ach=False, vc_mode=False
 ):
     params = {
         # hoc settings
@@ -154,6 +154,14 @@ def sac_mode_config(
     if non_ds_ach:
         params["synprops"]["E"]["null_prob"] = 0.5
         params["synprops"]["E"]["pref_prob"] = 0.5
+
+    if offset_ampa_ach:
+        params["synprops"]["E"]["null_prob"] = 0.
+        params["synprops"]["E"]["pref_prob"] = 0.
+        params["synprops"]["AMPA"]["delay"] = -30.0
+        params["synprops"]["AMPA"]["pref_prob"] = 0.5
+        params["synprops"]["AMPA"]["null_prob"] = 0.5
+
 
     return params
 

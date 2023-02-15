@@ -666,6 +666,7 @@ def plot_tree_tuning(tuning_dict, net_idx, trial=None, dsi_size=True, dsi_mul=25
 
 def ds_scatter(tuning_dict, x_max=None, **plot_kwargs):
     fig, axes = plt.subplots(1, len(tuning_dict), sharey=True, **plot_kwargs)
+    axes = axes if len(tuning_dict) > 1 else [axes]
     dsi_max = 0.0
 
     # sort dict so rho increases left to right
@@ -706,8 +707,9 @@ def spike_rasters(
     """Plot spike-time raster for each direction, at each rho level. Spikes are
     pooled across trials, and also networks unless a net_idx is specified.
     Optionally, display binned tuning calculations beneath raster."""
-    dt = data[0.0][0]["params"]["dt"]
-    rec_sz = data[0.0][0]["soma"]["Vm"].shape[-1]
+    rhos = list(data.keys())
+    dt = data[rhos[0]][0]["params"]["dt"]
+    rec_sz = data[rhos[0]][0]["soma"]["Vm"].shape[-1]
     rel_dirs = [d if d <= 180 else d - 360 for d in dirs]
 
     data = data if rho is None else {rho: data[rho]}
@@ -808,13 +810,17 @@ def time_evolution(data, dirs, kernel_var=30, net_idx=None, **plot_kwargs):
     calculate theta and DSi for each moment in time. Display spike waveforms
     (aggregate mean with per network means) for each direction, with theta and
     DSi below."""
-    dt = data[0.00][0]["params"]["dt"]
-    rec_sz = data[0.00][0]["soma"]["Vm"].shape[-1]
+    rhos = list(data.keys())
+    dt = data[rhos[0]][0]["params"]["dt"]
+    rec_sz = data[rhos[0]][0]["soma"]["Vm"].shape[-1]
     time = np.linspace(0, rec_sz * dt, rec_sz)
 
     fig, axes = plt.subplots(10, len(data), sharex="col", sharey="row", **plot_kwargs)
     # unzip axes from rows in to column-major organization
-    axes = [[a[i] for a in axes] for i in range(len(data))]
+    if len(data) > 1:
+        axes = [[a[i] for a in axes] for i in range(len(data))]
+    else:
+        axes = [axes]
 
     # sort dict so rho increases left to right
     for (rho, nets), col in zip(sorted(data.items()), axes):
