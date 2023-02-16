@@ -3,10 +3,11 @@ import h5py as h5
 
 from copy import deepcopy
 import multiprocessing
+from functools import partial
 
 from ei_balance import Model
 from Rig import Rig
-from hdf_utils import pack_dataset
+from hdf_utils import pack_dataset, pack_key
 
 h.load_file("stdgui.hoc")  # headless, still sets up environment
 
@@ -58,6 +59,64 @@ def sacnet_run(
                 pack_dataset(pckg, data, compression=None)
                 del data, res[0]  # delete head
             idx = idx + n
+    print("Done!")
+
+
+def sacnet_gaba_titration_run(
+    save_path,
+    model_config,
+    n_nets=3,
+    n_trials=3,
+    rho_steps=[0.0, 1.0],
+    gaba_step=0.1,
+    n_gaba_steps=15,
+    pool_sz=8,
+    vc_mode=False,
+    vc_simul=True,
+):
+    global _sacnet_repeat  # required to allow pickling for Pool
+
+    def _sacnet_gaba_titration_repeat(factor, i):
+        params = deepcopy(model_config)
+        params["seed"] = i
+        params["synprops"]["I"]["weight"] = params["synprops"]["I"]["weight"] * factor
+        dsgc = Model(params)
+        runner = Rig(dsgc)
+
+        data = {}
+        for rho in rho_steps:
+            runner.model.nz_seed = 0
+            runner.model.build_sac_net(rho=rho)
+            if vc_mode:
+                data[rho] = runner.vc_dir_run(
+                    n_trials, simultaneous=vc_simul, save_name=None, quiet=True
+                )
+            else:
+                data[rho] = runner.dir_run(
+                    n_trials, save_name=None, plot_summary=False, quiet=True
+                )
+
+        return data
+
+    with multiprocessing.Pool(pool_sz) as pool, h5.File(save_path, "w") as pckg:
+        for s in range(1, n_gaba_steps + 1):
+            factor = s * gaba_step
+            print("Running with GABA scaled by factor of %.2f" % factor)
+            grp = pckg.create_group(pack_key(factor))
+            f = partial(_sacnet_gaba_titration_repeat, factor)
+            idx = 0
+            while idx < n_nets:
+                n = min(pool_sz, n_nets - idx)
+                print(
+                    "  sac net trials %i to %i (of %i)..." % (idx + 1, idx + n, n_nets),
+                    flush=True,
+                )
+                res = pool.map(f, [idx + i for i in range(n)])
+                for i in range(n):
+                    data = {r: {idx + i: res[0][r]} for r in res[0].keys()}
+                    pack_dataset(grp, data, compression=None)
+                    del data, res[0]  # delete head
+                idx = idx + n
     print("Done!")
 
 

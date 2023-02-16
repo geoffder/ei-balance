@@ -27,7 +27,9 @@ def unpack_key(k):
 
 
 def pack_dataset(
-    h5_file: h5.File, data_dict: dict[Any, Any], compression: Optional[str] = None
+    h5_file: Union[h5.File, h5.Group],
+    data_dict: dict[Any, Any],
+    compression: Optional[str] = None,
 ):
     """Takes data organized in a python dict, and stores it in the given hdf5
     with the same structure. Keys are converted to strings to comply to hdf5

@@ -1070,7 +1070,9 @@ def rough_gaba_coverage_scaling():
     plt.show()
 
 
-def sac_angle_distribution(config, n_nets=100, bins=[8, 12, 16], **plot_kwargs):
+def sac_angle_distribution(
+    config, n_nets=100, bins=[8, 12, 16], incl_yticks=False, **plot_kwargs
+):
     """Plot SAC dendrite angle distribution histograms, aggregating over a
     number of generated networks to get a more accurate estimate."""
     model = Model(config)
@@ -1097,8 +1099,11 @@ def sac_angle_distribution(config, n_nets=100, bins=[8, 12, 16], **plot_kwargs):
         axes[j].hist(iThetas, bins=binAx, color="m", alpha=0.5, label=lbl_i)
         if len(bins) > 1:
             axes[j].set_title("Bin Size: %.1f" % (360 / numBins))
+
         axes[j].set_xlabel("SAC Dendrite Angle", fontsize=12.0)
-        axes[j].set_yticks([])
+        axes[j].set_ylabel("Count", fontsize=12.0)
+        if not incl_yticks:
+            axes[j].set_yticks([])
 
     fig.legend(frameon=False, fontsize=14)
     clean_axes(axes, ticksize=12.0)
@@ -1114,10 +1119,13 @@ def plot_dends_overlay(
     probs,
     dirs,
     dsgc_alpha=0.35,
+    sac_marker_size=120,
+    sac_thickness=None,
     sac_alpha=0.7,
     stim_angle=None,
     n_syn=None,
     cmap="plasma",
+    syn_choice_seed=None,
 ):
     # flip y-axis of image to match it up with coordinate system
     dsgc_img, extent = get_dsgc_img()
@@ -1134,7 +1142,8 @@ def plot_dends_overlay(
     ax.set_xlim(-30, 230)
     ax.set_ylim(-30, 260)
 
-    idxs = np.random.choice(
+    rng = np.random.default_rng(syn_choice_seed)
+    idxs = rng.choice(
         len(syn_xs), size=len(syn_xs) if n_syn is None else n_syn, replace=False
     )
     for i in idxs:
@@ -1142,19 +1151,23 @@ def plot_dends_overlay(
             [syn_xs[i], ach_xs[i]],
             [syn_ys[i], ach_ys[i]],
             c="g",
+            linewidth=sac_thickness,
             alpha=sac_alpha,
         )
         ax.plot(
             [syn_xs[i], gaba_xs[i]],
             [syn_ys[i], gaba_ys[i]],
             c="m",
+            linewidth=sac_thickness,
             alpha=sac_alpha,
         )
         if stim_angle is not None:
             angle_idx = np.argwhere(dirs == np.array(stim_angle))[0][0]
             colors = [plt.get_cmap(cmap)(1.0 * i / 100) for i in range(100)]
             eClr = colors[int(probs["E"][i][angle_idx] / 0.01)]
-            scat = ax.scatter(ach_xs[i], ach_ys[i], c=[eClr], s=120, alpha=sac_alpha)
+            scat = ax.scatter(
+                ach_xs[i], ach_ys[i], c=[eClr], s=sac_marker_size, alpha=sac_alpha
+            )
 
             if not np.isnan(gaba_xs[i]):
                 iClr = colors[int(probs["I"][i][angle_idx] / 0.01)]
@@ -1163,18 +1176,18 @@ def plot_dends_overlay(
                     gaba_ys[i],
                     marker="v",
                     c=[iClr],
-                    s=120,
+                    s=sac_marker_size,
                     alpha=sac_alpha,
                 )
 
         else:
-            ax.scatter(ach_xs[i], ach_ys[i], c="g", s=120, alpha=sac_alpha)
+            ax.scatter(ach_xs[i], ach_ys[i], c="g", s=sac_marker_size, alpha=sac_alpha)
             ax.scatter(
                 gaba_xs[i],
                 gaba_ys[i],
                 marker="v",
                 c="m",
-                s=120,
+                s=sac_marker_size,
                 alpha=sac_alpha,
             )
 
@@ -1189,8 +1202,8 @@ def plot_dends_overlay(
         cbar.ax.tick_params(labelsize=12.0)
         cbar.set_label("Release Probability", fontsize=12)
 
-    ach_circ = ax.scatter([], [], c="g", s=120)
-    gaba_tri = ax.scatter([], [], c="m", marker="v", s=120)
+    ach_circ = ax.scatter([], [], c="g", s=sac_marker_size)
+    gaba_tri = ax.scatter([], [], c="m", marker="v", s=sac_marker_size)
     ax.legend(
         [ach_circ, gaba_tri],
         ["ACh", "GABA"],
