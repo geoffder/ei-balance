@@ -68,13 +68,12 @@ def sacnet_gaba_titration_run(
     n_nets=3,
     n_trials=3,
     rho_steps=[0.0, 1.0],
-    gaba_step=0.1,
-    n_gaba_steps=15,
+    gaba_steps=[round(s * 0.1, 2) for s in range(1, 16)],
     pool_sz=8,
     vc_mode=False,
     vc_simul=True,
 ):
-    global _sacnet_repeat  # required to allow pickling for Pool
+    global _sacnet_gaba_titration_repeat  # required to allow pickling for Pool
 
     def _sacnet_gaba_titration_repeat(factor, i):
         params = deepcopy(model_config)
@@ -99,8 +98,7 @@ def sacnet_gaba_titration_run(
         return data
 
     with multiprocessing.Pool(pool_sz) as pool, h5.File(save_path, "w") as pckg:
-        for s in range(1, n_gaba_steps + 1):
-            factor = s * gaba_step
+        for factor in gaba_steps:
             print("Running with GABA scaled by factor of %.2f" % factor)
             grp = pckg.create_group(pack_key(factor))
             f = partial(_sacnet_gaba_titration_repeat, factor)

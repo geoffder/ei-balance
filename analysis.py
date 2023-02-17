@@ -374,7 +374,8 @@ def polar_plot(
     dirs,
     radius=None,
     net_shadows=False,
-    title="",
+    title=None,
+    title_metrics=True,
     save=False,
     save_pth="",
     save_ext="png",
@@ -398,6 +399,9 @@ def polar_plot(
 
     if fig is None:
         fig = plt.figure(figsize=(5, 6))
+        new_fig = True
+    else:
+        new_fig = False
 
     ax = fig.add_subplot(sub_loc, projection="polar")
 
@@ -419,22 +423,26 @@ def polar_plot(
     ax.plot([avg_theta, avg_theta], [0.0, avg_DSi * peak], color=".0", linewidth=2)
 
     # misc settings
-    if radius is None:
-        ax.set_rmax(peak)
-    else:
-        ax.set_rmax(radius)
+    radius = peak if radius is None else radius
+    ax.set_rmax(radius)
     ax.set_rticks([peak])
     ax.set_rlabel_position(45)
     ax.set_thetagrids([0, 90, 180, 270])
     ax.set_xticklabels([])
     ax.tick_params(labelsize=15)
-    sub = "DSi = %.2f :: θ = %.2f\n  σ = %.2f :: σ = %.2f" % (
-        avg_DSi,
-        np.degrees(avg_theta),
-        np.std(DSis),
-        np.std(np.vectorize(scale_180_from_360)(np.degrees(thetas - avg_theta))),
-    )
-    ax.set_title("%s\n%s" % (title, sub), size=15)
+    if title_metrics:
+        sub = "DSi = %.2f :: θ = %.2f\n  σ = %.2f :: σ = %.2f" % (
+            avg_DSi,
+            np.degrees(avg_theta),
+            np.std(DSis),
+            np.std(np.vectorize(scale_180_from_360)(np.degrees(thetas - avg_theta))),
+        )
+        title = sub if title is None else "%s\n%s" % (title, sub)
+    else:
+        ax.text(np.radians(15), radius * 1.05, "DSi\n%.2f" % avg_DSi, fontsize=13)
+
+    if title is not None:
+        ax.set_title(title, size=15)
 
     if save:
         fig.savefig(
@@ -442,7 +450,10 @@ def polar_plot(
             bbox_inches="tight",
         )
 
-    return fig
+    if new_fig:
+        return fig, ax
+    else:
+        return ax
 
 
 def load_sac_rho_data(pth, prefix="sac_rho"):
