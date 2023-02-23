@@ -226,7 +226,7 @@ class Model:
 
         # recording stuff
         self.downsample = {"Vm": 0.5, "iCa": 0.1, "cai": 0.1, "g": 0.1}
-        self.record_g = True
+        self.record_tree = True
 
         self.seed = 0  # 10000#1
         self.nz_seed = 0  # 10000

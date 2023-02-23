@@ -4,7 +4,7 @@ Functions returning parameter dictionaries for the DSGC balance model.
 
 
 def sac_mode_config(
-        ttx=False, leaky=False, high_kv=False, non_ds_ach=False, offset_ampa_ach=False, vc_mode=False
+        ttx=False, leaky=False, high_kv=False, non_ds_ach=False, offset_ampa_ach=False, vc_mode=False, record_tree=True,
 ):
     params = {
         # hoc settings
@@ -88,6 +88,7 @@ def sac_mode_config(
         "sac_gaba_coverage": 0.5,
         "sac_offset": 30,
         "sac_theta_mode": "PN",
+        "record_tree": record_tree,
     }
 
     # PN theta mode, uniform inner + outer

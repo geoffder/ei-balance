@@ -380,7 +380,7 @@ def polar_plot(
     save_pth="",
     save_ext="png",
     fig: Optional[FigureBase] = None,
-    sub_loc=111,
+    sub_loc=(1, 1, 1),
 ):
     # re-sort directions and make circular for polar axes
     circ_vals = metrics["spikes"].transpose(2, 0, 1)[np.array(dirs).argsort()]
@@ -403,7 +403,7 @@ def polar_plot(
     else:
         new_fig = False
 
-    ax = fig.add_subplot(sub_loc, projection="polar")
+    ax = fig.add_subplot(*sub_loc, projection="polar")
 
     # plot trials lighter
     if net_shadows:
