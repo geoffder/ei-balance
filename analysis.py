@@ -381,6 +381,9 @@ def polar_plot(
     save_ext="png",
     fig: Optional[FigureBase] = None,
     sub_loc=(1, 1, 1),
+    dsi_tag_deg=-15.0,
+    dsi_tag_mult=1.05,
+    dsi_tag_fmt="DSi\n%.2f",
 ):
     # re-sort directions and make circular for polar axes
     circ_vals = metrics["spikes"].transpose(2, 0, 1)[np.array(dirs).argsort()]
@@ -439,7 +442,7 @@ def polar_plot(
         )
         title = sub if title is None else "%s\n%s" % (title, sub)
     else:
-        ax.text(np.radians(15), radius * 1.05, "DSi\n%.2f" % avg_DSi, fontsize=13)
+        ax.text(np.radians(dsi_tag_deg), radius * dsi_tag_mult, dsi_tag_fmt % avg_DSi, fontsize=13)
 
     if title is not None:
         ax.set_title(title, size=15)
