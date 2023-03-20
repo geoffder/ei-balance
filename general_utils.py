@@ -19,7 +19,7 @@ def clean_axes(axes, remove_spines=["right", "top"], ticksize=11.0):
     iterable of axes (e.g. from plt.subplots()), apply recursively."""
     if hasattr(axes, "__iter__"):
         for a in axes:
-            clean_axes(a, remove_spines=remove_spines)
+            clean_axes(a, remove_spines=remove_spines, ticksize=ticksize)
     else:
         for r in remove_spines:
             axes.spines[r].set_visible(False)
