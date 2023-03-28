@@ -4,7 +4,14 @@ Functions returning parameter dictionaries for the DSGC balance model.
 
 
 def sac_mode_config(
-        ttx=False, leaky=False, high_kv=False, non_ds_ach=False, offset_ampa_ach=False, vc_mode=False, record_tree=True,
+    ttx=False,
+    leaky=False,
+    high_kv=False,
+    non_ds_ach=False,
+    offset_ampa_ach=False,
+    vc_mode=False,
+    record_tree=True,
+    plexus=0,
 ):
     params = {
         # hoc settings
@@ -70,6 +77,19 @@ def sac_mode_config(
                 "tau1": 0.1,
                 "tau2": 4,
             },
+            "PLEX": {
+                "tau1": 0.1,  # excitatory conductance rise tau [ms]
+                "tau2": 4,  # excitatory conductance decay tau [ms]
+                "rev": 0,  # excitatory reversal potential [mV]
+                "weight": 0.00025,  # weight of exc NetCons [uS] .00023
+                "prob": 0.5,  # probability of release
+                "null_prob": 0.5,  # probability of release
+                "pref_prob": 0.5,  # probability of release
+                "delay": 0,  # [ms] mean temporal offset
+                "null_offset": 0,  # [um] hard space offset on null side
+                "pref_offset": 0,  # [um] hard space offset on pref side
+                "var": 10,  # [ms] temporal variance of onset
+            },
         },
         # quanta
         "max_quanta": 3,  # 3,
@@ -89,6 +109,7 @@ def sac_mode_config(
         "sac_offset": 30,
         "sac_theta_mode": "PN",
         "record_tree": record_tree,
+        "n_plexus_ach": 0,
     }
 
     # PN theta mode, uniform inner + outer
@@ -157,12 +178,18 @@ def sac_mode_config(
         params["synprops"]["E"]["pref_prob"] = 0.5
 
     if offset_ampa_ach:
-        params["synprops"]["E"]["null_prob"] = 0.
-        params["synprops"]["E"]["pref_prob"] = 0.
+        params["synprops"]["E"]["null_prob"] = 0.0
+        params["synprops"]["E"]["pref_prob"] = 0.0
         params["synprops"]["AMPA"]["delay"] = -30.0
         params["synprops"]["AMPA"]["pref_prob"] = 0.5
         params["synprops"]["AMPA"]["null_prob"] = 0.5
 
+    if plexus > 0:
+        params["n_plexus_ach"] = plexus
+        params["synprops"]["PLEX"]["weight"] = (
+            params["synprops"]["E"]["weight"] * 0.5 / plexus
+        )
+        params["synprops"]["E"]["weight"] *= 0.5
 
     return params
 

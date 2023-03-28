@@ -1,3 +1,4 @@
+from copy import deepcopy
 from neuron import h
 
 # science/math libraries
@@ -23,6 +24,7 @@ class Model:
         self.set_default_params()
         if params is not None:
             self.update_params(params)
+
         self.set_hoc_params()
         self.np_rng = np.random.default_rng(self.seed)
 
@@ -37,8 +39,14 @@ class Model:
 
         if self.sac_mode:
             self.build_sac_net()
+            if self.n_plexus_ach > 0 and "PLEX" not in self.synprops:
+                self.synprops["PLEX"] = deepcopy(self.synprops["E"])
+            elif self.n_plexus_ach <= 0:
+                del self.synprops["PLEX"]
         else:
             self.sac_net = None
+            if "PLEX" in self.synprops:
+                del self.synprops["PLEX"]
 
     def set_default_params(self):
         # hoc environment parameters
@@ -173,6 +181,19 @@ class Model:
                 "Voff": 0,  # 1 -> voltage independent
                 "Vset": -30,  # set voltage when independent
             },
+            "PLEX": {
+                "tau1": 0.1,  # excitatory conductance rise tau [ms]
+                "tau2": 4,  # excitatory conductance decay tau [ms]
+                "rev": 0,  # excitatory reversal potential [mV]
+                "weight": 0.00025,  # weight of exc NetCons [uS] .00023
+                "prob": 0.5,  # probability of release
+                "null_prob": 0.5,  # probability of release
+                "pref_prob": 0.5,  # probability of release
+                "delay": 0,  # [ms] mean temporal offset
+                "null_offset": 0,  # [um] hard space offset on null side
+                "pref_offset": 0,  # [um] hard space offset on pref side
+                "var": 10,  # [ms] temporal variance of onset
+            },
         }
 
         # light stimulus
@@ -223,6 +244,7 @@ class Model:
         self.sac_theta_vars = {"E": 60, "I": 60}
         self.sac_gaba_coverage = 0.5
         self.sac_theta_mode = "PN"
+        self.n_plexus_ach = 0
 
         # recording stuff
         self.downsample = {"Vm": 0.5, "iCa": 0.1, "cai": 0.1, "g": 0.1}
@@ -458,6 +480,8 @@ class Model:
                 )
 
             for trans, props in self.synprops.items():
+                if trans == "PLEX":
+                    continue
                 if trans == "NMDA":
                     self.syns[trans]["syn"].append(h.Exp2NMDA(0.5))
                     # NMDA voltage settings
@@ -508,6 +532,7 @@ class Model:
                 for d in self.dir_labels
             ]
             for trans, p in self.synprops.items()
+            if trans != "PLEX"
         }
 
     def build_sac_net(self, rho=None):
@@ -532,8 +557,10 @@ class Model:
             self.sac_gaba_coverage,
             self.dir_labels,
             self.np_rng,
-            self.sac_offset,
-            self.sac_theta_mode,
+            offset=self.sac_offset,
+            theta_mode=self.sac_theta_mode,
+            cell_pref=0,
+            n_plexus_ach=self.n_plexus_ach,
         )
 
     def flash_onsets(self):
@@ -591,7 +618,7 @@ class Model:
 
         # distance to synapse divided by speed
         for t in self.synprops.keys():
-            if t in ["E", "I"] and self.sac_net is not None:
+            if t in ["E", "I", "PLEX"] and self.sac_net is not None:
                 sac_loc = self.sac_net.get_syn_loc(t, syn, r)
                 on_times[t] = (
                     bar["start_time"]
@@ -615,10 +642,6 @@ class Model:
         sac = self.sac_net
 
         time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
-
-        # store timings for return (fine to ignore return)
-        onset_times = {trans: [] for trans in ["E", "I", "AMPA", "NMDA"]}
-
         rand_on = {trans: 0.0 for trans in ["E", "I", "AMPA", "NMDA"]}
 
         for s in range(self.n_syn):
@@ -635,7 +658,7 @@ class Model:
 
             for t in self.synprops.keys():
                 rand_on[t] = self.np_rng.normal(loc=0.0, scale=1.0)
-                onset_times[t].append(rand_on[t])
+                # onset_times[t].append(rand_on[t])
 
             rand_on["E"] = rand_on["I"] * syn_rho + (
                 rand_on["E"] * np.sqrt(1 - syn_rho**2)
@@ -643,18 +666,26 @@ class Model:
 
             successes = self.get_failures(s, stim)
             for t, props in self.synprops.items():
-                q_delay = 0.0
-                for success in successes[t]:
-                    if success:
-                        self.syns[t]["con"][s].add_event(
-                            bar_times[t] + q_delay + rand_on[t] * props["var"]
+                times = bar_times[t] if t == "PLEX" else [bar_times[t]]
+                succs = successes[t] if t == "PLEX" else [successes[t]]
+                rons = (
+                    [rand_on[t]]
+                    if t != "PLEX"
+                    else self.np_rng.normal(loc=0.0, scale=1.0, size=sac.n_plexus_ach)
+                )
+                for tm, ss, rn in zip(times, succs, rons):
+                    q_delay = 0.0
+                    for success in ss:
+                        if success:
+                            self.syns[t if t != "PLEX" else "E"]["con"][s].add_event(
+                                tm + q_delay + rn * props["var"]
+                            )
+                        # add variable delay til next quanta
+                        q_delay += self.np_rng.normal(
+                            self.quanta_inter, self.quanta_inter_var
                         )
-                    # add variable delay til next quanta
-                    q_delay += self.np_rng.normal(
-                        self.quanta_inter, self.quanta_inter_var
-                    )
 
-        return onset_times
+        # return onset_times
 
     def get_failures(self, idx, stim):
         """
@@ -675,7 +706,10 @@ class Model:
         rho = 1.0461 - 0.93514 * np.exp(-3.0506 * rho)
 
         picks = {
-            t: self.np_rng.normal(loc=0.0, scale=1.0) for t in self.synprops.keys()
+            t: self.np_rng.normal(
+                loc=0.0, scale=1.0, size=(None if t != "PLEX" else sac.n_plexus_ach)
+            )
+            for t in self.synprops.keys()
         }
 
         # correlate synaptic variance of ACH with GABA
@@ -693,7 +727,7 @@ class Model:
         for t, props in self.synprops.items():
             if stim["type"] == "flash":
                 probs[t] = props["prob"]
-            elif sac is not None and t in ["E", "I"]:
+            elif sac is not None and t in ["E", "I", "PLEX"]:
                 probs[t] = sac.probs[t][idx, stim["dir"]]
             else:
                 # calculate probability of release
@@ -713,10 +747,16 @@ class Model:
             q_probs = np.array(
                 [probs[t] * (self.quanta_Pr_decay**q) for q in range(self.max_quanta)]
             )
+            q_probs = q_probs.T if t == "PLEX" else q_probs  # quanta to last dimension
             left = st.norm.ppf((1 - q_probs) / 2.0) * sdevs[t]
             right = st.norm.ppf(1 - (1 - q_probs) / 2.0) * sdevs[t]
             # an array of success boolean with length max quanta
-            successes[t] = (left < picks[t]) * (picks[t] < right)
+            if t != "PLEX":
+                successes[t] = (left < picks[t]) * (picks[t] < right)
+            else:
+                successes[t] = (left < picks[t].reshape(-1, 1)) * (
+                    picks[t].reshape(-1, 1) < right
+                )
 
         return successes
 

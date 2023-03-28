@@ -27,6 +27,7 @@ class SacNetwork:
         offset=30,
         theta_mode="PN",
         cell_pref=0,
+        n_plexus_ach=0,
     ):
         self.syn_locs = syn_locs  # xy coord ndarray of shape (N, 2)
         self.dir_pr = dir_pr  # {"E": {"null": _, "pref": _} ...}
@@ -40,6 +41,17 @@ class SacNetwork:
         self.np_rng = np_rng
         self.theta_mode = theta_mode  # TODO: Make a theta param dict...
         self.cell_pref = cell_pref
+        self.n_plexus_ach = n_plexus_ach
+        if self.theta_mode == "PN":
+            self.theta_picker = self.theta_picker_PN
+        elif self.theta_mode == "cardinal":
+            self.theta_picker = self.theta_picker_cardinal
+        elif self.theta_mode == "uniform":
+            self.theta_picker = self.theta_picker_uniform
+        elif self.theta_mode == "uniform_post":
+            self.theta_picker = self.theta_picker_uniform_post
+        else:
+            raise Exception("Invalid theta_mode.")
 
         self.build()
 
@@ -52,55 +64,52 @@ class SacNetwork:
         }
         self.probs = {"E": [], "I": []}  # shapes: (numSyns, dirs)
 
+        ach_pref, ach_null = self.dir_pr["E"]["pref"], self.dir_pr["E"]["null"]
+        if self.n_plexus_ach > 0:
+            self.thetas["PLEX"] = []  # shape: (n_syns, n_plex)
+            self.bp_locs["PLEX"] = np.zeros((len(self.syn_locs), self.n_plexus_ach, 2))
+            self.probs["PLEX"] = []  # shape: (n_syns, n_dirs, n_plex)
+
         # generator for picking determining GABA presence and dendritic angles
 
         for i, (syn_x, syn_y) in enumerate(self.syn_locs):
             # determine gaba presence and select thetas (append to lists)
-            if self.theta_mode == "PN":
-                self.theta_picker_PN()
-            elif self.theta_mode == "cardinal":
-                self.theta_picker_cardinal()
-            elif self.theta_mode == "uniform":
-                self.theta_picker_uniform()
-            elif self.theta_mode == "uniform_post":
-                self.theta_picker_uniform_post()
-            else:
-                raise Exception("Invalid theta_mode.")
+            e_theta, has_gaba, i_theta = self.theta_picker()
+            self.thetas["E"].append(e_theta)
+            self.thetas["I"].append(i_theta)
+            self.gaba_here.append(has_gaba)
 
             for t in ["E", "I"]:
                 # Coordinates of current SAC dendrites INPUT location that
                 # governs stimulus offset of the output on to the DSGC.
-                self.bp_locs[t][i][0] = syn_x - self.offset * np.cos(
-                    np.deg2rad(self.thetas[t][-1])
-                )
-                self.bp_locs[t][i][1] = syn_y - self.offset * np.sin(
-                    np.deg2rad(self.thetas[t][-1])
-                )
+                self.bp_locs[t][i] = self.locate_bp(syn_x, syn_y, self.thetas[t][-1])
 
                 # Probabilities of release based on similarity of dendrite
                 # angle with direction of stimulus.
-                prs = []
                 pref, null = self.dir_pr[t]["pref"], self.dir_pr[t]["null"]
-                for d in self.dir_labels:
-                    prs.append(np.abs(self.thetas[t][-1] - d))
-                    prs[-1] = np.abs(prs[-1] - 360) if prs[-1] > 180 else prs[-1]
-                    # prs[-1] = pref + (null - pref) * (
-                    #     1 - 0.98 / (1 + np.exp((prs[-1] - 91) / 25))
-                    # )
-                    # NOTE: smoother fall. TESTING
-                    # prs[-1] = pref + (null - pref) * (
-                    #     1 - 1 / (1 + np.exp((prs[-1] - 90) * 0.75))
-                    # )
-                    prs[-1] = pref + (null - pref) * (
-                        1 - 1 / (1 + np.exp((prs[-1] - 90) * 0.05))
-                    )
+                self.probs[t].append(self.compute_probs(pref, null, self.thetas[t][-1]))
 
-                self.probs[t].append(prs)
+            if self.n_plexus_ach > 0:
+                thetas = [
+                    self.np_rng.uniform() * 360.0 for _ in range(self.n_plexus_ach)
+                ]
+                self.bp_locs["PLEX"][i] = np.array(
+                    [self.locate_bp(syn_x, syn_y, theta) for theta in thetas]
+                )
+                self.probs["PLEX"].append(
+                    np.array(
+                        [
+                            self.compute_probs(ach_pref, ach_null, theta)
+                            for theta in thetas
+                        ]
+                    ).T
+                )
+                self.thetas["PLEX"].append(thetas)
 
         self.origin = self.find_origin()
         self.gaba_here = np.array(self.gaba_here)
 
-        for t in ["E", "I"]:
+        for t in self.thetas.keys():
             self.probs[t] = np.nan_to_num(self.probs[t])
             self.thetas[t] = np.array(self.thetas[t])
 
@@ -109,7 +118,7 @@ class SacNetwork:
 
     def theta_picker_PN(self):
         # determine whether there is GABA present at this synapse
-        self.gaba_here.append(self.np_rng.uniform(0, 1) < self.gaba_coverage)
+        gaba_here = self.np_rng.uniform(0, 1) < self.gaba_coverage
 
         # inner portion of "two-stage" randomness
         if self.uniform_dist[0]:
@@ -118,19 +127,13 @@ class SacNetwork:
             shared = self.np_rng.normal(0, 1) * self.shared_var
 
         # pseudo-random numbers for angle determination (outer portion)
-        pick = self.get_outer_picks(self.gaba_here[-1])
+        pick = self.get_outer_picks(gaba_here)
+        base = 180 if gaba_here else 0
+        theta = lambda t: wrap_360(
+            pick[t] * self.theta_vars[t] + shared + base + self.cell_pref
+        )
 
-        for t in ["E", "I"]:
-            if t == "I" and not self.gaba_here[-1]:
-                self.thetas["I"].append(np.NaN)
-                continue
-
-            base = 180 if self.gaba_here[-1] else 0
-            theta = wrap_360(
-                pick[t] * self.theta_vars[t] + shared + base + self.cell_pref
-            )
-
-            self.thetas[t].append(theta)
+        return theta("E"), gaba_here, (theta("I") if gaba_here else np.NaN)
 
     def theta_picker_cardinal(self):
         base = (self.np_rng.uniform(0, 1) // 0.25) * 90
@@ -142,35 +145,18 @@ class SacNetwork:
         else:
             gaba_prob = 2 * self.gaba_coverage * 0
 
-        self.gaba_here.append(self.np_rng.uniform(0, 1) < gaba_prob)
-
         # pseudo-random numbers for angle determination (outer portion)
-        pick = self.get_outer_picks(self.gaba_here[-1])
+        gaba_here = self.np_rng.uniform(0, 1) < gaba_prob
+        pick = self.get_outer_picks(gaba_here)
+        theta = lambda t: wrap_360(pick[t] * self.theta_vars[t] + base)
 
-        for t in ["E", "I"]:
-            if t == "I" and not self.gaba_here[-1]:
-                self.thetas["I"].append(np.NaN)
-                continue
-
-            theta = wrap_360(pick[t] * self.theta_vars[t] + base)
-
-            self.thetas[t].append(theta)
+        return theta("E"), gaba_here, (theta("I") if gaba_here else np.NaN)
 
     def theta_picker_uniform(self):
         p = 0
         n = 1
         base = self.np_rng.uniform(-180, 180)
-        gaba_prob = p + (n - p) * (
-            # 1 - 0.98 / (1 + np.exp(np.abs(base) - 91) / 25))
-            # 1
-            # - 0.98 / (1 + np.exp(np.abs(base) - 96) / 25)
-            1
-            - 1 / (1 + np.exp(np.abs(base) - 96) / 25)
-            # NOTE: see how big a diff this makes. (0.98 vs 1)
-            # It does make the histogram sharper due to fewer dends in the 0 bin
-        )
-        # NOTE: smoother fall. TESTING
-        # gaba_prob = p + (n - p) * (1 - 1 / (1 + np.exp((np.abs(base) - 90) * 0.05)))
+        gaba_prob = p + (n - p) * (1 - 1 / (1 + np.exp(np.abs(base) - 96) / 25))
 
         pt = 0.45
         m0 = 2
@@ -181,18 +167,11 @@ class SacNetwork:
             g = self.gaba_coverage * m0
 
         gaba_prob *= g
-        self.gaba_here.append(self.np_rng.uniform(0, 1) < gaba_prob)
+        gaba_here = self.np_rng.uniform(0, 1) < gaba_prob
+        pick = self.get_outer_picks(gaba_here)
+        theta = lambda t: wrap_360(pick[t] * self.theta_vars[t] + base + self.cell_pref)
 
-        pick = self.get_outer_picks(self.gaba_here[-1])
-
-        for t in ["E", "I"]:
-            if t == "I" and not self.gaba_here[-1]:
-                self.thetas["I"].append(np.NaN)
-                continue
-
-            theta = wrap_360(pick[t] * self.theta_vars[t] + base + self.cell_pref)
-
-            self.thetas[t].append(theta)
+        return theta("E"), gaba_here, (theta("I") if gaba_here else np.NaN)
 
     def theta_picker_uniform_post(self):
         p = 0.05
@@ -202,19 +181,15 @@ class SacNetwork:
         # pseudo-random numbers for angle determination (outer portion)
         pick = self.get_outer_picks(True)
 
-        for t in ["E", "I"]:
-            theta = wrap_360(pick[t] * self.theta_vars[t] + base + self.cell_pref)
+        e_theta = wrap_360(pick["E"] * self.theta_vars["E"] + base + self.cell_pref)
+        i_theta = wrap_360(pick["I"] * self.theta_vars["I"] + base + self.cell_pref)
 
-            if t == "I":
-                d = np.abs(theta - (theta // 180) * 360)
-                gaba_prob = p + (n - p) * (1 - 0.98 / (1 + np.exp(d - 120) / 25))
-                gaba_prob *= 2 * self.gaba_coverage  # NOTE: Approximate, fix if used...
-                self.gaba_here.append(self.np_rng.uniform(0, 1) < gaba_prob)
-                if not self.gaba_here[-1]:
-                    self.thetas["I"].append(np.NaN)
-                    continue
+        d = np.abs(i_theta - (i_theta // 180) * 360)
+        gaba_prob = p + (n - p) * (1 - 0.98 / (1 + np.exp(d - 120) / 25))
+        gaba_prob *= 2 * self.gaba_coverage  # NOTE: Approximate, fix if used...
+        gaba_here = self.np_rng.uniform(0, 1) < gaba_prob
 
-            self.thetas[t].append(theta)
+        return e_theta, gaba_here, (i_theta if gaba_here else np.NaN)
 
     def get_outer_picks(self, correlate):
         pick = {}
@@ -243,13 +218,29 @@ class SacNetwork:
 
         return (left_x + (right_x - left_x) / 2, bot_y + (top_y - bot_y) / 2)
 
-    def get_syn_loc(self, trans, num, rotation):
-        x, y = rotate(
-            self.origin,
-            self.bp_locs[trans][num, 0],
-            self.bp_locs[trans][num, 1],
-            rotation,
+    def locate_bp(self, syn_x, syn_y, theta):
+        return np.array(
+            [
+                syn_x - self.offset * np.cos(np.deg2rad(theta)),
+                syn_y - self.offset * np.sin(np.deg2rad(theta)),
+            ]
         )
+
+    def compute_probs(self, pref, null, theta):
+        probs = []
+        for d in self.dir_labels:
+            pr = np.abs(theta - d)
+            pr = np.abs(pr - 360) if pr > 180 else pr
+            pr = pref + (null - pref) * (1 - 1 / (1 + np.exp((pr - 90) * 0.05)))
+            probs.append(pr)
+        return probs
+
+    def get_syn_loc(self, trans, num, rotation):
+        if trans != "PLEX":
+            x, y = self.bp_locs[trans][num, 0], self.bp_locs[trans][num, 1]
+        else:
+            x, y = self.bp_locs[trans][num, :, 0], self.bp_locs[trans][num, :, 1]
+        x, y = rotate(self.origin, x, y, rotation)
         return {"x": x, "y": y}
 
     def plot_dends(self, stim_angle=None, separate=False, cmap="jet"):
