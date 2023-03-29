@@ -12,6 +12,7 @@ def sac_mode_config(
     vc_mode=False,
     record_tree=True,
     plexus=0,
+    plexus_share=None,
 ):
     params = {
         # hoc settings
@@ -185,11 +186,17 @@ def sac_mode_config(
         params["synprops"]["AMPA"]["null_prob"] = 0.5
 
     if plexus > 0:
+        w = params["synprops"]["E"]["weight"]
+        if plexus_share is not None:
+            plex_w = w * plexus_share / plexus
+            syn_w = w * (1.0 - plexus_share)
+        else:
+            plex_w = w / (plexus + 1)
+            syn_w = plex_w
+
         params["n_plexus_ach"] = plexus
-        params["synprops"]["PLEX"]["weight"] = (
-            params["synprops"]["E"]["weight"] * 0.5 / plexus
-        )
-        params["synprops"]["E"]["weight"] *= 0.5
+        params["synprops"]["PLEX"]["weight"] = plex_w
+        params["synprops"]["E"]["weight"] = syn_w
 
     return params
 
