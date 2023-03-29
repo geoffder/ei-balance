@@ -1,9 +1,14 @@
+from typing import Optional
 from copy import deepcopy
 from neuron import h
 
 # science/math libraries
 import numpy as np
-import scipy.stats as st  # for probabilistic distributions
+import scipy.stats as st
+from deconv import (
+    poisson_of_release,
+    quanta_to_times,
+)  # for probabilistic distributions
 
 # local imports
 from modelUtils import (
@@ -44,7 +49,7 @@ class Model:
             elif self.n_plexus_ach <= 0:
                 del self.synprops["PLEX"]
         else:
-            self.sac_net = None
+            self.sac_net: Optional[SacNetwork] = None
             if "PLEX" in self.synprops:
                 del self.synprops["PLEX"]
 
@@ -245,6 +250,9 @@ class Model:
         self.sac_gaba_coverage = 0.5
         self.sac_theta_mode = "PN"
         self.n_plexus_ach = 0
+
+        self.sac_rate = np.array([1.0])
+        self.glut_rate = np.array([1.0])
 
         # recording stuff
         self.downsample = {"Vm": 0.5, "iCa": 0.1, "cai": 0.1, "g": 0.1}
@@ -547,7 +555,7 @@ class Model:
             for t in ["E", "I"]
         }
 
-        self.sac_net = SacNetwork(
+        self.sac_net: Optional[SacNetwork] = SacNetwork(
             self.syn_locs[:, :2],
             probs,
             self.sac_rho,
@@ -658,7 +666,6 @@ class Model:
 
             for t in self.synprops.keys():
                 rand_on[t] = self.np_rng.normal(loc=0.0, scale=1.0)
-                # onset_times[t].append(rand_on[t])
 
             rand_on["E"] = rand_on["I"] * syn_rho + (
                 rand_on["E"] * np.sqrt(1 - syn_rho**2)
@@ -685,7 +692,68 @@ class Model:
                             self.quanta_inter, self.quanta_inter_var
                         )
 
-        # return onset_times
+    def bar_poissons(self, stim):
+        sac = self.sac_net
+
+        time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
+
+        for s in range(self.n_syn):
+            bar_times = self.bar_sweep(s, stim["dir"])
+            if sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[s]:
+                syn_rho = time_rho
+            else:
+                # scale correlation of E and I by diff of their dend angles
+                syn_rho = time_rho - time_rho * sac.deltas[s] / 180
+
+            probs = {}
+            for t, props in self.synprops.items():
+                if stim["type"] == "flash":
+                    probs[t] = props["prob"]
+                elif sac is not None and t in ["E", "I", "PLEX"]:
+                    probs[t] = sac.probs[t][s, stim["dir"]]
+                else:
+                    # calculate probability of release
+                    probs[t] = self.dir_sigmoids["prob"](
+                        self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
+                    )
+
+            poissons = {}
+
+            if sac.gaba_here[s]:
+                base_poisson = poisson_of_release(self.np_rng, self.sac_rate * syn_rho)
+                for t in ["E", "I"]:
+                    poissons[t] = [
+                        np.round(
+                            base_poisson
+                            + poisson_of_release(
+                                self.np_rng, self.sac_rate * (1 - syn_rho)
+                            )
+                            * probs[t]
+                        ).astype(np.int)
+                    ]
+            else:
+                poissons["E"] = [
+                    poisson_of_release(self.np_rng, self.sac_rate * probs["E"])
+                ]
+                poissons["I"] = [np.array([0])]
+
+            for t in ["AMPA", "NMDA"]:
+                poissons[t] = [
+                    poisson_of_release(self.np_rng, self.glut_rate * probs[t])
+                ]
+
+            if self.n_plexus_ach > 0:
+                poissons["PLEX"] = [
+                    poisson_of_release(self.np_rng, self.sac_rate * pr)
+                    for pr in probs["PLEX"]
+                ]
+
+            for t in self.synprops.keys():
+                times = bar_times[t] if t == "PLEX" else [bar_times[t]]
+                for tm, psn in zip(times, poissons[t]):
+                    qs = quanta_to_times(psn, self.dt) * 1000 + tm
+                    for q in qs:
+                        self.syns[t if t != "PLEX" else "E"]["con"][s].add_event(q)
 
     def get_failures(self, idx, stim):
         """
