@@ -145,7 +145,8 @@ class Rig:
         if stim["type"] == "flash":
             self.model.flash_onsets()
         elif stim["type"] == "bar":
-            self.model.bar_onsets(stim)
+            # self.model.bar_onsets(stim)
+            self.model.bar_poissons(stim)
 
         self.model.update_noise()
 
@@ -208,9 +209,8 @@ class Rig:
                 "g": {
                     k: self.stack_trials(n_trials, n_dirs, v)
                     for k, v in self.dend_data["g"].items()
-                }
+                },
             }
-
 
         if self.model.sac_net is not None:
             all_data["sac_net"] = self.model.sac_net.get_wiring_dict()

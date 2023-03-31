@@ -87,8 +87,6 @@ def sac_mode_config(
                 "null_prob": 0.5,  # probability of release
                 "pref_prob": 0.5,  # probability of release
                 "delay": 0,  # [ms] mean temporal offset
-                "null_offset": 0,  # [um] hard space offset on null side
-                "pref_offset": 0,  # [um] hard space offset on pref side
                 "var": 10,  # [ms] temporal variance of onset
             },
         },
