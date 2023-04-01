@@ -751,7 +751,7 @@ class Model:
             for t in self.synprops.keys():
                 times = bar_times[t] if t == "PLEX" else [bar_times[t]]
                 for tm, psn in zip(times, poissons[t]):
-                    qs = quanta_to_times(psn, self.dt) * 1000 + tm
+                    qs = quanta_to_times(psn, self.dt) + tm
                     t = t if t != "PLEX" else "E"
                     for q in qs:
                         self.syns[t]["con"][s].add_event(q)
