@@ -718,19 +718,35 @@ class Model:
                     )
 
             poissons = {}
-
             if sac.gaba_here[s]:
+                #### ORIGINAL ####
                 base_poisson = poisson_of_release(self.np_rng, self.sac_rate * syn_rho)
+                # inv = 1 - syn_rho  # original
+                inv = np.sqrt(1 - syn_rho**2)  # like old gaussian adjustments
                 for t in ["E", "I"]:
                     poissons[t] = [
                         np.round(
-                            base_poisson
-                            + poisson_of_release(
-                                self.np_rng, self.sac_rate * (1 - syn_rho)
+                            (
+                                base_poisson
+                                + poisson_of_release(self.np_rng, self.sac_rate * inv)
                             )
                             * probs[t]
                         ).astype(np.int)
                     ]
+                #### USING I AS BASE ####
+                # poissons["I"] = poisson_of_release(self.np_rng, self.sac_rate)
+                # poissons["E"] = [
+                #     np.round(
+                #         (
+                #             poissons["I"] * syn_rho
+                #             + poisson_of_release(
+                #                 self.np_rng, self.sac_rate * np.sqrt(1 - syn_rho**2)
+                #             )
+                #         )
+                #         * probs["E"]
+                #     ).astype(np.int)
+                # ]
+                # poissons["I"] = [np.round(poissons["I"] * probs["I"]).astype(np.int)]
             else:
                 poissons["E"] = [
                     poisson_of_release(self.np_rng, self.sac_rate * probs["E"])
@@ -755,7 +771,6 @@ class Model:
                     t = t if t != "PLEX" else "E"
                     for q in qs:
                         self.syns[t]["con"][s].add_event(q)
-
 
     def get_failures(self, idx, stim):
         """
