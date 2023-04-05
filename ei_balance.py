@@ -253,6 +253,7 @@ class Model:
 
         self.sac_rate = np.array([1.0])
         self.glut_rate = np.array([1.0])
+        self.rate_dt = self.dt
 
         # recording stuff
         self.downsample = {"Vm": 0.5, "iCa": 0.1, "cai": 0.1, "g": 0.1}
@@ -697,6 +698,7 @@ class Model:
 
         time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
 
+        corrs = []
         for s in range(self.n_syn):
             bar_times = self.bar_sweep(s, stim["dir"])
             if sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[s]:
@@ -721,8 +723,8 @@ class Model:
             if sac.gaba_here[s]:
                 #### ORIGINAL ####
                 base_poisson = poisson_of_release(self.np_rng, self.sac_rate * syn_rho)
-                # inv = 1 - syn_rho  # original
-                inv = np.sqrt(1 - syn_rho**2)  # like old gaussian adjustments
+                inv = 1 - syn_rho  # original
+                # inv = np.sqrt(1 - syn_rho**2)  # like old gaussian adjustments
                 for t in ["E", "I"]:
                     poissons[t] = [
                         np.round(
@@ -733,6 +735,9 @@ class Model:
                             * probs[t]
                         ).astype(np.int)
                     ]
+                # print("pr =", np.corrcoef(poissons["E"][0], poissons["I"][0])[0][1], "rho =", syn_rho)
+                # corrs.append(np.corrcoef(poissons["E"][0], poissons["I"][0])[0][1])
+
                 #### USING I AS BASE ####
                 # poissons["I"] = poisson_of_release(self.np_rng, self.sac_rate)
                 # poissons["E"] = [
@@ -741,12 +746,13 @@ class Model:
                 #             poissons["I"] * syn_rho
                 #             + poisson_of_release(
                 #                 self.np_rng, self.sac_rate * np.sqrt(1 - syn_rho**2)
+                #                 # self.np_rng, self.sac_rate * (1 - syn_rho)
                 #             )
                 #         )
                 #         * probs["E"]
-                #     ).astype(np.int)
+                #     ).astype(int)
                 # ]
-                # poissons["I"] = [np.round(poissons["I"] * probs["I"]).astype(np.int)]
+                # poissons["I"] = [np.round(poissons["I"] * probs["I"]).astype(int)]
             else:
                 poissons["E"] = [
                     poisson_of_release(self.np_rng, self.sac_rate * probs["E"])
@@ -767,10 +773,12 @@ class Model:
             for t in self.synprops.keys():
                 times = bar_times[t] if t == "PLEX" else [bar_times[t]]
                 for tm, psn in zip(times, poissons[t]):
-                    qs = quanta_to_times(psn, self.dt) + tm
+                    qs = quanta_to_times(psn, self.rate_dt) + tm
                     t = t if t != "PLEX" else "E"
                     for q in qs:
                         self.syns[t]["con"][s].add_event(q)
+
+        # print("mean corr =", np.mean(np.nan_to_num(corrs)))
 
     def get_failures(self, idx, stim):
         """

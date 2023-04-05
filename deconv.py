@@ -188,7 +188,7 @@ def poisson_of_release(rng, rate):
     """Takes a 1d ndarray representing a variable release rate and returns an
     array of the same size with poisson generated count of events per interval.
     """
-    return np.concatenate([rng.poisson(lam=max(r, 0.0), size=1) for r in rate])
+    return np.array([rng.poisson(lam=max(r, 0.0), size=1)[0] for r in rate])
 
 
 def train_maker(rate, dt):
