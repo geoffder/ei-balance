@@ -11,6 +11,7 @@ def sac_mode_config(
     offset_ampa_ach=False,
     vc_mode=False,
     record_tree=True,
+    poisson_rates=None,
     plexus=0,
     plexus_share=None,
 ):
@@ -182,6 +183,28 @@ def sac_mode_config(
         params["synprops"]["AMPA"]["delay"] = -30.0
         params["synprops"]["AMPA"]["pref_prob"] = 0.5
         params["synprops"]["AMPA"]["null_prob"] = 0.5
+
+    if poisson_rates is not None:
+        params["poisson_mode"] = True
+        params["sac_rate"] = poisson_rates["sac"]
+        params["glut_rate"] = poisson_rates["glut"]
+        params["rate_dt"] = poisson_rates["dt"] * 1000.0
+        for t in ["E", "I", "NMDA", "AMPA", "PLEX"]:
+            params["synprops"][t]["tau1"] = 0.14
+            params["synprops"][t]["tau2"] = 0.54
+
+        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2278860/ (ach mini)
+        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6772523/ (gaba mini)
+        params["synprops"]["I"]["tau2"] = 2.0
+        params["synprops"]["E"]["tau2"] = 0.3
+        params["synprops"]["NMDA"]["tau2"] = 1.0
+        params["synprops"]["E"]["delay"] = 0.0
+
+        base_w = 0.000313 * 3 * 1.5
+        params["synprops"]["E"]["weight"] = base_w
+        params["synprops"]["I"]["weight"] = base_w * 4
+        params["synprops"]["NMDA"]["weight"] = base_w * 1.33
+        params["synprops"]["PLEX"]["weight"] = base_w
 
     if plexus > 0:
         w = params["synprops"]["E"]["weight"]

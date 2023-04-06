@@ -145,8 +145,10 @@ class Rig:
         if stim["type"] == "flash":
             self.model.flash_onsets()
         elif stim["type"] == "bar":
-            # self.model.bar_onsets(stim)
-            self.model.bar_poissons(stim)
+            if self.model.poisson_mode:
+                self.model.bar_poissons(stim)
+            else:
+                self.model.bar_onsets(stim)
 
         self.model.update_noise()
 

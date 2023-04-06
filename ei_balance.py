@@ -5,10 +5,7 @@ from neuron import h
 # science/math libraries
 import numpy as np
 import scipy.stats as st
-from deconv import (
-    poisson_of_release,
-    quanta_to_times,
-)  # for probabilistic distributions
+from deconv import quanta_to_times  # for probabilistic distributions
 
 # local imports
 from modelUtils import (
@@ -251,6 +248,7 @@ class Model:
         self.sac_theta_mode = "PN"
         self.n_plexus_ach = 0
 
+        self.poisson_mode = False
         self.sac_rate = np.array([1.0])
         self.glut_rate = np.array([1.0])
         self.rate_dt = self.dt
@@ -721,53 +719,23 @@ class Model:
 
             poissons = {}
             if sac.gaba_here[s]:
-                #### ORIGINAL ####
-                base_poisson = poisson_of_release(self.np_rng, self.sac_rate * syn_rho)
-                inv = 1 - syn_rho  # original
-                # inv = np.sqrt(1 - syn_rho**2)  # like old gaussian adjustments
+                base = self.np_rng.poisson(self.sac_rate * syn_rho)
+                inv_rate = self.sac_rate * (1 - syn_rho)
                 for t in ["E", "I"]:
+                    unshared = self.np_rng.poisson(inv_rate)
                     poissons[t] = [
-                        np.round(
-                            (
-                                base_poisson
-                                + poisson_of_release(self.np_rng, self.sac_rate * inv)
-                            )
-                            * probs[t]
-                        ).astype(np.int)
+                        np.round((base + unshared) * probs[t]).astype(np.int)
                     ]
-                # print("pr =", np.corrcoef(poissons["E"][0], poissons["I"][0])[0][1], "rho =", syn_rho)
-                # corrs.append(np.corrcoef(poissons["E"][0], poissons["I"][0])[0][1])
-
-                #### USING I AS BASE ####
-                # poissons["I"] = poisson_of_release(self.np_rng, self.sac_rate)
-                # poissons["E"] = [
-                #     np.round(
-                #         (
-                #             poissons["I"] * syn_rho
-                #             + poisson_of_release(
-                #                 self.np_rng, self.sac_rate * np.sqrt(1 - syn_rho**2)
-                #                 # self.np_rng, self.sac_rate * (1 - syn_rho)
-                #             )
-                #         )
-                #         * probs["E"]
-                #     ).astype(int)
-                # ]
-                # poissons["I"] = [np.round(poissons["I"] * probs["I"]).astype(int)]
             else:
-                poissons["E"] = [
-                    poisson_of_release(self.np_rng, self.sac_rate * probs["E"])
-                ]
+                poissons["E"] = [self.np_rng.poisson(self.sac_rate * probs["E"])]
                 poissons["I"] = [np.array([0])]
 
             for t in ["AMPA", "NMDA"]:
-                poissons[t] = [
-                    poisson_of_release(self.np_rng, self.glut_rate * probs[t])
-                ]
+                poissons[t] = [self.np_rng.poisson(self.glut_rate * probs[t])]
 
             if self.n_plexus_ach > 0:
                 poissons["PLEX"] = [
-                    poisson_of_release(self.np_rng, self.sac_rate * pr)
-                    for pr in probs["PLEX"]
+                    self.np_rng.poisson(self.sac_rate * pr) for pr in probs["PLEX"]
                 ]
 
             for t in self.synprops.keys():
