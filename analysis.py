@@ -428,7 +428,7 @@ def polar_plot(
     # misc settings
     radius = peak if radius is None else radius
     ax.set_rmax(radius)
-    ax.set_rticks([peak])
+    ax.set_rticks([radius])
     ax.set_rlabel_position(45)
     ax.set_thetagrids([0, 90, 180, 270])
     ax.set_xticklabels([])
