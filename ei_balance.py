@@ -746,7 +746,6 @@ class Model:
                     for q in qs:
                         self.syns[t]["con"][s].add_event(q)
 
-        # print("mean corr =", np.mean(np.nan_to_num(corrs)))
 
     def get_failures(self, idx, stim):
         """

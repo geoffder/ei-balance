@@ -33,7 +33,15 @@ dendrite angles would have.
 -- variable angle excitatory dendrite (testing around the clock)
 -> how does the post-synaptic directional tuning change with E/I theta delta?
 """
-
+# TODO: update to breaking changes with Rig etc that will prevent this from running,
+# and add support for poisson inputs. Though the single compartment experiment I need
+# to do does not involve different angles, I think that it should be relatively painless
+# to configure it to do what I want.
+# - set offsets to 0 so the input timing isn't directional, while probability remains so
+# - the other scaling I need to do though is one where it is just the weights that scale
+#   directionally without any changes to probability etc (with basic alpha conductances)
+#   to see if there is any difference. This part actually might not be possible from basic
+#   configuration using the already existing mechanisms in the model.
 
 class TuningToy:
     def __init__(self, seed=0):
