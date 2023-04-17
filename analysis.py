@@ -442,7 +442,12 @@ def polar_plot(
         )
         title = sub if title is None else "%s\n%s" % (title, sub)
     else:
-        ax.text(np.radians(dsi_tag_deg), radius * dsi_tag_mult, dsi_tag_fmt % avg_DSi, fontsize=13)
+        ax.text(
+            np.radians(dsi_tag_deg),
+            radius * dsi_tag_mult,
+            dsi_tag_fmt % avg_DSi,
+            fontsize=13,
+        )
 
     if title is not None:
         ax.set_title(title, size=15)
