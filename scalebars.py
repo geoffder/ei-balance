@@ -23,7 +23,7 @@ class AnchoredScaleBar(AnchoredOffsetbox):
         prop=None,
         barcolor="black",
         barwidth=None,
-            textprops={"fontsize": 13},
+        textprops={"fontsize": 13},
         **kwargs
     ):
         """
@@ -48,13 +48,16 @@ class AnchoredScaleBar(AnchoredOffsetbox):
         )
 
         bars = AuxTransformBox(transform)
+        x_pos = (-1, 0) if (sizex and sizey) else (0, 0)
+        y_pos = (0, -1) if (sizex and sizey) else (0, 0)
+
         if sizex:
             bars.add_artist(
-                Rectangle((0, 0), sizex, 0, ec=barcolor, lw=barwidth, fc="none")
+                Rectangle(x_pos, sizex, 0, ec=barcolor, lw=barwidth, fc="none")
             )
         if sizey:
             bars.add_artist(
-                Rectangle((0, 0), 0, sizey, ec=barcolor, lw=barwidth, fc="none")
+                Rectangle(y_pos, 0, sizey, ec=barcolor, lw=barwidth, fc="none")
             )
 
         if sizex and labelx:
@@ -77,7 +80,7 @@ class AnchoredScaleBar(AnchoredOffsetbox):
 
 
 def add_scalebar(ax, matchx=True, matchy=True, hidex=True, hidey=True, **kwargs):
-    """ Add scalebars to axes
+    """Add scalebars to axes
 
     Adds a set of scale bars to *ax*, matching the size to the ticks of the plot
     and optionally hiding the x and y axes
