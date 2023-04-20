@@ -2,7 +2,6 @@ from neuron import h
 
 # science/math libraries
 import numpy as np
-import matplotlib.pyplot as plt
 import scipy.stats as st  # for probabilistic distributions
 
 # general libraries
@@ -13,12 +12,9 @@ import json
 # local imports
 from modelUtils import (
     windows_gui_fix,
-    nrn_objref,
     nrn_section,
     build_stim,
-    find_origin,
     rotate,
-    merge,
     wrap_180,
 )
 from SacNetwork import SacNetwork
@@ -33,6 +29,7 @@ dendrite angles would have.
 -- variable angle excitatory dendrite (testing around the clock)
 -> how does the post-synaptic directional tuning change with E/I theta delta?
 """
+
 # TODO: update to breaking changes with Rig etc that will prevent this from running,
 # and add support for poisson inputs. Though the single compartment experiment I need
 # to do does not involve different angles, I think that it should be relatively painless
@@ -42,6 +39,7 @@ dendrite angles would have.
 #   directionally without any changes to probability etc (with basic alpha conductances)
 #   to see if there is any difference. This part actually might not be possible from basic
 #   configuration using the already existing mechanisms in the model.
+
 
 class TuningToy:
     def __init__(self, seed=0):
@@ -57,16 +55,16 @@ class TuningToy:
         }
 
         self.sac_angle_rho_mode = True
-        self.time_rho  = 1.
-        self.space_rho = 1.
+        self.time_rho = 1.0
+        self.space_rho = 1.0
 
         self.config_soma()
         self.create_synapse()
         self.config_stimulus()
 
-        self.seed    = seed
+        self.seed = seed
         self.nz_seed = 0
-        self.rand    = h.Random(seed)
+        self.rand = h.Random(seed)
 
     def get_params_dict(self):
         skip = {
@@ -79,10 +77,7 @@ class TuningToy:
             "circle",
         }
 
-        params = {
-            k: v for k, v in self.__dict__.items()
-            if k not in skip
-        }
+        params = {k: v for k, v in self.__dict__.items() if k not in skip}
 
         return params
 
@@ -90,46 +85,46 @@ class TuningToy:
         """Build and set membrane properties of soma compartment"""
         self.soma = nrn_section("soma")
 
-        self.soma.L    = 10  # [um]
+        self.soma.L = 10  # [um]
         self.soma.diam = 10  # [um]
         self.soma.nseg = 1
-        self.soma.Ra   = 100
+        self.soma.Ra = 100
 
         self.soma.insert("HHst")
-        self.soma.gnabar_HHst = 0.  # 0.013      # [S/cm2]
-        self.soma.gkbar_HHst  = 0.035      # [S/cm2]
-        self.soma.gkmbar_HHst = 0.003      # [S/cm2]
-        self.soma.gleak_HHst  = 0.0001667  # [S/cm2]
-        self.soma.eleak_HHst  = -60.0      # [mV]
-        self.soma.NF_HHst     = 0.25
+        self.soma.gnabar_HHst = 0.0  # 0.013      # [S/cm2]
+        self.soma.gkbar_HHst = 0.035  # [S/cm2]
+        self.soma.gkmbar_HHst = 0.003  # [S/cm2]
+        self.soma.gleak_HHst = 0.0001667  # [S/cm2]
+        self.soma.eleak_HHst = -60.0  # [mV]
+        self.soma.NF_HHst = 0.25
 
     def config_stimulus(self):
         # light stimulus
         self.light_bar = {
-            "start_time": 0., # vel -> start: .25 -> -900; .5 -> -400
-            "speed": 1.0,     # speed of the stimulus bar (um/ms)
-            "width": 500,     # width of the stimulus bar(um)
-            "x_motion": True, # move bar in x, if not, move bar in y
+            "start_time": 0.0,  # vel -> start: .25 -> -900; .5 -> -400
+            "speed": 1.0,  # speed of the stimulus bar (um/ms)
+            "width": 500,  # width of the stimulus bar(um)
+            "x_motion": True,  # move bar in x, if not, move bar in y
             "x_start": -175,  # start location (X axis) of the stim bar (um)
-            "x_end": 175,     # end location (X axis)of the stimulus bar (um)
-            "y_start": 25,    # start location (Y axis) of the stimulus bar (um)
-            "y_end": 225,     # end location (Y axis) of the stimulus bar (um)
+            "x_end": 175,  # end location (X axis)of the stimulus bar (um)
+            "y_start": 25,  # start location (Y axis) of the stimulus bar (um)
+            "y_end": 225,  # end location (Y axis) of the stimulus bar (um)
         }
 
         self.jitter = 0
 
         self.dir_labels = [225, 270, 315, 0, 45, 90, 135, 180]
-        self.dir_rads   = np.radians(self.dir_labels)
-        self.dirs       = [135, 90, 45, 0, 45, 90, 135, 180]
-        self.dir_inds   = np.array(self.dir_labels).argsort()
-        self.circle     = np.deg2rad([0, 45, 90, 135, 180, 225, 270, 315, 0])
+        self.dir_rads = np.radians(self.dir_labels)
+        self.dirs = [135, 90, 45, 0, 45, 90, 135, 180]
+        self.dir_inds = np.array(self.dir_labels).argsort()
+        self.circle = np.deg2rad([0, 45, 90, 135, 180, 225, 270, 315, 0])
 
         # take direction, null, and preferred bounds and scale between
         self.dir_sigmoids = {
             "prob": lambda d, n, p: p
-                + (n - p) * (1 - 0.98 / (1 + np.exp(d - 91) / 25)),
+            + (n - p) * (1 - 0.98 / (1 + np.exp(d - 91) / 25)),
             "offset": lambda d, n, p: p
-                + (n - p) * (1 - 0.98 / (1 + np.exp(d - 74.69) / 24.36)),
+            + (n - p) * (1 - 0.98 / (1 + np.exp(d - 74.69) / 24.36)),
         }
 
     def create_synapse(self):
@@ -143,19 +138,19 @@ class TuningToy:
 
         self.syns["E"]["syn"].tau1 = 0.1
         self.syns["E"]["syn"].tau2 = 4.0
-        self.syns["E"]["syn"].e    = 0
+        self.syns["E"]["syn"].e = 0
 
         # NOTE: reversal dropped to -65 to get I to be shunting, since the vm is
         # resting below -60 as it is
         self.syns["I"]["syn"].tau1 = 0.5
         self.syns["I"]["syn"].tau2 = 12.0
-        self.syns["I"]["syn"].e    = -65.0  # -60.0
+        self.syns["I"]["syn"].e = -65.0  # -60.0
 
         self.syns["E"]["con"] = h.NetCon(
-            self.syns["E"]["stim"], self.syns["E"]["syn"], 0, 0, .001
+            self.syns["E"]["stim"], self.syns["E"]["syn"], 0, 0, 0.001
         )
         self.syns["I"]["con"] = h.NetCon(
-            self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, .004 # .006  # .003
+            self.syns["I"]["stim"], self.syns["I"]["syn"], 0, 0, 0.004  # .006  # .003
         )
 
     def set_sacs(self, thetas={"E": 0, "I": 0}):
@@ -165,15 +160,18 @@ class TuningToy:
             s: {
                 "x": self.origin[0] - self.offset * np.cos(np.deg2rad(t)),
                 "y": self.origin[1] - self.offset * np.sin(np.deg2rad(t)),
-            } for s, t in thetas.items()
+            }
+            for s, t in thetas.items()
         }
 
         self.prs = {
             s: [
-                pn["pref"] + (pn["null"] - pn["pref"]) * (
-                    1 - 0.98 / (1 + np.exp((wrap_180(t - d) - 91) / 25))
-                ) for d in self.dir_labels
-            ] for (s, t), pn in zip(thetas.items(), self.dir_pr.values())
+                pn["pref"]
+                + (pn["null"] - pn["pref"])
+                * (1 - 0.98 / (1 + np.exp((wrap_180(t - d) - 91) / 25)))
+                for d in self.dir_labels
+            ]
+            for (s, t), pn in zip(thetas.items(), self.dir_pr.values())
         }
 
         # theta difference used to scale down rho
@@ -206,7 +204,7 @@ class TuningToy:
         bar would be passing over their location, modified by spatial offsets.
         Timing jitter is applied using pseudo-random number generators.
         """
-        if (self.sac_angle_rho_mode):
+        if self.sac_angle_rho_mode:
             syn_rho = self.time_rho
         else:
             syn_rho = self.time_rho - self.time_rho * self.delta / 180
@@ -214,13 +212,12 @@ class TuningToy:
         # bare base onset with added shared jitter
         jit = self.rand.normal(0, 1)
         bar_times = {
-            k: v + jit * self.jitter
-            for k, v in self.bar_sweep(stim["dir"]).items()
+            k: v + jit * self.jitter for k, v in self.bar_sweep(stim["dir"]).items()
         }
 
         rand_on = {t: self.rand.normal(0, 1) for t in bar_times.keys()}
         rand_on["E"] = rand_on["I"] * syn_rho + (
-            rand_on["E"] * np.sqrt(1 - syn_rho ** 2)
+            rand_on["E"] * np.sqrt(1 - syn_rho**2)
         )
 
         for t, timing in self.syn_timing.items():
@@ -246,15 +243,11 @@ class TuningToy:
 
         # correlate synaptic variance of ACH with GABA
         if not self.sac_angle_rho_mode:
-            picks["E"] = picks["I"] * rho + (
-                picks["E"] * np.sqrt(1 - rho ** 2))
+            picks["E"] = picks["I"] * rho + (picks["E"] * np.sqrt(1 - rho**2))
         else:
             # scale correlation of E and I by prox of their dend angles
             syn_rho = rho - rho * self.delta / 180
-            picks["E"] = (
-                picks["I"] * syn_rho
-                + picks["E"] * np.sqrt(1 - syn_rho ** 2)
-            )
+            picks["E"] = picks["I"] * syn_rho + picks["E"] * np.sqrt(1 - syn_rho**2)
 
         for t in picks.keys():
             prob = self.prs[t][stim["dir"]]
@@ -414,11 +407,11 @@ class Runner:
 
 def set_hoc_params():
     """Set hoc NEURON environment model run parameters."""
-    h.tstop        = 400  # [ms]
+    h.tstop = 400  # [ms]
     h.steps_per_ms = 10
-    h.dt           = 0.1  # [ms]
-    h.v_init       = -60  # [mV]
-    h.celsius      = 36.9
+    h.dt = 0.1  # [ms]
+    h.v_init = -60  # [mV]
+    h.celsius = 36.9
 
 
 if __name__ == "__main__":
@@ -431,7 +424,7 @@ if __name__ == "__main__":
     set_hoc_params()
 
     n_trials = 40
-    n_steps  = 64
-    pth      = base_pth + "var5_spd1000_Iw004_Irev65/"
-    rig      = Runner(pth)
-    data     = rig.theta_diff_run(n_trials, n_steps)
+    n_steps = 64
+    pth = base_pth + "var5_spd1000_Iw004_Irev65/"
+    rig = Runner(pth)
+    data = rig.theta_diff_run(n_trials, n_steps)
