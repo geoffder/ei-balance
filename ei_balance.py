@@ -69,7 +69,6 @@ class Model:
         self.seg_step = 1 / (self.dend_nseg * 2) if self.dend_nseg != 10 else 0.1
         self.rec_per_sec = self.dend_nseg * 2 if self.dend_nseg != 10 else 10
         self.dend_diam = 0.5
-        self.dend_L = 1200
         self.dend_Ra = 100
 
         self.diam_scaling_mode = None  # None | "order" | "cable"
@@ -503,9 +502,6 @@ class Model:
                 self.syns[trans]["syn"][i].tau2 = props["tau2"]
                 self.syns[trans]["syn"][i].e = props["rev"]
 
-                # TODO: instead of having max_quanta stim "slots", and setting the time
-                # (and number 0 or 1) of events for each synapse, just add events to the NetQuanta
-                # NetQuanta (wraps NetCon) for scheduling and applying conductance events
                 self.syns[trans]["con"].append(
                     NetQuanta(
                         self.syns[trans]["syn"][i],
@@ -745,7 +741,6 @@ class Model:
                     t = t if t != "PLEX" else "E"
                     for q in qs:
                         self.syns[t]["con"][s].add_event(q)
-
 
     def get_failures(self, idx, stim):
         """
