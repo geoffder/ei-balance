@@ -304,3 +304,146 @@ def offset_mode_config():
         params["synprops"]["I"]["pref_prob"] = params["synprops"]["I"]["null_prob"]
 
     return params
+
+
+def ball_stick_config(
+    ttx=False,
+    leaky=False,
+    high_kv=False,
+    non_ds_ach=False,
+    offset_ampa_ach=False,
+    vc_mode=False,
+    record_tree=True,
+    poisson_rates=None,
+):
+    params = {
+        # hoc settings
+        "tstop": 350,
+        "steps_per_ms": 10,
+        "dt": 0.1,
+        # synapse organization
+        "term_syn_only": False,
+        "first_order": 4,  # 2,
+        # membrane properties
+        "active_terms": False,
+        "soma_na": 0.2,
+        "soma_k": 0.07,
+        "soma_gleak_hh": 0.0001667,
+        "soma_gleak_pas": 0.0001667,
+        "initial_na": 0.07,  # 0.045,  # 0.03 # 0.1,  # 0.011,
+        "initial_k": 0.07,  # 0.035,  # 0.03,
+        "initial_gleak_hh": 0.0001667,
+        "initial_gleak_pas": 0.0001667,
+        "dend_na": 0.013,  # 0.011,
+        "dend_K": 0.035,  # 0.03,  # 0.035,  # 0.03,
+        "dend_gleak_hh": 0.0001667,
+        "dend_gleak_pas": 0.0001667,
+        # synapse variability
+        "space_rho": 1,  # 0.9,
+        "time_rho": 1,  # 0.9,
+        "synprops": {
+            "E": {
+                "var": 15,  # 10,  # 12,  # 15,
+                "delay": 5,  # 5,
+                "null_prob": 0.0,
+                "pref_prob": 1.0,  # 0.8,
+                "weight": 0.0015,  # 0.0015,
+                "tau1": 0.1,
+                "tau2": 4,
+            },
+            "I": {
+                "var": 15,  # 10,  # 12,  # 15,
+                "delay": 0,
+                "null_prob": 0.0,
+                "pref_prob": 1.0,  # 0.8,
+                "weight": 0.006,  # 0.006,
+                "tau1": 0.5,
+                "tau2": 16,
+                "rev": -65,  # -60.,
+            },
+            "NMDA": {
+                "var": 7,
+                "delay": 0,
+                "null_prob": 0.8,  # 0.8,  # 0.4,  # 0.8,
+                "pref_prob": 0.8,  # 0.8,  # 0.4,  # 0.8,
+                "weight": 0.002,  # 0.002,  # 0.0045,
+                "tau1": 2,
+                "tau2": 7,
+            },
+            "AMPA": {
+                "var": 7,
+                "delay": 0,
+                "null_prob": 0.0,
+                "pref_prob": 0.0,
+                "weight": 0.0015,
+                "tau1": 0.1,
+                "tau2": 4,
+            },
+        },
+        # stimulus
+        "light_bar": {"speed": 1.0, "x_motion": True, "x_start": -60, "y_start": -70},
+        "record_tree": record_tree,
+    }
+
+    # TTX
+    if ttx:
+        params["soma_na"] = 0.0
+        params["initial_na"] = 0.0
+        params["dend_na"] = 0.0
+
+    # MORE LEAK
+    if leaky:
+        params["soma_gleak_hh"] = 0.0001667 * 2
+        params["soma_gleak_pas"] = 0.0001667 * 2
+        params["initial_gleak_hh"] = 0.0001667 * 2
+        params["initial_gleak_pas"] = 0.0001667 * 2
+        params["dend_gleak_hh"] = 0.0001667 * 2
+        params["dend_gleak_pas"] = 0.0001667 * 2
+
+    # MORE Kv
+    if high_kv:
+        params["soma_k"] = 0.15
+        params["initial_k"] = 0.15
+        # params["dend_K"]  = 0.15
+        # params["synprops"]["E"]["weight"]    *= 1.5
+        # params["synprops"]["NMDA"]["weight"] *= 0
+        # params["synprops"]["I"]["weight"]    *= 2.
+
+    if vc_mode:
+        params["vc_pas"] = True
+
+    # non-ds ACH
+    if non_ds_ach:
+        params["synprops"]["E"]["null_prob"] = 0.5
+        params["synprops"]["E"]["pref_prob"] = 0.5
+
+    if offset_ampa_ach:
+        params["synprops"]["E"]["null_prob"] = 0.0
+        params["synprops"]["E"]["pref_prob"] = 0.0
+        params["synprops"]["AMPA"]["delay"] = -30.0
+        params["synprops"]["AMPA"]["pref_prob"] = 0.5
+        params["synprops"]["AMPA"]["null_prob"] = 0.5
+
+    if poisson_rates is not None:
+        params["poisson_mode"] = True
+        params["tstop"] = 550
+        params["sac_rate"] = poisson_rates["sac"]
+        params["glut_rate"] = poisson_rates["glut"]
+        params["rate_dt"] = poisson_rates["dt"] * 1000.0
+        for t in ["E", "I", "NMDA", "AMPA"]:
+            params["synprops"][t]["tau1"] = 0.14
+            params["synprops"][t]["tau2"] = 0.54
+
+        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2278860/ (ach mini)
+        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6772523/ (gaba mini)
+        params["synprops"]["I"]["tau2"] = 2.0
+        params["synprops"]["E"]["tau2"] = 0.3
+        params["synprops"]["NMDA"]["tau2"] = 1.0
+        params["synprops"]["E"]["delay"] = 0.0
+
+        base_w = 0.000313 * 3 * 1.5
+        params["synprops"]["E"]["weight"] = base_w
+        params["synprops"]["I"]["weight"] = base_w * 4
+        params["synprops"]["NMDA"]["weight"] = base_w * 1.33
+
+    return params

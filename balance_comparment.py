@@ -35,19 +35,17 @@ class Model:
         if self.vc_pas:
             self.apply_vc_pas()
 
-        self.load_DSGC()  # create a new DSGC from hoc spec
-        self.config_DSGC()  # applies parameters
+        self.create_neuron()
 
-        if self.sac_mode:
-            self.build_sac_net()
-            if self.n_plexus_ach > 0 and "PLEX" not in self.synprops:
-                self.synprops["PLEX"] = deepcopy(self.synprops["E"])
-            elif self.n_plexus_ach <= 0:
-                del self.synprops["PLEX"]
-        else:
-            self.sac_net: Optional[SacNetwork] = None
-            if "PLEX" in self.synprops:
-                del self.synprops["PLEX"]
+        self.sac_mode = False  # for Rig compatibility
+        self.sac_net = None
+        self.hard_offsets = {
+            trans: [
+                self.dir_sigmoids["offset"](d, p["pref_offset"], p["null_offset"])
+                for d in self.dir_labels
+            ]
+            for trans, p in self.synprops.items()
+        }
 
     def set_default_params(self):
         # hoc environment parameters
@@ -76,8 +74,8 @@ class Model:
         self.term_diam = 0.5
         self.dend_ra = 100
 
-        self.diam_scaling_mode = None  # None | "order" | "cable"
-        self.diam_range = {"max": 0.5, "min": 0.5, "decay": 1, "scale": 1}
+        # self.diam_scaling_mode = None  # None | "order" | "cable"
+        # self.diam_range = {"max": 0.5, "min": 0.5, "decay": 1, "scale": 1}
 
         # global active properties
         self.TTX = False  # zero all Na conductances
@@ -205,9 +203,7 @@ class Model:
             "y_end": 225,  # end location (Y axis) of the stimulus bar (um)
         }
 
-        self.flash_mean = 100  # mean onset time for flash stimulus
-        self.flash_variance = 400  # variance of flash release onset
-        self.jitter = 60  # [ms] 10
+        self.stim_onset = 100
 
         self.dir_labels = np.array([225, 270, 315, 0, 45, 90, 135, 180])
         self.dir_rads = np.radians(self.dir_labels)
@@ -232,7 +228,7 @@ class Model:
         self.pref_time_rho = 0.3
         self.pref_space_rho = 0.3
 
-        self.poisson_mode = False
+        self.poisson_mode = True
         self.sac_rate = np.array([1.0])
         self.glut_rate = np.array([1.0])
         self.rate_dt = self.dt
@@ -271,7 +267,6 @@ class Model:
 
     def get_params_dict(self):
         skip = {
-            "RGC",
             "soma",
             "initial",
             "dend",
@@ -284,6 +279,7 @@ class Model:
             "circle",
             "np_rng",
             "syn_locs",
+            "sac_net",
         }
 
         params = {k: v for k, v in self.__dict__.items() if k not in skip}
@@ -317,18 +313,18 @@ class Model:
         soma.Ra = self.soma_Ra
 
         if self.active_soma:
-            self.soma.insert("HHst")
-            self.soma.insert("cad")
-            self.soma.gnabar_HHst = self.soma_na
-            self.soma.gkbar_HHst = self.soma_k
-            self.soma.gkmbar_HHst = self.soma_km
-            self.soma.gleak_HHst = self.soma_gleak_hh
-            self.soma.eleak_HHst = self.soma_eleak_hh
-            self.soma.NF_HHst = self.soma_nz_factor
+            soma.insert("HHst")
+            soma.insert("cad")
+            soma.gnabar_HHst = self.soma_na
+            soma.gkbar_HHst = self.soma_k
+            soma.gkmbar_HHst = self.soma_km
+            soma.gleak_HHst = self.soma_gleak_hh
+            soma.eleak_HHst = self.soma_eleak_hh
+            soma.NF_HHst = self.soma_nz_factor
         else:
-            self.soma.insert("pas")
-            self.soma.g_pas = self.soma_gleak_pas
-            self.soma.e_pas = self.soma_eleak_hh
+            soma.insert("pas")
+            soma.g_pas = self.soma_gleak_pas
+            soma.e_pas = self.soma_eleak_hh
 
         return soma
 
@@ -343,9 +339,6 @@ class Model:
             s.Ra = self.dend_ra
             s.insert("HHst")
             s.insert("cad")
-            s.insert("Kv3")
-            s.insert("HT")
-            s.insert("Kv3_3")
             s.gleak_HHst = self.dend_gleak_hh  # (S/cm2)
             s.eleak_HHst = self.dend_eleak_hh
             s.NF_HHst = self.dend_nz_factor
@@ -386,254 +379,71 @@ class Model:
         self.term.push()
         self.syns = {}
         for trans, props in self.synprops.items():
+            self.syns[trans] = {}
             if trans == "NMDA":
-                self.syns[trans]["syn"] = h.Exp2NMDA(0.5)
+                self.syns[trans]["syn"] = [h.Exp2NMDA(0.5)]
                 # NMDA voltage settings
-                self.syns[trans]["syn"].n = props["n"]
-                self.syns[trans]["syn"].gama = props["gama"]
-                self.syns[trans]["syn"].Voff = props["Voff"]
-                self.syns[trans]["syn"].Vset = props["Vset"]
+                self.syns[trans]["syn"][0].n = props["n"]
+                self.syns[trans]["syn"][0].gama = props["gama"]
+                self.syns[trans]["syn"][0].Voff = props["Voff"]
+                self.syns[trans]["syn"][0].Vset = props["Vset"]
             else:
-                self.syns[trans]["syn"] = h.Exp2Syn(0.5)
+                self.syns[trans]["syn"] = [h.Exp2Syn(0.5)]
 
-            self.syns[trans]["syn"].tau1 = props["tau1"]
-            self.syns[trans]["syn"].tau2 = props["tau2"]
-            self.syns[trans]["syn"].e = props["rev"]
+            self.syns[trans]["syn"][0].tau1 = props["tau1"]
+            self.syns[trans]["syn"][0].tau2 = props["tau2"]
+            self.syns[trans]["syn"][0].e = props["rev"]
 
-            self.syns[trans]["con"] = NetQuanta(
-                self.syns[trans]["syn"],
-                props["weight"],
-                delay=props["delay"],
-            )
+            self.syns[trans]["con"] = [
+                NetQuanta(
+                    self.syns[trans]["syn"][0],
+                    props["weight"],
+                    delay=props["delay"],
+                )
+            ]
 
+        x = (self.soma_l / 2.0) + self.initial_l + self.dend_l + (self.term_l / 2.0)
+        self.syn_locs = np.array([[x, 0.0, 0.0]])
+        self.n_syn = 1
         h.pop_section()
 
     def init_synapses(self):
         """Initialize the events in each NetQuanta (NetCon wrapper)."""
         for syns in self.syns.values():
-            syns["con"].initialize()
+            syns["con"][0].initialize()
 
     def clear_synapses(self):
         for syns in self.syns.values():
-            syns["con"].clear_events()
+            syns["con"][0].clear_events()
 
-    def flash_onsets(self):
-        """
-        Calculate onset times for each synapse randomly as though stimulus was
-        a flash. Timing jitter is applied with pseudo-random number generators.
-        """
-
-        # store timings for return (fine to ignore return)
-        onset_times = {trans: [] for trans in ["E", "I", "AMPA", "NMDA"]}
-        rand_on = {trans: 0.0 for trans in ["E", "I", "AMPA", "NMDA"]}
-        stim = {
-            "type": "flash",
-            "rhos": {"time": self.time_rho, "space": self.space_rho},
-        }
-
-        # normally distributed mean onset time for this site (jittered around)
-        onset = self.np_rng.normal(self.flash_mean, self.flash_variance)
-
-        for t in self.synprops.keys():
-            rand_on[t] = self.np_rng.normal(0, 1)
-            onset_times[t].append(rand_on[t])
-
-        rand_on["E"] = rand_on["I"] * self.time_rho + (
-            rand_on["E"] * np.sqrt(1 - self.time_rho**2)
-        )
-
-        # TODO: flash isn't really a priority, but this is something already where
-        # I need to diverge from the the dsgc model way of doing things. I think that the two
-        # options for input should be weight scaled (over direction) guaranteed alpha inputs
-        # and poisson (imo poisson is the best since it scales in amplitude cleanly and the
-        # variability is nicely baked in -- so that will be first)
-        successes = self.get_failures(stim)
-        for t, props in self.synprops.items():
-            for success in successes[t]:
-                if success:
-                    self.syns[t]["con"].add_event(onset + rand_on[t] * props["var"])
-
-        return onset_times
-
-    def bar_sweep(self, syn, dir_idx):
-        """Return activation time for the given synapse based on the light bar
-        config and the pre-synaptic setup (e.g. SAC network/hard-coded offsets)
-        """
-        bar = self.light_bar
-        r = -self.dir_rads[dir_idx]
-        x, y = rotate(self.origin, self.syn_locs[syn, 0], self.syn_locs[syn, 1], r)
-        loc = {"x": x, "y": y}
-        ax = "x" if bar["x_motion"] else "y"
-
-        on_times = {}
-
-        # distance to synapse divided by speed
-        for t in self.synprops.keys():
-            if t in ["E", "I", "PLEX"] and self.sac_net is not None:
-                sac_loc = self.sac_net.get_syn_loc(t, syn, r)
-                on_times[t] = (
-                    bar["start_time"]
-                    + (sac_loc[ax] - bar[ax + "_start"]) / bar["speed"]
-                )
-            else:
-                offset = self.hard_offsets[t][dir_idx]
-                on_times[t] = (
-                    bar["start_time"]
-                    + (loc[ax] + offset - bar[ax + "_start"]) / bar["speed"]
-                )
-
-        return on_times
-
-    def bar_onsets(self, stim):
-        """
-        Calculate onset times for each synapse based on when the simulated bar
-        would be passing over their location, modified by spatial offsets.
-        Timing jitter is applied using pseudo-random number generators.
-        """
-        sac = self.sac_net
-
-        time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
-        rand_on = {trans: 0.0 for trans in ["E", "I", "AMPA", "NMDA"]}
-
-        for s in range(self.n_syn):
-            bar_times = self.bar_sweep(s, stim["dir"])
-            if sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[s]:
-                syn_rho = time_rho
-            else:
-                # scale correlation of E and I by diff of their dend angles
-                syn_rho = time_rho - time_rho * sac.deltas[s] / 180
-
-            # shared jitter
-            jit = self.np_rng.normal(0, 1)
-            bar_times = {k: v + jit * self.jitter for k, v in bar_times.items()}
-
-            for t in self.synprops.keys():
-                rand_on[t] = self.np_rng.normal(loc=0.0, scale=1.0)
-
-            rand_on["E"] = rand_on["I"] * syn_rho + (
-                rand_on["E"] * np.sqrt(1 - syn_rho**2)
-            )
-
-            successes = self.get_failures(s, stim)
-            for t, props in self.synprops.items():
-                times = bar_times[t] if t == "PLEX" else [bar_times[t]]
-                succs = successes[t] if t == "PLEX" else [successes[t]]
-                rons = (
-                    [rand_on[t]]
-                    if t != "PLEX"
-                    else self.np_rng.normal(loc=0.0, scale=1.0, size=sac.n_plexus_ach)
-                )
-                for tm, ss, rn in zip(times, succs, rons):
-                    q_delay = 0.0
-                    for success in ss:
-                        if success:
-                            self.syns[t if t != "PLEX" else "E"]["con"][s].add_event(
-                                tm + q_delay + rn * props["var"]
-                            )
-                        # add variable delay til next quanta
-                        q_delay += self.np_rng.normal(
-                            self.quanta_inter, self.quanta_inter_var
-                        )
-
-    def poissons(self, stim):
+    def bar_poissons(self, stim):
         syn_rho = stim.get("rhos", {"time": self.time_rho})["time"]
-        probs = {}
+        probs, onsets = {}, {}
         for t, props in self.synprops.items():
             if stim["type"] == "flash":
                 probs[t] = props["prob"]
+                onsets[t] = self.stim_onset
             else:
                 # calculate probability of release
                 probs[t] = self.dir_sigmoids["prob"](
                     self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
                 )
+                onsets[t] = self.stim_onset + self.hard_offsets[t][stim["dir"]]
 
         poissons = {}
         base = self.np_rng.poisson(self.sac_rate * syn_rho)
         inv_rate = self.sac_rate * (1 - syn_rho)
         for t in ["E", "I"]:
             unshared = self.np_rng.poisson(inv_rate)
-            poissons[t] = [np.round((base + unshared) * probs[t]).astype(np.int)]
+            poissons[t] = np.round((base + unshared) * probs[t]).astype(np.int)
 
         for t in ["AMPA", "NMDA"]:
-            poissons[t] = [self.np_rng.poisson(self.glut_rate * probs[t])]
+            poissons[t] = self.np_rng.poisson(self.glut_rate * probs[t])
 
         for t in self.synprops.keys():
-            qs = quanta_to_times(poissons[t], self.rate_dt) + bar_times[t]
+            qs = quanta_to_times(poissons[t], self.rate_dt) + onsets[t]
             for q in qs:
-                self.syns[t]["con"].add_event(q)
-
-    def get_failures(self, idx, stim):
-        """
-        Determine number of quantal activations of each synapse occur on a
-        trial. Psuedo-random numbers generated for each synapse are compared
-        against thresholds set by probability of release to determine if the
-        "pre-synapse" succeeds or fails to release neurotransmitter.
-        """
-        sac = self.sac_net
-
-        # numbers above can result in NaNs
-        rho = stim.get("rhos", {"space": self.space_rho})["space"]
-        rho = 0.986 if rho > 0.986 else rho
-
-        # calculate input rho required to achieve the desired output rho
-        # exponential fit: y = y0 + A * exp(-invTau * x)
-        # y0 = 1.0461; A = -0.93514; invTau = 3.0506
-        rho = 1.0461 - 0.93514 * np.exp(-3.0506 * rho)
-
-        picks = {
-            t: self.np_rng.normal(
-                loc=0.0, scale=1.0, size=(None if t != "PLEX" else sac.n_plexus_ach)
-            )
-            for t in self.synprops.keys()
-        }
-
-        # correlate synaptic variance of ACH with GABA
-        if sac is None or not self.sac_angle_rho_mode:
-            picks["E"] = picks["I"] * rho + (picks["E"] * np.sqrt(1 - rho**2))
-        else:
-            # scale correlation of E and I by prox of their dend angles
-            if sac.gaba_here[idx]:
-                syn_rho = rho - rho * sac.deltas[idx] / 180
-                picks["E"] = picks["I"] * syn_rho + picks["E"] * np.sqrt(
-                    1 - syn_rho**2
-                )
-
-        probs = {}
-        for t, props in self.synprops.items():
-            if stim["type"] == "flash":
-                probs[t] = props["prob"]
-            elif sac is not None and t in ["E", "I", "PLEX"]:
-                probs[t] = sac.probs[t][idx, stim["dir"]]
-            else:
-                # calculate probability of release
-                probs[t] = self.dir_sigmoids["prob"](
-                    self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
-                )
-
-        # sdevs = {k: np.std(v) for k, v in picks.items()}
-        # TODO: this adjustment should be flat since it is just happening for a single
-        # synapse, but the sdev should still be 1 though, since the distribution shouldn't
-        # be scaled by the correlation operation
-        sdevs = {k: 1.0 for k in picks.keys()}
-        successes = {}
-
-        for t in picks.keys():
-            # determine release bool for each possible quanta
-            q_probs = np.array(
-                [probs[t] * (self.quanta_Pr_decay**q) for q in range(self.max_quanta)]
-            )
-            q_probs = q_probs.T if t == "PLEX" else q_probs  # quanta to last dimension
-            left = st.norm.ppf((1 - q_probs) / 2.0) * sdevs[t]
-            right = st.norm.ppf(1 - (1 - q_probs) / 2.0) * sdevs[t]
-            # an array of success boolean with length max quanta
-            if t != "PLEX":
-                successes[t] = (left < picks[t]) * (picks[t] < right)
-            else:
-                successes[t] = (left < picks[t].reshape(-1, 1)) * (
-                    picks[t].reshape(-1, 1) < right
-                )
-
-        return successes
+                self.syns[t]["con"][0].add_event(q)
 
     def update_noise(self):
         # set HHst noise seeds
@@ -651,19 +461,18 @@ class Model:
 
     def get_recording_locations(self):
         locs = []
-        per = self.rec_per_sec
-        for dend in self.all_dends:
-            dend.push()
-            pts = int(h.n3d())
-
-            # Rough coordinates based on indexing the list of 3d points
-            # assigned to the current section. Number of points vary.
-            for s in range(per):
-                locs.append([h.x3d(s * (pts - 1) / per), h.y3d(s * (pts - 1) / per)])
-
-            h.pop_section()
+        # NOTE: hardcoded assuming 2 per section (start and 0.5) for now
+        # per = self.rec_per_sec
+        initial_x = self.soma_l / 2.0
+        dend_x = initial_x + self.initial_l
+        term_x = dend_x + self.dend_l
+        locs = [
+            initial_x,
+            initial_x + (self.initial_l / 2),
+            dend_x,
+            dend_x + (self.dend_l / 2),
+            term_x,
+            term_x + (self.term_l / 2),
+        ]
 
         return np.array(locs)
-
-    def n_terminals(self):
-        return len(self.terminals)
