@@ -41,7 +41,7 @@ class Model:
         self.sac_net = None
         self.hard_offsets = {
             trans: [
-                self.dir_sigmoids["offset"](d, p["pref_offset"], p["null_offset"])
+                self.dir_sigmoids["offset"](d, p["null_offset"], p["pref_offset"])
                 for d in self.dir_labels
             ]
             for trans, p in self.synprops.items()
@@ -213,8 +213,9 @@ class Model:
 
         # take direction, null, and preferred bounds and scale between
         self.dir_sigmoids = {
-            "prob": lambda d, n, p: p
-            + (n - p) * (1 - 0.98 / (1 + np.exp(d - 91) / 25)),
+            # "prob": lambda d, n, p: p
+            # + (n - p) * (1 - 0.98 / (1 + np.exp(d - 91) / 25)),
+            "prob": lambda d, n, p: p + (n - p) * (1 - 1 / (1 + np.exp((d - 90) * 0.05))),
             "offset": lambda d, n, p: p
             + (n - p) * (1 - 0.98 / (1 + np.exp(d - 74.69) / 24.36)),
         }
@@ -426,7 +427,7 @@ class Model:
             else:
                 # calculate probability of release
                 probs[t] = self.dir_sigmoids["prob"](
-                    self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
+                    self.dirs[stim["dir"]], props["null_prob"], props["pref_prob"]
                 )
                 onsets[t] = self.stim_onset + self.hard_offsets[t][stim["dir"]]
 

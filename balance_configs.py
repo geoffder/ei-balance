@@ -310,43 +310,41 @@ def ball_stick_config(
     ttx=False,
     leaky=False,
     high_kv=False,
-    non_ds_ach=False,
-    offset_ampa_ach=False,
     vc_mode=False,
-    record_tree=True,
     poisson_rates=None,
+    record_tree=True,
 ):
     params = {
         # hoc settings
         "tstop": 350,
         "steps_per_ms": 10,
         "dt": 0.1,
-        # synapse organization
-        "term_syn_only": False,
-        "first_order": 4,  # 2,
         # membrane properties
-        "active_terms": False,
         "soma_na": 0.2,
         "soma_k": 0.07,
         "soma_gleak_hh": 0.0001667,
         "soma_gleak_pas": 0.0001667,
-        "initial_na": 0.07,  # 0.045,  # 0.03 # 0.1,  # 0.011,
-        "initial_k": 0.07,  # 0.035,  # 0.03,
+        "initial_na": 0.07,
+        "initial_k": 0.07,
         "initial_gleak_hh": 0.0001667,
         "initial_gleak_pas": 0.0001667,
-        "dend_na": 0.013,  # 0.011,
-        "dend_K": 0.035,  # 0.03,  # 0.035,  # 0.03,
+        "dend_na": 0.013,
+        "dend_k": 0.035,
         "dend_gleak_hh": 0.0001667,
         "dend_gleak_pas": 0.0001667,
+        "term_na": 0.013,
+        "term_k": 0.035,
+        "term_gleak_hh": 0.0001667,
+        "term_gleak_pas": 0.0001667,
         # synapse variability
-        "space_rho": 1,  # 0.9,
-        "time_rho": 1,  # 0.9,
+        "space_rho": 0.9,  # 0.9,
+        "time_rho": 0.9,  # 0.9,
         "synprops": {
             "E": {
                 "var": 15,  # 10,  # 12,  # 15,
-                "delay": 5,  # 5,
-                "null_prob": 0.0,
-                "pref_prob": 1.0,  # 0.8,
+                "delay": 0,  # 5,
+                "null_prob": 0.5,
+                "pref_prob": 0.5,  # 0.8,
                 "weight": 0.0015,  # 0.0015,
                 "tau1": 0.1,
                 "tau2": 4,
@@ -354,12 +352,14 @@ def ball_stick_config(
             "I": {
                 "var": 15,  # 10,  # 12,  # 15,
                 "delay": 0,
-                "null_prob": 0.0,
-                "pref_prob": 1.0,  # 0.8,
+                "null_prob": 0.8,
+                "pref_prob": 0.05,  # 0.8,
                 "weight": 0.006,  # 0.006,
                 "tau1": 0.5,
                 "tau2": 16,
                 "rev": -65,  # -60.,
+                "null_offset": 0,
+                "pref_offset": 0,
             },
             "NMDA": {
                 "var": 7,
@@ -412,18 +412,6 @@ def ball_stick_config(
     if vc_mode:
         params["vc_pas"] = True
 
-    # non-ds ACH
-    if non_ds_ach:
-        params["synprops"]["E"]["null_prob"] = 0.5
-        params["synprops"]["E"]["pref_prob"] = 0.5
-
-    if offset_ampa_ach:
-        params["synprops"]["E"]["null_prob"] = 0.0
-        params["synprops"]["E"]["pref_prob"] = 0.0
-        params["synprops"]["AMPA"]["delay"] = -30.0
-        params["synprops"]["AMPA"]["pref_prob"] = 0.5
-        params["synprops"]["AMPA"]["null_prob"] = 0.5
-
     if poisson_rates is not None:
         params["poisson_mode"] = True
         params["tstop"] = 550
@@ -443,7 +431,7 @@ def ball_stick_config(
 
         base_w = 0.000313 * 3 * 1.5
         params["synprops"]["E"]["weight"] = base_w
-        params["synprops"]["I"]["weight"] = base_w * 4
+        params["synprops"]["I"]["weight"] = base_w * 1  # * 2  # * 4
         params["synprops"]["NMDA"]["weight"] = base_w * 1.33
 
     return params
