@@ -203,7 +203,7 @@ class Model:
             "y_end": 225,  # end location (Y axis) of the stimulus bar (um)
         }
 
-        self.stim_onset = 100
+        self.stim_onset = 50
 
         self.dir_labels = np.array([225, 270, 315, 0, 45, 90, 135, 180])
         self.dir_rads = np.radians(self.dir_labels)
@@ -215,7 +215,8 @@ class Model:
         self.dir_sigmoids = {
             # "prob": lambda d, n, p: p
             # + (n - p) * (1 - 0.98 / (1 + np.exp(d - 91) / 25)),
-            "prob": lambda d, n, p: p + (n - p) * (1 - 1 / (1 + np.exp((d - 90) * 0.05))),
+            "prob": lambda d, n, p: p
+            + (n - p) * (1 - 1 / (1 + np.exp((d - 90) * 0.05))),
             "offset": lambda d, n, p: p
             + (n - p) * (1 - 0.98 / (1 + np.exp(d - 74.69) / 24.36)),
         }
@@ -445,6 +446,23 @@ class Model:
             qs = quanta_to_times(poissons[t], self.rate_dt) + onsets[t]
             for q in qs:
                 self.syns[t]["con"][0].add_event(q)
+
+    def bar_onsets(self, stim):
+        for t, props in self.synprops.items():
+            if stim["type"] == "flash":
+                self.syns[t]["con"][0].weight = props["weight"]
+                self.syns[t]["con"][0].add_event(self.stim_onset)
+            else:
+                # calculate probability of release
+                pr = self.dir_sigmoids["prob"](
+                    self.dirs[stim["dir"]], props["null_prob"], props["pref_prob"]
+                )
+                self.syns[t]["con"][0].weight = props["weight"] * pr
+                # TODO: use dir onsets or no?
+                self.syns[t]["con"][0].add_event(self.stim_onset)
+                # self.syns[t]["con"][0].add_event(
+                #     self.stim_onset + self.hard_offsets[t][stim["dir"]]
+                # )
 
     def update_noise(self):
         # set HHst noise seeds

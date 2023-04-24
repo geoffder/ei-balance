@@ -1,5 +1,6 @@
 from neuron import h
 
+
 class NetQuanta:
     def __init__(self, syn, weight, delay=0.0):
         self.con = h.NetCon(None, syn, 0.0, 0.0, weight)
