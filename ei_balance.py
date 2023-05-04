@@ -5,7 +5,8 @@ from neuron import h
 # science/math libraries
 import numpy as np
 import scipy.stats as st
-from deconv import quanta_to_times  # for probabilistic distributions
+from deconv import quanta_to_times
+from general_utils import project_onto_line  # for probabilistic distributions
 
 # local imports
 from modelUtils import (
@@ -14,6 +15,7 @@ from modelUtils import (
     rotate,
     merge,
     cable_dist_to_soma,
+    rot,
 )
 from SacNetwork import SacNetwork
 from NetQuanta import NetQuanta
@@ -41,14 +43,14 @@ class Model:
 
         if self.sac_mode:
             self.build_sac_net()
-            if self.n_plexus_ach > 0 and "PLEX" not in self.synprops:
-                self.synprops["PLEX"] = deepcopy(self.synprops["E"])
-            elif self.n_plexus_ach <= 0:
-                del self.synprops["PLEX"]
         else:
             self.sac_net: Optional[SacNetwork] = None
             if "PLEX" in self.synprops:
                 del self.synprops["PLEX"]
+
+        # sweep times set by self.build_sac_net otherwise (refreshed with new nets)
+        if not self.sac_mode:
+            self.sweep_times = self.calc_sweep_times()
 
     def set_default_params(self):
         # hoc environment parameters
@@ -207,6 +209,8 @@ class Model:
             "x_end": 200,  # end location (X axis)of the stimulus bar (um)
             "y_start": 25,  # start location (Y axis) of the stimulus bar (um)
             "y_end": 225,  # end location (Y axis) of the stimulus bar (um)
+            "rel_start_pos": np.array([-150, 0]),  # vector from origin to start
+            "rel_end_pos": np.array([150, 0]),  # vector from origin to end
         }
 
         self.flash_mean = 100  # mean onset time for flash stimulus
@@ -566,6 +570,13 @@ class Model:
             n_plexus_ach=self.n_plexus_ach,
         )
 
+        if self.n_plexus_ach > 0 and "PLEX" not in self.synprops:
+            self.synprops["PLEX"] = deepcopy(self.synprops["E"])
+        elif "PLEX" in self.synprops and self.n_plexus_ach <= 0:
+            del self.synprops["PLEX"]
+
+        self.sweep_times = self.calc_sweep_times()
+
     def flash_onsets(self):
         """
         Calculate onset times for each synapse randomly as though stimulus was
@@ -607,7 +618,7 @@ class Model:
 
         return onset_times
 
-    def bar_sweep(self, syn, dir_idx):
+    def bar_sweep_old(self, syn, dir_idx):
         """Return activation time for the given synapse based on the light bar
         config and the pre-synaptic setup (e.g. SAC network/hard-coded offsets)
         """
@@ -635,6 +646,74 @@ class Model:
                 )
 
         return on_times
+
+    def bar_sweep_dumb(self, syn, dir_idx):
+        """Return activation time for the given synapse based on the light bar
+        config and the pre-synaptic setup (e.g. SAC network/hard-coded offsets)
+        """
+        # TODO:
+        # - pre-calculate the distances for each direction for all of the synapses
+        #   so that it is not repeated on every trial
+        #   - broken out into another method: each direction handled at a time, so that
+        #     line_a and line_b need only be calculated once
+
+        bar = self.light_bar
+        r = self.dir_rads[dir_idx]  # type:ignore
+        line_a = rot(r, bar["rel_start_pos"]) + self.origin
+        line_b = rot(r, bar["rel_end_pos"]) + self.origin
+        syn_dist = project_onto_line(line_a, line_b, self.syn_locs[syn, :2])[0]
+        on_times = {}
+
+        # distance to synapse divided by speed
+        for t in self.synprops.keys():
+            if t in ["E", "I", "PLEX"] and self.sac_net is not None:
+                sac_loc = self.sac_net.get_syn_loc(t, syn, 0)
+                sac_loc = np.array([sac_loc["x"], sac_loc["y"]])
+                dist = project_onto_line(line_a, line_b, sac_loc)[0]
+                on_times[t] = bar["start_time"] + dist / bar["speed"]
+            else:
+                offset = self.hard_offsets[t][dir_idx]
+                on_times[t] = bar["start_time"] + (syn_dist + offset) / bar["speed"]
+
+        return on_times
+
+    def calc_sweep_times(self):
+        """Return dict with synapse activation times for each direction.
+        dir_idx -> syn_idx -> syn_kind"""
+        times = {}  # dir -> syn -> trans
+        bar = self.light_bar
+        start = bar["start_time"]
+        v = bar["speed"]
+        for i, r in enumerate(self.dir_rads):  # type:ignore
+            times[i] = {}
+            line_a = rot(r, bar["rel_start_pos"]) + self.origin
+            line_b = rot(r, bar["rel_end_pos"]) + self.origin
+
+            for syn in range(self.n_syn):
+                times[i][syn] = {}
+                syn_dist = project_onto_line(line_a, line_b, self.syn_locs[syn, :2])[0]
+                for t in self.synprops.keys():
+                    if t in ["E", "I", "PLEX"] and self.sac_net is not None:
+                        sac_loc = self.sac_net.get_syn_loc(t, syn, 0)
+                        if t == "PLEX":
+                            locs = np.array([sac_loc["x"], sac_loc["y"]]).T
+                            dist = np.array(
+                                [project_onto_line(line_a, line_b, l)[0] for l in locs]
+                            )
+                        else:
+                            sac_loc = np.array([sac_loc["x"], sac_loc["y"]])
+                            dist = project_onto_line(line_a, line_b, sac_loc)[0]
+                        times[i][syn][t] = start + dist / v
+                    else:
+                        offset = self.hard_offsets[t][i]
+                        times[i][syn][t] = start + (offset + syn_dist) / v
+        return times
+
+    def bar_sweep(self, syn, dir_idx):
+        """Return activation time for the given synapse based on the light bar
+        config and the pre-synaptic setup (e.g. SAC network/hard-coded offsets)
+        """
+        return self.sweep_times[dir_idx][syn]
 
     def bar_onsets(self, stim):
         """

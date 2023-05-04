@@ -71,7 +71,9 @@ def exp_rise(x, m, tau):
 
 
 def project_onto_line(line_a, line_b, pt):
-    """Project a 2d point onto the line between a and b (len 2 ndarrays)."""
+    """Project a 2d point onto the line between a and b (len 2 ndarrays).
+    Returns pair of the length along line starting from a and the projected
+    coordinate."""
     a_b = line_b - line_a  # vector from a to b
     pt_a = pt - line_a  # vector from a to pt
     dp = a_b @ pt_a
@@ -81,4 +83,5 @@ def project_onto_line(line_a, line_b, pt):
     len_proj = cos * len_pt_a  # length along line that new point falls
     x = line_a[0] + len_proj * a_b[0] / len_a_b
     y = line_a[1] + len_proj * a_b[1] / len_a_b
-    return np.array([x, y])
+    projected = np.array([x, y])
+    return len_proj, projected

@@ -70,6 +70,20 @@ def rotate(origin, X, Y, angle):
     return rotX, rotY
 
 
+def rot(angle, pos, about=np.zeros(2)):
+    """
+    Rotate a point pos counterclockwise an angle around an origin.
+    The angle should be given in radians.
+    """
+    ox, oy = about[0], about[1]
+    x, y = pos[0], pos[1]
+    c = np.cos(angle)
+    s = np.sin(angle)
+    rot_x = ox + c * (pos[0] - ox) - s * (pos[1] - oy)
+    rot_y = oy + s * (pos[0] - ox) + c * (pos[1] - oy)
+    return np.array([rot_x, rot_y])
+
+
 def find_spikes(Vm, thresh=20):
     """use scipy.signal.find_peaks to get spike count and times"""
     spikes, _ = find_peaks(Vm, height=thresh)  # returns indices
@@ -209,7 +223,7 @@ def dist_calc(pth, model):
 
 def cable_dist_to_soma(model):
     model.soma.push()
-    h.distance(0, .5)  # set origin at soma
+    h.distance(0, 0.5)  # set origin at soma
     dists = []
     for dend in model.all_dends:
         dend.push()

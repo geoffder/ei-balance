@@ -1,3 +1,5 @@
+import numpy as np
+
 """
 Functions returning parameter dictionaries for the DSGC balance model.
 """
@@ -97,7 +99,14 @@ def sac_mode_config(
         "quanta_inter": 5,  # 5
         "quanta_inter_var": 3,  # 3
         # stimulus
-        "light_bar": {"speed": 1.0, "x_motion": True, "x_start": -60, "y_start": -70},
+        "light_bar": {
+            "speed": 1.0,
+            "x_motion": True,
+            "x_start": -60,
+            "y_start": -70,
+            "rel_start_pos": np.array([-150, 0]),
+            "rel_end_pos": np.array([150, 0]),
+        },
         # SAC Network
         "sac_mode": True,
         "sac_rho": 1.0,
