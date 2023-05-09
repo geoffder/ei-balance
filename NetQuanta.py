@@ -1,4 +1,8 @@
 from neuron import h
+import numpy as np
+
+# import numba
+# from typing import List
 
 
 class NetQuanta:
@@ -28,6 +32,34 @@ class NetQuanta:
 
     def add_event(self, t):
         self._events.append(t + self.delay)
+
+    # @staticmethod
+    # @numba.jit("void(List(float64), float64, int64[:], float64, float64)")
+    # def _add_quanta(
+    #     _events: List[float], delay: float, quanta: np.ndarray, dt: float, t0: float
+    # ):
+    #     i: int = len(_events)
+    #     j: int
+    #     _events += [0.0] * np.sum(quanta)  # type:ignore
+    #     t: float = t0 + delay
+    #     for j in range(quanta.shape[0]):
+    #         for _ in range(quanta[j]):
+    #             _events[i] = t  # type:ignore
+    #             i += 1
+    #         t += dt
+
+    # def add_quanta(self, quanta: np.ndarray, dt: float, t0: float):
+    #     self._add_quanta(self._events, self.delay, quanta, dt, t0)
+
+    def add_quanta(self, quanta, dt, t0):
+        i = len(self._events)
+        self._events += [None] * np.sum(quanta)
+        t = t0 + self.delay
+        for n in quanta:
+            for _ in range(n):
+                self._events[i] = t  # type:ignore
+                i += 1
+            t += dt
 
     def initialize(self):
         """Schedule events in the NetCon object. This must be called within the

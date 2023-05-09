@@ -816,10 +816,8 @@ class Model:
             for t in self.synprops.keys():
                 times = bar_times[t] if t == "PLEX" else [bar_times[t]]
                 for tm, psn in zip(times, poissons[t]):
-                    qs = quanta_to_times(psn, self.rate_dt) + tm
                     t = t if t != "PLEX" else "E"
-                    for q in qs:
-                        self.syns[t]["con"][s].add_event(q)
+                    self.syns[t]["con"][s].add_quanta(psn, self.rate_dt, t0=tm)
 
     def get_failures(self, idx, stim):
         """

@@ -161,13 +161,15 @@ def poisson_quanta(rate, dt, duration):
 
 
 def quanta_to_times(qs, dt):
-    ts = []
+    ts = np.zeros(np.sum(qs))
+    i = 0
     t = 0.0
     for n in qs:
         for _ in range(n):
-            ts.append(t)
+            ts[i] = t
+            i += 1
         t += dt
-    return np.array(ts)
+    return ts
 
 
 def times_to_quanta(ts, dt, duration):
