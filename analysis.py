@@ -1090,7 +1090,7 @@ def rough_gaba_coverage_scaling():
 
 
 def sac_angle_distribution(
-    config, n_nets=100, bins=[8, 12, 16], incl_yticks=False, **plot_kwargs
+    config, n_nets=100, rho=1.0, bins=[8, 12, 16], incl_yticks=False, **plot_kwargs
 ):
     """Plot SAC dendrite angle distribution histograms, aggregating over a
     number of generated networks to get a more accurate estimate."""
@@ -1099,7 +1099,7 @@ def sac_angle_distribution(
     total_gaba = 0
 
     for _ in range(n_nets):
-        model.build_sac_net()
+        model.build_sac_net(rho)
         iThetas.append(model.sac_net.thetas["I"][model.sac_net.gaba_here])
         eThetas.append(model.sac_net.thetas["E"])
         total_gaba += np.sum(model.sac_net.gaba_here)

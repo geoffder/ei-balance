@@ -50,6 +50,8 @@ class SacNetwork:
             self.theta_picker = self.theta_picker_uniform
         elif self.theta_mode == "uniform_post":
             self.theta_picker = self.theta_picker_uniform_post
+        elif self.theta_mode == "experimental":
+            self.theta_picker = self.theta_picker_exp
         else:
             raise Exception("Invalid theta_mode.")
 
@@ -202,6 +204,34 @@ class SacNetwork:
         if correlate:
             pick["E"] = pick["I"] * self.rho + pick["E"] * np.sqrt(1 - self.rho**2)
         return pick
+
+    def theta_picker_exp(self):
+        p = 0
+        n = 1
+        base = self.np_rng.uniform(-180, 180)
+        gaba_prob = p + (n - p) * (1 - 1 / (1 + np.exp((np.abs(base) - 160) * 0.04)))
+        # var = 180 * np.sqrt(1 - self.rho**2)  # type:ignore
+        # var = 180 * np.sqrt(1 - self.rho)  # type:ignore
+        var = 180 * (1 - self.rho)  # type:ignore
+
+        pt = 0.45
+        m0 = 2
+        m1 = 82
+        if self.gaba_coverage > pt:
+            g = (m0 * pt) + max(0, self.gaba_coverage - pt) * m1
+        else:
+            g = self.gaba_coverage * m0
+
+        gaba_prob *= g
+        gaba_here = self.np_rng.uniform(0, 1) < gaba_prob
+        i_theta = base + self.cell_pref
+        e_theta = i_theta + self.np_rng.uniform(-var, var)
+
+        return (
+            wrap_360(e_theta),
+            gaba_here,
+            (wrap_360(i_theta) if gaba_here else np.NaN),
+        )
 
     def find_origin(self):
         all_x = np.concatenate(
