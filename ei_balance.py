@@ -226,7 +226,8 @@ class Model:
         # take direction, null, and preferred bounds and scale between
         self.dir_sigmoids = {
             "prob": lambda d, n, p: p
-            + (n - p) * (1 - 0.98 / (1 + np.exp(d - 91) / 25)),
+            # + (n - p) * (1 - 0.98 / (1 + np.exp(d - 91) / 25)),
+            + (n - p) * (1 - 0.98 / (1 + np.exp((d - 91) / 25))),
             "offset": lambda d, n, p: p
             + (n - p) * (1 - 0.98 / (1 + np.exp(d - 74.69) / 24.36)),
         }
@@ -798,9 +799,7 @@ class Model:
                 inv_rate = self.sac_rate * (1 - syn_rho)
                 for t in ["E", "I"]:
                     unshared = self.np_rng.poisson(inv_rate)
-                    poissons[t] = [
-                        np.round((base + unshared) * probs[t]).astype(np.int)
-                    ]
+                    poissons[t] = [np.round((base + unshared) * probs[t]).astype(int)]
             else:
                 poissons["E"] = [self.np_rng.poisson(self.sac_rate * probs["E"])]
                 poissons["I"] = [np.array([0])]

@@ -206,23 +206,18 @@ class SacNetwork:
         return pick
 
     def theta_picker_exp(self):
-        p = 0
-        n = 1
+        s = self.gaba_coverage - 0.5
+        p, n = (0, (1.0 + s * 2)) if s < 0 else (s * 2, 1)
+
         base = self.np_rng.uniform(-180, 180)
-        gaba_prob = p + (n - p) * (1 - 1 / (1 + np.exp((np.abs(base) - 160) * 0.04)))
+        # gaba_prob = p + (n - p) * (1 - 1 / (1 + np.exp((np.abs(base) - 160) * 0.04)))
+        # gaba_prob = p + (n - p) * (1 - 1 / (1 + np.exp((np.abs(base) - 90) * 0.04)))
+        gaba_prob = p + (n - p) * (1 - 1 / (1 + np.exp((np.abs(base) - 90) * 0.1)))
+        # gaba_prob = p + (n - p) * (1 - 1 / (1 + np.exp((np.abs(base) - 90) * 0.12)))
         # var = 180 * np.sqrt(1 - self.rho**2)  # type:ignore
         # var = 180 * np.sqrt(1 - self.rho)  # type:ignore
         var = 180 * (1 - self.rho)  # type:ignore
 
-        pt = 0.45
-        m0 = 2
-        m1 = 82
-        if self.gaba_coverage > pt:
-            g = (m0 * pt) + max(0, self.gaba_coverage - pt) * m1
-        else:
-            g = self.gaba_coverage * m0
-
-        gaba_prob *= g
         gaba_here = self.np_rng.uniform(0, 1) < gaba_prob
         i_theta = base + self.cell_pref
         e_theta = i_theta + self.np_rng.uniform(-var, var)
@@ -261,7 +256,8 @@ class SacNetwork:
         for d in self.dir_labels:
             pr = np.abs(theta - d)
             pr = np.abs(pr - 360) if pr > 180 else pr
-            pr = pref + (null - pref) * (1 - 1 / (1 + np.exp((pr - 90) * 0.05)))
+            # pr = pref + (null - pref) * (1 - 1 / (1 + np.exp((pr - 90) * 0.05)))
+            pr = pref + (null - pref) * (1 - 1 / (1 + np.exp((pr - 90) * 0.1)))
             probs.append(pr)
         return probs
 
