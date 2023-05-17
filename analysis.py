@@ -824,25 +824,26 @@ def spike_rasters(
     return fig
 
 
-def time_evolution(data, dirs, kernel_var=30, net_idx=None, **plot_kwargs):
+def time_evolution(data, dirs, kernel_var=30, rhos=None, net_idx=None, **plot_kwargs):
     """Apply a continuous transform to spike somatic spike train and use to
     calculate theta and DSi for each moment in time. Display spike waveforms
     (aggregate mean with per network means) for each direction, with theta and
     DSi below."""
-    rhos = list(data.keys())
+    rhos = list(data.keys()) if rhos is None else rhos
     dt = data[rhos[0]][0]["params"]["dt"]
     rec_sz = data[rhos[0]][0]["soma"]["Vm"].shape[-1]
     time = np.linspace(0, rec_sz * dt, rec_sz)
 
     fig, axes = plt.subplots(10, len(data), sharex="col", sharey="row", **plot_kwargs)
     # unzip axes from rows in to column-major organization
-    if len(data) > 1:
+    if len(rhos) > 1:
         axes = [[a[i] for a in axes] for i in range(len(data))]
     else:
         axes = [axes]
 
     # sort dict so rho increases left to right
-    for (rho, nets), col in zip(sorted(data.items()), axes):
+    for rho, col in zip(rhos, axes):
+        nets = data[rho]
         spk_waves = [
             spike_transform(nets[n]["soma"]["Vm"], 500, kernel_var)
             for n in nets.keys()

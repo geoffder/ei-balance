@@ -117,6 +117,55 @@ def sacnet_gaba_titration_run(
                 idx = idx + n
     print("Done!")
 
+def sacnet_rho_run(
+    save_path,
+    model_config,
+    n_nets=3,
+    n_trials=3,
+    rho_steps=[round(s * 0.1, 2) for s in range(0, 11)],
+    pool_sz=8,
+    vc_mode=False,
+    vc_simul=True,
+):
+    global _sacnet_rho_repeat  # required to allow pickling for Pool
+
+    def _sacnet_rho_repeat(rho, i):
+        params = deepcopy(model_config)
+        params["seed"] = i
+        dsgc = Model(params)
+        runner = Rig(dsgc)
+
+        runner.model.nz_seed = 0
+        runner.model.build_sac_net(rho=rho)
+        if vc_mode:
+            return runner.vc_dir_run(
+                n_trials, simultaneous=vc_simul, save_name=None, quiet=True
+            )
+        else:
+            return runner.dir_run(
+                n_trials, save_name=None, plot_summary=False, quiet=True
+            )
+
+    with multiprocessing.Pool(pool_sz) as pool, h5.File(save_path, "w") as pckg:
+        for rho in rho_steps:
+            print("Running with rho = %.2f" % rho)
+            grp = pckg.create_group(pack_key(rho))
+            f = partial(_sacnet_rho_repeat, rho)
+            idx = 0
+            while idx < n_nets:
+                n = min(pool_sz, n_nets - idx)
+                print(
+                    "  sac net trials %i to %i (of %i)..." % (idx + 1, idx + n, n_nets),
+                    flush=True,
+                )
+                res = pool.map(f, [idx + i for i in range(n)])
+                for i in range(n):
+                    data = {i: res[0]}
+                    pack_dataset(grp, data, compression=None)
+                    del data, res[0]  # delete head
+                idx = idx + n
+    print("Done!")
+
 
 if __name__ == "__main__":
     import balance_configs as configs
