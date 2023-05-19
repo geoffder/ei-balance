@@ -195,7 +195,7 @@ def sac_mode_config(
 
     if poisson_rates is not None:
         params["poisson_mode"] = True
-        params["tstop"] = 550
+        params["tstop"] = 550 if not vc_mode else 750
         params["sac_rate"] = poisson_rates["sac"]
         params["glut_rate"] = poisson_rates["glut"]
         params["rate_dt"] = poisson_rates["dt"] * 1000.0
