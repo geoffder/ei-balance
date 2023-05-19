@@ -834,10 +834,10 @@ def time_evolution(data, dirs, kernel_var=30, rhos=None, net_idx=None, **plot_kw
     rec_sz = data[rhos[0]][0]["soma"]["Vm"].shape[-1]
     time = np.linspace(0, rec_sz * dt, rec_sz)
 
-    fig, axes = plt.subplots(10, len(data), sharex="col", sharey="row", **plot_kwargs)
+    fig, axes = plt.subplots(10, len(rhos), sharex="col", sharey="row", **plot_kwargs)
     # unzip axes from rows in to column-major organization
     if len(rhos) > 1:
-        axes = [[a[i] for a in axes] for i in range(len(data))]
+        axes = [[a[i] for a in axes] for i in range(len(rhos))]
     else:
         axes = [axes]
 
