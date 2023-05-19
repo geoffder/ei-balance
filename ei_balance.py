@@ -446,6 +446,7 @@ class Model:
                 dend.diam = d
 
     def create_synapses(self):
+        incl_plex = self.n_plexus_ach > 0 and "PLEX" in self.synprops
         # number of synapses
         if self.term_syn_only:
             self.n_syn = len(self.terminals)
@@ -462,6 +463,8 @@ class Model:
             "NMDA": {"syn": [], "con": []},
             "AMPA": {"syn": [], "con": []},
         }
+        if incl_plex:
+            self.syns["PLEX"] = {"syn": [], "con": []}
 
         if self.term_syn_only:
             dend_list = self.terminals
@@ -491,7 +494,7 @@ class Model:
                 )
 
             for trans, props in self.synprops.items():
-                if trans == "PLEX":
+                if trans == "PLEX" and not incl_plex:
                     continue
                 if trans == "NMDA":
                     self.syns[trans]["syn"].append(h.Exp2NMDA(0.5))
@@ -815,7 +818,6 @@ class Model:
             for t in self.synprops.keys():
                 times = bar_times[t] if t == "PLEX" else [bar_times[t]]
                 for tm, psn in zip(times, poissons[t]):
-                    t = t if t != "PLEX" else "E"
                     self.syns[t]["con"][s].add_quanta(psn, self.rate_dt, t0=tm)
 
     def get_failures(self, idx, stim):

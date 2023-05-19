@@ -369,6 +369,7 @@ class Rig:
         n_dirs = len(self.model.dirs)
         stim = {"type": "bar", "dir": 0}
         params = self.model.get_params_dict()  # for logging
+        incl_plex = self.model.n_plexus_ach > 0 and "PLEX" in self.model.synprops
 
         if rhos is not None:
             stim["rhos"] = rhos
@@ -378,9 +379,11 @@ class Rig:
             self.model.time_rho = params["time_rho"]
 
         # create voltage clamp
+        self.model.soma.push()
         h("objref VC")
         VC = h.VC
         VC = h.SEClamp(0.5)
+        h.pop_section()
 
         # hold target voltage for entire duration
         VC.dur1 = h.tstop
@@ -391,8 +394,8 @@ class Rig:
         rec.record(VC._ref_i)
 
         conditions = {
-            "E": {"trans": ["E", "AMPA"], "holding": -60},
-            "ACH": {"trans": ["E"], "holding": -60},
+            "E": {"trans": ["E", "AMPA", "PLEX"], "holding": -60},
+            "ACH": {"trans": ["E", "PLEX"], "holding": -60},
             "AMPA": {"trans": ["AMPA"], "holding": -60},
             "GABA": {"trans": ["I"], "holding": 0},
         }
@@ -409,6 +412,8 @@ class Rig:
             VC.amp1 = settings["holding"]
 
             for t, ps in self.model.synprops.items():
+                if not incl_plex and t == "PLEX":
+                    continue
                 weight = ps["weight"] if t in settings["trans"] else 0
                 for netcon in self.model.syns[t]["con"]:
                     netcon.weight = weight
@@ -425,7 +430,8 @@ class Rig:
 
                     h.init()
 
-                    self.model.bar_onsets(stim)
+                    # self.model.bar_onsets(stim)
+                    self.model.bar_poissons(stim)
                     self.model.update_noise()
 
                     rec.resize(0)
@@ -439,8 +445,9 @@ class Rig:
         # reset all synaptic connection weights
         for cond, settings in conditions.items():
             for t, ps in self.model.synprops.items():
-                for netcon in self.model.syns[t]["con"]:
-                    netcon.weight = ps["weight"]
+                if t != "PLEX" or incl_plex:
+                    for netcon in self.model.syns[t]["con"]:
+                        netcon.weight = ps["weight"]
 
         all_data = {
             "params": params,
