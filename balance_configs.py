@@ -36,14 +36,18 @@ def sac_mode_config(
         "soma_gleak_hh": 0.000275,  # poleg-polsky 2016
         "soma_gleak_pas": 0.0001667,  # alon 2016 -> 5e-5
         "prime_Na": 0.07,  # 0.045,  # 0.03 # 0.1,  # 0.011,
-        "prime_K": 0.07,  # 0.035,  # 0.03,
-        "prime_Km": 0.0005,  # NOTE: NEW (decreasing weights)
+        "prime_K": 0.07,  # 0.035,  # 0.03, # NOTE: USUAL
+        # "prime_K": 0.035,  # 0.035,  # 0.03,
+        # "prime_Km": 0.0005,  # NOTE: NEW (decreasing weights)
+        "prime_Km": 0.0,  # NOTE: NEW (decreasing weights)
         # "prime_gleak_hh": 0.0001667,  # NOTE: USUAL
         "prime_gleak_hh": 0.000275,
         "prime_gleak_pas": 0.0001667,
-        "dend_Na": 0.013,  # NOTE: USUAL
-        # "dend_Na": 0.035,  # 0.011,
-        "dend_K": 0.035,  # 0.03,  # 0.035,  # 0.03,
+        # "dend_Na": 0.013,  # NOTE: USUAL
+        # "dend_Na": 0.013,
+        "dend_Na": 0.05,  # 0.011,
+        # "dend_K": 0.035,  # 0.03,  # 0.035,  # 0.03, # NOTE: USUAL
+        "dend_K": 0.07,  # 0.03,  # 0.035,  # 0.03,
         "dend_Km": 0.0,  # NOTE: NEW (decreasing weights)
         # "dend_gleak_hh": 0.0001667,  # NOTE: USUAL
         "dend_gleak_hh": 0.000275,  # poleg-polsky 2016
@@ -156,8 +160,8 @@ def sac_mode_config(
         # increase Nav to counter incr diam (want to lean on this more)
         # params["dend_Na"] = 0.015
         # params["dend_K"] = 0.035
-        params["dend_Na"] = 0.05  # .04 # 0.03
-        params["dend_K"] = 0.07
+        # params["dend_Na"] = 0.05  # .04 # 0.03 # NOTE: USUAL
+        # params["dend_K"] = 0.07 # NOTE: USUAL
 
         # params["synprops"]["E"]["weight"] *= 1.
         # params["synprops"]["E"]["delay"] = 3
@@ -223,11 +227,11 @@ def sac_mode_config(
         # base_w = 0.000313 * 2
         base_w = 0.000313
         # params["synprops"]["E"]["weight"] = base_w
-        params["synprops"]["E"]["weight"] = base_w * 0.7
+        params["synprops"]["E"]["weight"] = base_w * 0.8
         # params["synprops"]["I"]["weight"] = base_w * 4  # NOTE: USUAL
         # params["synprops"]["I"]["weight"] = base_w * 3
-        # params["synprops"]["I"]["weight"] = base_w * 1.2
-        params["synprops"]["I"]["weight"] = base_w
+        params["synprops"]["I"]["weight"] = base_w * 1.2
+        # params["synprops"]["I"]["weight"] = base_w
         params["synprops"]["NMDA"]["weight"] = base_w * 1.33
         params["synprops"]["PLEX"]["weight"] = base_w
 
