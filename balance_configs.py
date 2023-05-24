@@ -17,6 +17,9 @@ def sac_mode_config(
     plexus=0,
     plexus_share=None,
 ):
+    # leak_hh = 0.0001667  # NOTE: USUAL
+    leak_hh = 0.000275  # poleg-polsky 2016
+
     # TODO: adjust active properties of the dendrites (Na/K)
     # would like to turn down E a bit and *increase* spiking if possible
     params = {
@@ -29,28 +32,27 @@ def sac_mode_config(
         "first_order": 4,  # 2,
         # membrane properties
         "active_terms": False,
+        "vshift": -4,
+        # "soma_Na": 0.2,  # NOTE: USUAL
         "soma_Na": 0.2,
         "soma_K": 0.07,
         "soma_Km": 0.0005,  # NOTE: NEW (decreasing weights)
-        # "soma_gleak_hh": 0.0001667,  # NOTE: USUAL
-        "soma_gleak_hh": 0.000275,  # poleg-polsky 2016
+        "soma_gleak_hh": leak_hh,
         "soma_gleak_pas": 0.0001667,  # alon 2016 -> 5e-5
         "prime_Na": 0.07,  # 0.045,  # 0.03 # 0.1,  # 0.011,
         "prime_K": 0.07,  # 0.035,  # 0.03, # NOTE: USUAL
         # "prime_K": 0.035,  # 0.035,  # 0.03,
         # "prime_Km": 0.0005,  # NOTE: NEW (decreasing weights)
         "prime_Km": 0.0,  # NOTE: NEW (decreasing weights)
-        # "prime_gleak_hh": 0.0001667,  # NOTE: USUAL
-        "prime_gleak_hh": 0.000275,
+        "prime_gleak_hh": leak_hh,
         "prime_gleak_pas": 0.0001667,
         # "dend_Na": 0.013,  # NOTE: USUAL
-        # "dend_Na": 0.013,
-        "dend_Na": 0.05,  # 0.011,
-        # "dend_K": 0.035,  # 0.03,  # 0.035,  # 0.03, # NOTE: USUAL
-        "dend_K": 0.07,  # 0.03,  # 0.035,  # 0.03,
+        "dend_Na": 0.035,
+        # "dend_Na": 0.05,  # 0.011, # NOTE: usual with cable on
+        "dend_K": 0.035,  # 0.03,  # 0.035,  # 0.03, # NOTE: USUAL
+        # "dend_K": 0.07,  # NOTE: usual with cable on
         "dend_Km": 0.0,  # NOTE: NEW (decreasing weights)
-        # "dend_gleak_hh": 0.0001667,  # NOTE: USUAL
-        "dend_gleak_hh": 0.000275,  # poleg-polsky 2016
+        "dend_gleak_hh": leak_hh,
         "dend_gleak_pas": 0.0001667,
         # synapse variability
         "jitter": 0,
@@ -153,7 +155,13 @@ def sac_mode_config(
         # params["diam_scaling_mode"] = "order"
         params["diam_scaling_mode"] = "cable"
         # params["diam_range"] = {"max": 2, "min": .4, "decay": .92, "scale": 1.5}
-        params["diam_range"] = {"max": 1.5, "min": 0.4, "decay": 0.92, "scale": 1.0}
+        params["diam_range"] = {
+            "max": 1.5,
+            "min": 0.4,
+            "decay": 0.92,
+            "scale": 1.0,
+        }  # NOTE: USUAL
+        # params["diam_range"] = {"max": 1.2, "min": 0.4, "decay": 0.92, "scale": 1.0}
         # increase weight to counter incr diam
         # for s in params["synprops"].keys():
         #     params["synprops"][s]["weight"] *= 2
@@ -232,7 +240,8 @@ def sac_mode_config(
         # params["synprops"]["I"]["weight"] = base_w * 3
         params["synprops"]["I"]["weight"] = base_w * 1.2
         # params["synprops"]["I"]["weight"] = base_w
-        params["synprops"]["NMDA"]["weight"] = base_w * 1.33
+        # params["synprops"]["NMDA"]["weight"] = base_w * 1.33  # NOTE: USUAL
+        params["synprops"]["NMDA"]["weight"] = base_w * 1.5
         params["synprops"]["PLEX"]["weight"] = base_w
 
     if plexus > 0:
@@ -240,8 +249,6 @@ def sac_mode_config(
         if plexus_share is not None:
             plex_w = w * plexus_share / plexus
             syn_w = w * (1.0 - plexus_share)
-            # plex_w *= 0.5 # HACK: TESTING (TOO HIGH)
-            # syn_w *= 0.5 # HACK: TESTING (TOO HIGH)
         else:
             plex_w = w / (plexus + 1)
             syn_w = plex_w
@@ -387,7 +394,7 @@ def ball_stick_config(
                 "weight": 0.006,  # 0.006,
                 "tau1": 0.5,
                 "tau2": 16,
-                "rev": -65,  # -60.,
+                "rev": -70, #-65,  # -60., # NOTE: changed
                 "null_offset": 0,
                 "pref_offset": 0,
             },
