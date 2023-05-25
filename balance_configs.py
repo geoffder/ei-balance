@@ -17,8 +17,9 @@ def sac_mode_config(
     plexus=0,
     plexus_share=None,
 ):
-    # leak_hh = 0.0001667  # NOTE: USUAL
-    leak_hh = 0.000275  # poleg-polsky 2016
+    gleak_hh = 0.0001667  # NOTE: USUAL
+    # gleak_hh = 0.000275  # poleg-polsky 2016
+    eleak_hh = -65
 
     # TODO: adjust active properties of the dendrites (Na/K)
     # would like to turn down E a bit and *increase* spiking if possible
@@ -32,27 +33,30 @@ def sac_mode_config(
         "first_order": 4,  # 2,
         # membrane properties
         "active_terms": False,
-        "vshift": -4,
+        "vshift_hh": -1,
         # "soma_Na": 0.2,  # NOTE: USUAL
-        "soma_Na": 0.2,
+        "soma_Na": 0.4,
         "soma_K": 0.07,
         "soma_Km": 0.0005,  # NOTE: NEW (decreasing weights)
-        "soma_gleak_hh": leak_hh,
+        "soma_eleak_hh": eleak_hh,
+        "soma_gleak_hh": gleak_hh,
         "soma_gleak_pas": 0.0001667,  # alon 2016 -> 5e-5
         "prime_Na": 0.07,  # 0.045,  # 0.03 # 0.1,  # 0.011,
         "prime_K": 0.07,  # 0.035,  # 0.03, # NOTE: USUAL
         # "prime_K": 0.035,  # 0.035,  # 0.03,
         # "prime_Km": 0.0005,  # NOTE: NEW (decreasing weights)
         "prime_Km": 0.0,  # NOTE: NEW (decreasing weights)
-        "prime_gleak_hh": leak_hh,
+        "prime_eleak_hh": eleak_hh,
+        "prime_gleak_hh": gleak_hh,
         "prime_gleak_pas": 0.0001667,
         # "dend_Na": 0.013,  # NOTE: USUAL
-        "dend_Na": 0.035,
-        # "dend_Na": 0.05,  # 0.011, # NOTE: usual with cable on
-        "dend_K": 0.035,  # 0.03,  # 0.035,  # 0.03, # NOTE: USUAL
-        # "dend_K": 0.07,  # NOTE: usual with cable on
+        # "dend_Na": 0.035,
+        "dend_Na": 0.05,  # 0.011, # NOTE: usual with cable on
+        # "dend_K": 0.035,  # 0.03,  # 0.035,  # 0.03, # NOTE: USUAL
+        "dend_K": 0.07,  # NOTE: usual with cable on
         "dend_Km": 0.0,  # NOTE: NEW (decreasing weights)
-        "dend_gleak_hh": leak_hh,
+        "dend_eleak_hh": eleak_hh,
+        "dend_gleak_hh": gleak_hh,
         "dend_gleak_pas": 0.0001667,
         # synapse variability
         "jitter": 0,
@@ -76,7 +80,7 @@ def sac_mode_config(
                 "weight": 0.006,  # 0.006,
                 "tau1": 0.5,
                 "tau2": 16,
-                "rev": -65,  # -60.,
+                "rev": -70, # -65,  # -60.,
             },
             "NMDA": {
                 "var": 7,
@@ -234,8 +238,8 @@ def sac_mode_config(
         # base_w = 0.000313 * 3 * 1.5  # NOTE: USUAL
         # base_w = 0.000313 * 2
         base_w = 0.000313
-        # params["synprops"]["E"]["weight"] = base_w
-        params["synprops"]["E"]["weight"] = base_w * 0.8
+        params["synprops"]["E"]["weight"] = base_w
+        # params["synprops"]["E"]["weight"] = base_w * 0.8
         # params["synprops"]["I"]["weight"] = base_w * 4  # NOTE: USUAL
         # params["synprops"]["I"]["weight"] = base_w * 3
         params["synprops"]["I"]["weight"] = base_w * 1.2
