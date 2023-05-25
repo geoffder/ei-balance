@@ -232,7 +232,8 @@ def sac_mode_config(
         # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6772523/ (gaba mini)
         params["synprops"]["I"]["tau2"] = 2.0
         params["synprops"]["E"]["tau2"] = 0.3
-        params["synprops"]["NMDA"]["tau2"] = 1.0
+        # params["synprops"]["NMDA"]["tau2"] = 1.0
+        params["synprops"]["NMDA"]["tau2"] = 2.0
         params["synprops"]["E"]["delay"] = 0.0
 
         # base_w = 0.000313 * 3 * 1.5  # NOTE: USUAL
@@ -242,7 +243,8 @@ def sac_mode_config(
         # params["synprops"]["E"]["weight"] = base_w * 0.8
         # params["synprops"]["I"]["weight"] = base_w * 4  # NOTE: USUAL
         # params["synprops"]["I"]["weight"] = base_w * 3
-        params["synprops"]["I"]["weight"] = base_w * 1.2
+        params["synprops"]["I"]["weight"] = base_w * 1.2 # NOTE: USUAL
+        # params["synprops"]["I"]["weight"] = base_w
         # params["synprops"]["I"]["weight"] = base_w
         # params["synprops"]["NMDA"]["weight"] = base_w * 1.33  # NOTE: USUAL
         params["synprops"]["NMDA"]["weight"] = base_w * 1.5
