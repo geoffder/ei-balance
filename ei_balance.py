@@ -79,6 +79,7 @@ class Model:
         # global active properties
         self.TTX = False  # zero all Na conductances
         self.vc_pas = False  # eliminate active properties for clamp
+        self.vshift_hh = 0
 
         # soma active properties
         self.active_soma = True
@@ -113,8 +114,7 @@ class Model:
         self.dend_eleak_pas = -60  # [mV]
 
         # membrane noise
-        self.dend_nzFactor = 0.0  # default NF_HHst = 1
-        self.soma_nzFactor = 0.25
+        self.nz_factor = 0.0  # default NF_HHst = 1
 
         # synaptic properties
         self.term_syn_only = True
@@ -318,6 +318,9 @@ class Model:
         h.dt = self.dt
         h.v_init = self.v_init
         h.celsius = self.celsius
+        if self.active_soma or self.active_terms or self.active_dend:
+            h.vshift_HHst = self.vshift_hh
+            h.NF_HHst = self.nz_factor
 
     def load_DSGC(self):
         _ = h.load_file("RGCmodelGD.hoc")
@@ -343,7 +346,6 @@ class Model:
             self.soma.gkmbar_HHst = self.soma_Km
             self.soma.gleak_HHst = self.soma_gleak_hh
             self.soma.eleak_HHst = self.soma_eleak_hh
-            self.soma.NF_HHst = self.soma_nzFactor
         else:
             self.soma.insert("pas")
             self.soma.g_pas = self.soma_gleak_pas
@@ -360,7 +362,6 @@ class Model:
                 dend.gkmbar_HHst = self.dend_Km
                 dend.gleak_HHst = self.dend_gleak_hh
                 dend.eleak_HHst = self.dend_eleak_hh
-                dend.NF_HHst = self.dend_nzFactor
             if self.dend_pas:
                 for dend in self.non_terms:
                     dend.insert("pas")
@@ -375,7 +376,6 @@ class Model:
                     dend.gkmbar_HHst = self.dend_Km
                     dend.gleak_HHst = self.dend_gleak_hh
                     dend.eleak_HHst = self.dend_eleak_hh
-                    dend.NF_HHst = self.dend_nzFactor
         else:
             for order in self.order_list[1:]:  # except primes
                 if self.active_dend:
@@ -424,7 +424,6 @@ class Model:
             if self.active_dend:
                 dend.gtbar_HHst = 0.0003  # default
                 dend.glbar_HHst = 0.0003  # default
-                dend.NF_HHst = self.dend_nzFactor
 
         # set dendrite diameters
         if self.diam_scaling_mode == "order":
@@ -775,7 +774,6 @@ class Model:
 
         time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
 
-        corrs = []
         for s in range(self.n_syn):
             bar_times = self.bar_sweep(s, stim["dir"])
             if sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[s]:
@@ -895,26 +893,9 @@ class Model:
 
     def update_noise(self):
         # set HHst noise seeds
-        if self.active_soma:
-            self.soma.seed_HHst = self.nz_seed
+        if self.active_soma or self.active_terms or self.active_dend:
+            h.seed_HHst = self.nz_seed
             self.nz_seed += 1
-
-        if self.active_terms:
-            for dend in self.terminals:
-                dend.seed_HHst = self.nz_seed
-                self.nz_seed += 1
-
-        elif self.active_dend:
-            for order in self.order_list[1:]:  # except primes
-                for dend in order:
-                    dend.seed_HHst = self.nz_seed
-                    self.nz_seed += 1
-
-        # prime dendrites
-        if self.active_dend:  # regardless if active_terms
-            for dend in self.order_list[0]:
-                dend.seed_HHst = self.nz_seed
-                self.nz_seed += 1
 
     def get_recording_locations(self):
         locs = []
