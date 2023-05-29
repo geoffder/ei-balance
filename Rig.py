@@ -430,8 +430,11 @@ class Rig:
 
                     h.init()
 
-                    # self.model.bar_onsets(stim)
-                    self.model.bar_poissons(stim)
+                    if self.model.poisson_mode:
+                        self.model.bar_poissons(stim)
+                    else:
+                        self.model.bar_onsets(stim)
+
                     self.model.update_noise()
 
                     rec.resize(0)
