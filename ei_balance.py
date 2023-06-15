@@ -420,7 +420,7 @@ class Model:
         # all dendrites
         for dend in self.all_dends:
             dend.nseg = self.dend_nseg
-            dend.Ra = 100
+            dend.Ra = self.dend_Ra
             if self.active_dend:
                 dend.gtbar_HHst = 0.0003  # default
                 dend.glbar_HHst = 0.0003  # default
