@@ -6,6 +6,7 @@ def poisson_correlation_shared_base(rate):
     rho = 0.6
     inv_rho = 1 - rho
     # inv_rho = 1 - rho**2
+    # inv_rho = np.sqrt(1 - rho**2)
     scale = 0.6
     base_total, e_total, i_total, corr = [], [], [], []
     for _ in range(10000):
@@ -20,7 +21,7 @@ def poisson_correlation_shared_base(rate):
         base_total.append(np.sum(base_psn))
         i_total.append(np.sum(i_psn))
         e_total.append(np.sum(e_psn))
-        corr.append(np.corrcoef(i_psn, e_psn)[0][1])
+        corr.append(np.corrcoef(i_psn - rate * scale, e_psn - rate * scale)[0][1])
 
     print(
         "base total = %f\ni total = %f\ne total = %f\n corr = %f\n"
@@ -33,6 +34,7 @@ def poisson_correlation_inhib_base(rate):
     rho = 0.6
     inv_rho = 1 - rho
     # inv_rho = 1 - rho**2
+    # inv_rho = np.sqrt(1 - rho**2)
     scale = 0.6
     e_total, i_total, corr = [], [], []
     for _ in range(10000):
@@ -44,7 +46,7 @@ def poisson_correlation_inhib_base(rate):
 
         i_total.append(np.sum(i_psn))
         e_total.append(np.sum(e_psn))
-        corr.append(np.corrcoef(i_psn, e_psn)[0][1])
+        corr.append(np.corrcoef(i_psn - rate * scale, e_psn - rate * scale)[0][1])
 
     print(
         "i total = %f\ne total = %f\n corr = %f\n"

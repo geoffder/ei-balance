@@ -251,6 +251,8 @@ class Model:
         self.sac_gaba_coverage = 0.5
         self.sac_theta_mode = "PN"
         self.n_plexus_ach = 0
+        self.plexus_share = None
+        self.stacked_plex = False
 
         self.poisson_mode = False
         self.sac_rate = np.array([1.0])
@@ -571,6 +573,8 @@ class Model:
             theta_mode=self.sac_theta_mode,
             cell_pref=0,
             n_plexus_ach=self.n_plexus_ach,
+            plexus_share=self.plexus_share,
+            stacked_plex=self.stacked_plex,
         )
 
         if self.n_plexus_ach > 0 and "PLEX" not in self.synprops:

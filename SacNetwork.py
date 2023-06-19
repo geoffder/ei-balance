@@ -28,6 +28,8 @@ class SacNetwork:
         theta_mode="PN",
         cell_pref=0,
         n_plexus_ach=0,
+        plexus_share=None,
+        stacked_plex=False,
     ):
         self.syn_locs = syn_locs  # xy coord ndarray of shape (N, 2)
         self.dir_pr = dir_pr  # {"E": {"null": _, "pref": _} ...}
@@ -42,6 +44,19 @@ class SacNetwork:
         self.theta_mode = theta_mode  # TODO: Make a theta param dict...
         self.cell_pref = cell_pref
         self.n_plexus_ach = n_plexus_ach
+        self.stacked_plex = stacked_plex
+
+        if n_plexus_ach > 0:
+            if plexus_share is None:
+                self.plex_prob_mod = 1 / (n_plexus_ach + 1)
+                self.syn_prob_mod = self.plex_prob_mod
+            else:
+                self.plex_prob_mod = plexus_share / n_plexus_ach
+                self.syn_prob_mod = 1.0 - plexus_share
+        else:
+            self.syn_prob_mod = 1.0
+            self.plex_prob_mod = 0.0
+
         if self.theta_mode == "PN":
             self.theta_picker = self.theta_picker_PN
         elif self.theta_mode == "cardinal":
@@ -92,21 +107,40 @@ class SacNetwork:
                 self.probs[t].append(self.compute_probs(pref, null, self.thetas[t][-1]))
 
             if self.n_plexus_ach > 0:
-                thetas = [
-                    self.np_rng.uniform() * 360.0 for _ in range(self.n_plexus_ach)
-                ]
-                self.bp_locs["PLEX"][i] = np.array(
-                    [self.locate_bp(syn_x, syn_y, theta) for theta in thetas]
-                )
-                self.probs["PLEX"].append(
-                    np.array(
-                        [
-                            self.compute_probs(ach_pref, ach_null, theta)
-                            for theta in thetas
-                        ]
-                    ).T
-                )
-                self.thetas["PLEX"].append(thetas)
+                ach_prob = self.probs["E"][i]
+                self.probs["E"][i] = ach_prob * self.syn_prob_mod
+                if self.stacked_plex:
+                    n = self.n_plexus_ach
+                    self.thetas["PLEX"].append([e_theta] * n)
+                    self.bp_locs["PLEX"][i] = np.repeat(
+                        np.expand_dims(self.bp_locs["E"][i], 0), n, axis=0
+                    )
+                    self.probs["PLEX"].append(
+                        np.repeat(
+                            np.expand_dims(ach_prob * self.plex_prob_mod, 0), n, axis=0
+                        ).T
+                    )
+                else:
+                    thetas = [
+                        self.np_rng.uniform() * 360.0 for _ in range(self.n_plexus_ach)
+                    ]
+                    self.bp_locs["PLEX"][i] = np.array(
+                        [self.locate_bp(syn_x, syn_y, theta) for theta in thetas]
+                    )
+                    self.probs["PLEX"].append(
+                        np.array(
+                            [
+                                self.compute_probs(
+                                    ach_pref,
+                                    ach_null,
+                                    theta,
+                                )
+                                * self.plex_prob_mod
+                                for theta in thetas
+                            ]
+                        ).T
+                    )
+                    self.thetas["PLEX"].append(thetas)
 
         self.origin = self.find_origin()
         self.gaba_here = np.array(self.gaba_here)
@@ -259,7 +293,7 @@ class SacNetwork:
             # pr = pref + (null - pref) * (1 - 1 / (1 + np.exp((pr - 90) * 0.05)))
             pr = pref + (null - pref) * (1 - 1 / (1 + np.exp((pr - 90) * 0.1)))
             probs.append(pr)
-        return probs
+        return np.array(probs)
 
     def get_syn_loc(self, trans, num, rotation):
         if trans != "PLEX":
