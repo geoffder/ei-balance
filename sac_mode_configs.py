@@ -353,12 +353,9 @@ def decr_weight(
         # base_w = 0.000313 * 2
         base_w = 0.000313
         params["synprops"]["E"]["weight"] = base_w
-        # params["synprops"]["E"]["weight"] = base_w * 0.8
         # params["synprops"]["I"]["weight"] = base_w * 4  # NOTE: USUAL
-        # params["synprops"]["I"]["weight"] = base_w * 3
-        params["synprops"]["I"]["weight"] = base_w * 1.2  # NOTE: USUAL
-        # params["synprops"]["I"]["weight"] = base_w
-        # params["synprops"]["I"]["weight"] = base_w
+        # params["synprops"]["I"]["weight"] = base_w * 1.2  # NOTE: USUAL
+        params["synprops"]["I"]["weight"] = base_w * 1.4
         # params["synprops"]["NMDA"]["weight"] = base_w * 1.33  # NOTE: USUAL
         params["synprops"]["NMDA"]["weight"] = base_w * 1.5
         params["synprops"]["PLEX"]["weight"] = base_w
