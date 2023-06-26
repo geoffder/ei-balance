@@ -203,7 +203,7 @@ def decr_weight(
         # membrane properties
         "active_terms": False,
         "vc_pas": vc_mode,
-        "vshift_hh": -1,
+        "vshift_hh": 0,
         "soma_Ra": 200,  # NOTE: NEW
         "dend_Ra": 200,  # NOTE: NEW
         "soma_Na": 0.2,
@@ -345,18 +345,12 @@ def decr_weight(
         # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6772523/ (gaba mini)
         params["synprops"]["I"]["tau2"] = 2.0
         params["synprops"]["E"]["tau2"] = 0.3
-        # params["synprops"]["NMDA"]["tau2"] = 1.0
         params["synprops"]["NMDA"]["tau2"] = 2.0
         params["synprops"]["E"]["delay"] = 0.0
 
-        # base_w = 0.000313 * 3 * 1.5  # NOTE: USUAL
-        # base_w = 0.000313 * 2
         base_w = 0.000313
         params["synprops"]["E"]["weight"] = base_w
-        # params["synprops"]["I"]["weight"] = base_w * 4  # NOTE: USUAL
-        # params["synprops"]["I"]["weight"] = base_w * 1.2  # NOTE: USUAL
-        params["synprops"]["I"]["weight"] = base_w * 1.4
-        # params["synprops"]["NMDA"]["weight"] = base_w * 1.33  # NOTE: USUAL
+        params["synprops"]["I"]["weight"] = base_w * 1.8
         params["synprops"]["NMDA"]["weight"] = base_w * 1.5
         params["synprops"]["PLEX"]["weight"] = base_w
 
