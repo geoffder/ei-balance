@@ -1185,7 +1185,8 @@ def plot_dends_overlay(
             for x, y in bp_locs["PLEX"][i]:
                 plot_stick(syn_xs[i], syn_ys[i], x, y, "g")
         plot_stick(syn_xs[i], syn_ys[i], ach_xs[i], ach_ys[i], "g")
-        plot_stick(syn_xs[i], syn_ys[i], gaba_xs[i], gaba_ys[i], "m")
+        if not np.isnan(gaba_xs[i]):  # type: ignore
+            plot_stick(syn_xs[i], syn_ys[i], gaba_xs[i], gaba_ys[i], "m")
         scat_kwargs = {"s": sac_marker_size, "alpha": sac_alpha}
 
         if show_plex and "PLEX" in bp_locs:
@@ -1197,7 +1198,7 @@ def plot_dends_overlay(
         clr = "g" if stim_angle is None else [colors[int(prob / 0.01)]]
         ax.scatter(ach_xs[i], ach_ys[i], c=clr, **scat_kwargs)
 
-        if not np.isnan(gaba_xs[i]):
+        if not np.isnan(gaba_xs[i]):  # type: ignore
             prob = probs["I"][i][angle_idx]
             clr = "m" if stim_angle is None else [colors[int(prob / 0.01)]]
             ax.scatter(gaba_xs[i], gaba_ys[i], marker="v", c=clr, **scat_kwargs)
