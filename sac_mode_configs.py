@@ -220,11 +220,8 @@ def decr_weight(
         "prime_eleak_hh": eleak_hh,
         "prime_gleak_hh": gleak_hh,
         "prime_gleak_pas": 0.0001667,
-        # "dend_Na": 0.013,  # NOTE: USUAL
-        # "dend_Na": 0.035,
-        "dend_Na": 0.05,  # 0.011, # NOTE: usual with cable on
-        # "dend_K": 0.035,  # 0.03,  # 0.035,  # 0.03, # NOTE: USUAL
-        "dend_K": 0.07,  # NOTE: usual with cable on
+        "dend_Na": 0.035,
+        "dend_K": 0.035,
         "dend_Km": 0.0,  # NOTE: NEW (decreasing weights)
         "dend_eleak_hh": eleak_hh,
         "dend_gleak_hh": gleak_hh,
