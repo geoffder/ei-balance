@@ -554,10 +554,12 @@ def sac_rho_violins(metrics, dir_labels, viol_inner="box", **plot_kwargs):
 
     for a, idx in zip(ax[1:], idxs):
         spks = np.concatenate([r[idx] for r in dir_spks.values()])
+        max_spks = np.max(spks)
+        max_tick = max_spks if max_spks % 2 == 0 else max_spks + 1
         sns.violinplot(x=labels, y=spks, inner=viol_inner, ax=a)
         a.set_ylabel("Spikes in %d" % dir_labels[idx], size=14)
         a.set_ylim(-1)
-        a.set_yticks(np.arange(0, spks.max() + 2, 2))
+        a.set_yticks([0, max_tick // 2, max_tick])
 
     ax[-1].set_xlabel("Correlation (rho)", size=14)
     fig.tight_layout()
@@ -1146,6 +1148,7 @@ def plot_dends_overlay(
     n_syn=None,
     cmap="plasma",
     syn_choice_seed=None,
+    show_plex=False,
 ):
     # flip y-axis of image to match it up with coordinate system
     dsgc_img, extent = get_dsgc_img()
@@ -1162,54 +1165,42 @@ def plot_dends_overlay(
     ax.set_xlim(-30, 230)
     ax.set_ylim(-30, 260)
 
+    def plot_stick(syn_x, syn_y, bp_x, bp_y, clr):
+        x = [syn_x, bp_x]
+        y = [syn_y, bp_y]
+        ax.plot(x, y, c=clr, linewidth=sac_thickness, alpha=sac_alpha)
+
     rng = np.random.default_rng(syn_choice_seed)
     idxs = rng.choice(
         len(syn_xs), size=len(syn_xs) if n_syn is None else n_syn, replace=False
     )
+    if stim_angle is not None:
+        colors = [plt.get_cmap(cmap)(1.0 * i / 100) for i in range(100)]
+        angle_idx = np.argwhere(dirs == np.array(stim_angle))[0][0]
+    else:
+        colors, angle_idx = [], 0
+
     for i in idxs:
-        ax.plot(
-            [syn_xs[i], ach_xs[i]],
-            [syn_ys[i], ach_ys[i]],
-            c="g",
-            linewidth=sac_thickness,
-            alpha=sac_alpha,
-        )
-        ax.plot(
-            [syn_xs[i], gaba_xs[i]],
-            [syn_ys[i], gaba_ys[i]],
-            c="m",
-            linewidth=sac_thickness,
-            alpha=sac_alpha,
-        )
-        if stim_angle is not None:
-            angle_idx = np.argwhere(dirs == np.array(stim_angle))[0][0]
-            colors = [plt.get_cmap(cmap)(1.0 * i / 100) for i in range(100)]
-            eClr = colors[int(probs["E"][i][angle_idx] / 0.01)]
-            scat = ax.scatter(
-                ach_xs[i], ach_ys[i], c=[eClr], s=sac_marker_size, alpha=sac_alpha
-            )
+        if show_plex and "PLEX" in bp_locs:
+            for x, y in bp_locs["PLEX"][i]:
+                plot_stick(syn_xs[i], syn_ys[i], x, y, "g")
+        plot_stick(syn_xs[i], syn_ys[i], ach_xs[i], ach_ys[i], "g")
+        plot_stick(syn_xs[i], syn_ys[i], gaba_xs[i], gaba_ys[i], "m")
+        scat_kwargs = {"s": sac_marker_size, "alpha": sac_alpha}
 
-            if not np.isnan(gaba_xs[i]):
-                iClr = colors[int(probs["I"][i][angle_idx] / 0.01)]
-                ax.scatter(
-                    gaba_xs[i],
-                    gaba_ys[i],
-                    marker="v",
-                    c=[iClr],
-                    s=sac_marker_size,
-                    alpha=sac_alpha,
-                )
+        if show_plex and "PLEX" in bp_locs:
+            for (x, y), prob in zip(bp_locs["PLEX"][i], probs["PLEX"][i][angle_idx]):
+                clr = "g" if stim_angle is None else [colors[int(prob / 0.01)]]
+                ax.scatter(x, y, c=clr, **scat_kwargs)
 
-        else:
-            ax.scatter(ach_xs[i], ach_ys[i], c="g", s=sac_marker_size, alpha=sac_alpha)
-            ax.scatter(
-                gaba_xs[i],
-                gaba_ys[i],
-                marker="v",
-                c="m",
-                s=sac_marker_size,
-                alpha=sac_alpha,
-            )
+        prob = probs["E"][i][angle_idx]
+        clr = "g" if stim_angle is None else [colors[int(prob / 0.01)]]
+        ax.scatter(ach_xs[i], ach_ys[i], c=clr, **scat_kwargs)
+
+        if not np.isnan(gaba_xs[i]):
+            prob = probs["I"][i][angle_idx]
+            clr = "m" if stim_angle is None else [colors[int(prob / 0.01)]]
+            ax.scatter(gaba_xs[i], gaba_ys[i], marker="v", c=clr, **scat_kwargs)
 
     if stim_angle is not None:
         cbar = fig.colorbar(
@@ -1244,10 +1235,6 @@ def plot_dends_overlay(
 # TODO: "Zoom-in" on synapses / recordings locations that have drammatically off
 # post-synaptic tuning (mainly TTX of course), and log what the SAC angles were.
 # Another way of trying to bring out the effect a bit more cleanly.
-
-# TODO: put the suite of plotting functions into a function that can be called
-# on all folders in a directory. Will save some pain in re-running titration and
-# coverage experiments
 
 # TODO: Enable rasters, tuning evolution, and violins to adjust to different
 # preferred directions as well.
