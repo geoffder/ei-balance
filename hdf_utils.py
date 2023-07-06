@@ -166,7 +166,7 @@ class Workspace:
 
     def items(self):
         if self.is_hdf:
-            return map(lambda kv: (unpack_key(kv[0]), kv[1]), self._data.items())
+            return map(lambda k: (unpack_key(k), self.__getitem__(k)), self._data.keys())
         else:
             return self._data.items()
 

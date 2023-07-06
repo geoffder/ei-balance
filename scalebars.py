@@ -22,7 +22,7 @@ class AnchoredScaleBar(AnchoredOffsetbox):
         sep=2,
         prop=None,
         barcolor="black",
-        barwidth=None,
+        barwidth=1.,
         textprops={"fontsize": 13},
         **kwargs
     ):
@@ -48,8 +48,9 @@ class AnchoredScaleBar(AnchoredOffsetbox):
         )
 
         bars = AuxTransformBox(transform)
-        x_pos = (-1, 0) if (sizex and sizey) else (0, 0)
-        y_pos = (0, -1) if (sizex and sizey) else (0, 0)
+        bar_off = (barwidth - 1)  / -2 - 1  # fudging to get butts to line up
+        x_pos = (bar_off, 0) if (sizex and sizey) else (0, 0)
+        y_pos = (0, bar_off) if (sizex and sizey) else (0, 0)
 
         if sizex:
             bars.add_artist(
