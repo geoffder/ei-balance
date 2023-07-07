@@ -596,19 +596,19 @@ def analyze_tree(data, dirs, rec_key="Vm", pref=0, thresh=None, bin_pts=None):
     recording location) dict containing all of the DSGCs at each rho level
     included in the given data dict."""
     tuning = {}
-    for rho, nets in data.items():
-        tuning[rho] = {}
+    for cond, nets in data.items():
+        tuning[cond] = {}
         for i in nets.keys():
-            tree_recs = data[rho][i]["dendrites"][rec_key]
+            tree_recs = data[cond][i]["dendrites"][rec_key]
             avg_recs = np.expand_dims(bn.nanmean(tree_recs, axis=0), 0)
-            tuning[rho][i] = {
+            tuning[cond][i] = {
                 "trials": dendritic_ds(
                     tree_recs, dirs, pref=pref, thresh=thresh, bin_pts=bin_pts
                 ),
                 "avg": dendritic_ds(
                     avg_recs, dirs, pref=pref, thresh=thresh, bin_pts=bin_pts
                 ),
-                "locs": data[rho][i]["dendrites"]["locs"],
+                "locs": data[cond][i]["dendrites"]["locs"],
             }
 
     return tuning
@@ -691,7 +691,7 @@ def ds_scatter(tuning_dict, x_max=None, **plot_kwargs):
     dsi_max = 0.0
 
     # sort dict so rho increases left to right
-    for (rho, nets), ax in zip(sorted(tuning_dict.items()), axes):
+    for (cond, nets), ax in zip(sorted(tuning_dict.items()), axes):
         pts = {
             m: np.concatenate([n["trials"][m].flatten() for n in nets.values()])
             for m in ["DSi", "theta"]
@@ -699,7 +699,8 @@ def ds_scatter(tuning_dict, x_max=None, **plot_kwargs):
         dsi_max = max(dsi_max, np.max(pts["DSi"]))
         ax.scatter(pts["DSi"], pts["theta"], c="black", alpha=0.1)
         ax.set_xlabel("DSi", size=14)
-        ax.set_title("rho = %s" % rho, fontsize=18)
+        title = cond if type(cond) is str else "rho = %s" % cond
+        ax.set_title(title, fontsize=18)
 
     axes[0].set_ylim(-180, 180)
     axes[0].set_ylabel("theta (°)", size=14)
