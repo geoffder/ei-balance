@@ -12,6 +12,8 @@ class MotionResponse:
         dsgc_alpha=0.35,
         delta=1,
         figsize=(5, 6),
+            tree_vmin=None,
+            tree_vmax=None,
     ):
         self.delta = delta
         self.soma = net_data["soma"]["Vm"]
@@ -33,7 +35,8 @@ class MotionResponse:
         self.tree_t = 0
         # locs = net_data["dendrites"]["locs"] * px_per_um + np.array([x_off, y_off])
         locs = net_data["dendrites"]["locs"]
-        vmin, vmax = np.min(self.tree), np.max(self.tree)
+        vmin = np.min(self.tree) if tree_vmin is None else tree_vmin
+        vmax = np.max(self.tree) if tree_vmax is None else tree_vmax
         self.scat = self.tree_ax.scatter(
             locs[:, 0], locs[:, 1], c=self.tree[0, 0, :, 0], vmin=vmin, vmax=vmax
         )

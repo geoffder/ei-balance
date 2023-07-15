@@ -564,7 +564,7 @@ def sac_rho_violins(metrics, dir_labels, viol_inner="box", **plot_kwargs):
     ax[-1].set_xlabel("Correlation (rho)", size=14)
     fig.tight_layout()
 
-    return fig
+    return fig, ax
 
 
 def dendritic_ds(tree_recs, dirs, pref=0, thresh=None, bin_pts=None):
@@ -1117,14 +1117,20 @@ def sac_angle_distribution(
 
     for j, numBins in enumerate(bins):
         binAx = [i * 360 / numBins for i in range(numBins)]
-        lbl_e, lbl_i = ("ACh", "GABA") if not j else (None, None)
-        axes[j].hist(eThetas, bins=binAx, color="g", alpha=0.5, label=lbl_e)
-        axes[j].hist(iThetas, bins=binAx, color="m", alpha=0.5, label=lbl_i)
+        for ts, clr, lbl in [(eThetas, "g", "ACh"), (iThetas, "m", "GABA")]:
+            lbl = lbl if not j else None
+            counts, bins = np.histogram(ts, bins=binAx)  # type:ignore
+            counts = np.concatenate([counts, [counts[0]]])
+            bins = np.concatenate([bins, [360]])
+            axes[j].hist(
+                bins[:-1], bins, weights=counts, color=clr, alpha=0.5, label=lbl
+            )
         if len(bins) > 1:
             axes[j].set_title("Bin Size: %.1f" % (360 / numBins))
 
         axes[j].set_xlabel("SAC Dendrite Angle", fontsize=12.0)
         axes[j].set_ylabel("Count", fontsize=12.0)
+        axes[j].set_xticks([0, 180, 360])
         if not incl_yticks:
             axes[j].set_yticks([])
 

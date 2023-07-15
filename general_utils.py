@@ -14,12 +14,24 @@ def merge(old, new):
     return old
 
 
-def clean_axes(axes, remove_spines=["right", "top"], ticksize=11.0):
+def clean_axes(
+    axes,
+    remove_spines=["right", "top"],
+    ticksize=11.0,
+    spine_width=None,
+    tick_width=None,
+):
     """A couple basic changes I often make to pyplot axes. If input is an
     iterable of axes (e.g. from plt.subplots()), apply recursively."""
     if hasattr(axes, "__iter__"):
         for a in axes:
-            clean_axes(a, remove_spines=remove_spines, ticksize=ticksize)
+            clean_axes(
+                a,
+                remove_spines=remove_spines,
+                ticksize=ticksize,
+                tick_width=tick_width,
+                spine_width=spine_width,
+            )
     else:
         for r in remove_spines:
             axes.spines[r].set_visible(False)
@@ -27,12 +39,16 @@ def clean_axes(axes, remove_spines=["right", "top"], ticksize=11.0):
             axis="both",
             which="both",  # applies to major and minor
             **{r: False for r in remove_spines},  # remove ticks
-            **{"label%s" % r: False for r in remove_spines}  # remove labels
+            **{"label%s" % r: False for r in remove_spines},  # remove labels
+            width=tick_width,
         )
         for ticks in axes.get_yticklabels():
             ticks.set_fontsize(ticksize)
         for ticks in axes.get_xticklabels():
             ticks.set_fontsize(ticksize)
+        if spine_width is not None:
+            for s in ["top", "bottom", "left", "right"]:
+                axes.spines[s].set_linewidth(spine_width)
 
 
 def find_bsln_return(
