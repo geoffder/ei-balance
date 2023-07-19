@@ -25,6 +25,7 @@ class MotionResponse:
     ):
         self.delta = delta
         self.soma = net_data["soma"]["Vm"]
+        self.tree_k = tree_k
         self.tree = net_data["dendrites"][tree_k]
         self.dirs = net_data["params"]["dir_labels"]
 
@@ -60,6 +61,7 @@ class MotionResponse:
             hatch=bar_hatch,
         )
         self.tree_ax.add_patch(self.stim)
+        self.fig.colorbar(self.scat, cax=self.colorbar_ax, orientation="vertical")
 
         self.time: np.ndarray = np.linspace(
             0, self.soma_pts * net_data["params"]["dt"], self.soma_pts
@@ -77,16 +79,24 @@ class MotionResponse:
 
     def build_fig(self, figsize):
         self.fig = plt.figure(constrained_layout=True, figsize=figsize)
-        gs = self.fig.add_gridspec(nrows=3, ncols=3, height_ratios=[0.75, 0.2, 0.05])
-        self.tree_ax = self.fig.add_subplot(gs[0, :])
+        ncols = 10
+        edge_w = 0.075
+        mid_w = (1 - edge_w * 2) / (ncols - 2)
+        gs = self.fig.add_gridspec(
+            nrows=3, ncols=ncols,
+            width_ratios=[edge_w] + (ncols - 2) * [mid_w] + [edge_w],
+            height_ratios=[0.75, 0.2, 0.05]
+        )
+        self.tree_ax = self.fig.add_subplot(gs[0, 1:9])
+        self.colorbar_ax = self.fig.add_subplot(gs[0, 9])
         self.soma_ax = self.fig.add_subplot(gs[1, :])
-        self.soma_ax.set_xlabel("Time (s)")
-        self.delta_ax = self.fig.add_subplot(gs[2, 0])
+        self.soma_ax.set_xlabel("Time (ms)")
+        self.delta_ax = self.fig.add_subplot(gs[2, 0:3])
         self.delta_box = TextBox(self.delta_ax, "", initial=str(self.delta))
         self.delta_ax.set_title("delta (scroll)")
-        self.trial_slide_ax = self.fig.add_subplot(gs[2, 1])
+        self.trial_slide_ax = self.fig.add_subplot(gs[2, 3:6])
         self.build_trial_slide_ax()
-        self.dir_slide_ax = self.fig.add_subplot(gs[2, 2])
+        self.dir_slide_ax = self.fig.add_subplot(gs[2, 6:])
         self.build_dir_slide_ax()
 
     def bar_corner_pos(self, ps, bar_width, bar_height):
@@ -101,20 +111,21 @@ class MotionResponse:
         ys = np.array([y0 for _ in range(n_pts)])
 
         sweeps = {}
-        for i in range(len(ps["dir_labels"])):
-            theta = np.radians(ps["dir_labels"][i])
+        for i in range(len(self.dirs)):
+            theta = np.radians(self.dirs[i])
             dir_xs, dir_ys = rotate(net_origin, xs, ys, theta)
             sweeps[i] = np.array([dir_xs, dir_ys]).T
 
         return sweeps
 
     def build_trial_slide_ax(self):
+        vmax = self.n_trials - 1
         self.trial_idx = 0
         self.trial_slider = Slider(
             self.trial_slide_ax,
             "",
             valmin=0,
-            valmax=(self.n_trials - 1),
+            valmax=vmax if vmax > 0 else 0.1,
             valinit=0,
             valstep=1,
         )
