@@ -2,6 +2,8 @@ import numpy as np
 import analysis as ana
 import matplotlib.pyplot as plt
 from matplotlib.widgets import TextBox, Slider
+from matplotlib.patches import Rectangle
+from modelUtils import rotate
 
 
 class MotionResponse:
@@ -12,8 +14,14 @@ class MotionResponse:
         dsgc_alpha=0.35,
         delta=1,
         figsize=(5, 6),
-            tree_vmin=None,
-            tree_vmax=None,
+        tree_vmin=None,
+        tree_vmax=None,
+        bar_width=200,
+        bar_height=300,
+        bar_edge=(0, 0, 0, 0.5),
+        bar_face=(0, 0, 0, 0.0),
+        bar_hatch=None,
+        bar_lw=2,
     ):
         self.delta = delta
         self.soma = net_data["soma"]["Vm"]
@@ -33,7 +41,6 @@ class MotionResponse:
 
         self.rate_diff = self.soma_pts // self.tree_pts
         self.tree_t = 0
-        # locs = net_data["dendrites"]["locs"] * px_per_um + np.array([x_off, y_off])
         locs = net_data["dendrites"]["locs"]
         vmin = np.min(self.tree) if tree_vmin is None else tree_vmin
         vmax = np.max(self.tree) if tree_vmax is None else tree_vmax
@@ -41,10 +48,18 @@ class MotionResponse:
             locs[:, 0], locs[:, 1], c=self.tree[0, 0, :, 0], vmin=vmin, vmax=vmax
         )
 
-        self.init_bar_sweeps(net_data["params"])
-        self.stim = self.tree_ax.plot(
-            self.sweeps[0]["x"], self.sweeps[0]["y"], c="black", linewidth=3, alpha=0.5
-        )[0]
+        self.sweeps = self.bar_corner_pos(net_data["params"], bar_width, bar_height)
+        self.stim = Rectangle(
+            self.sweeps[0][0],
+            bar_width,
+            bar_height,
+            lw=bar_lw,
+            fc=bar_face,
+            ec=bar_edge,
+            angle=self.dirs[0],
+            hatch=bar_hatch,
+        )
+        self.tree_ax.add_patch(self.stim)
 
         self.time: np.ndarray = np.linspace(
             0, self.soma_pts * net_data["params"]["dt"], self.soma_pts
@@ -74,21 +89,24 @@ class MotionResponse:
         self.dir_slide_ax = self.fig.add_subplot(gs[2, 2])
         self.build_dir_slide_ax()
 
-    def init_bar_sweeps(self, ps):
+    def bar_corner_pos(self, ps, bar_width, bar_height):
         bar_start = np.array([ps["light_bar"]["x_start"], ps["origin"][1]])
-        self.sweeps = {}
+        net_origin = ps["origin"]
+        step = ps["dt"] * ps["light_bar"]["speed"]
+        n_pts = self.soma_pts
+
+        x0 = bar_start[0] - bar_width
+        y0 = bar_start[1] - bar_height / 2
+        xs = np.array([x0 + step * t for t in range(n_pts)])
+        ys = np.array([y0 for _ in range(n_pts)])
+
+        sweeps = {}
         for i in range(len(ps["dir_labels"])):
-            bar_x, bar_y = ana.generate_bar_sweep(
-                {
-                    "theta": ps["dir_labels"][i],
-                    "net_origin": ps["origin"],
-                    "start": bar_start,
-                    "speed": ps["light_bar"]["speed"],
-                    "dt": ps["dt"],
-                    "n_pts": self.soma_pts,
-                }
-            )
-            self.sweeps[i] = {"x": bar_x, "y": bar_y}
+            theta = np.radians(ps["dir_labels"][i])
+            dir_xs, dir_ys = rotate(net_origin, xs, ys, theta)
+            sweeps[i] = np.array([dir_xs, dir_ys]).T
+
+        return sweeps
 
     def build_trial_slide_ax(self):
         self.trial_idx = 0
@@ -133,6 +151,7 @@ class MotionResponse:
     def on_dir_slide(self, v):
         self.dir_idx = int(v)
         self.dir_slide_ax.set_title("dir = %i" % self.dirs[self.dir_idx])
+        self.stim.set_angle(self.dirs[self.dir_idx])
         self.update()
 
     def on_scroll(self, event):
@@ -162,8 +181,7 @@ class MotionResponse:
         self.t_mark.set_data(
             self.time[soma_t], self.soma[self.trial_idx, self.dir_idx, soma_t]
         )
-        self.stim.set_xdata(self.sweeps[self.dir_idx]["x"][soma_t])
-        self.stim.set_ydata(self.sweeps[self.dir_idx]["y"][soma_t])
+        self.stim.set_xy(self.sweeps[self.dir_idx][soma_t])
         self.scat.axes.figure.canvas.draw()
 
     def connect_events(self):
@@ -172,4 +190,5 @@ class MotionResponse:
         self.trial_slider.on_changed(self.on_trial_slide)
         self.dir_slider.on_changed(self.on_dir_slide)
         self.fig.canvas.mpl_connect("button_release_event", self.on_soma_click)
+        self.fig.canvas.mpl_connect("motion_notify_event", self.on_soma_click)
         self.delta_box.on_submit(self.set_delta)

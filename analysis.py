@@ -536,8 +536,15 @@ def sac_rho_polars(
     return polar_figs
 
 
-def sac_rho_violins(metrics, dir_labels, viol_inner="box", **plot_kwargs):
-    fig, ax = plt.subplots(4, 1, sharex=True, **plot_kwargs)
+def sac_rho_violins(
+    metrics,
+    dir_labels,
+    viol_inner="box",
+    show_spks=[135, 180, 225],
+    share_ymax=False,
+    **plot_kwargs,
+):
+    fig, ax = plt.subplots(1 + len(show_spks), 1, sharex=True, **plot_kwargs)
 
     labels = [k for k, v in metrics.items() for _ in range(v["DSis"].size)]
     dsis = np.concatenate([r["DSis"].flatten() for r in metrics.values()])
@@ -550,15 +557,18 @@ def sac_rho_violins(metrics, dir_labels, viol_inner="box", **plot_kwargs):
         k: v["spikes"].transpose().reshape(v["spikes"].shape[-1], -1)
         for k, v in metrics.items()
     }
-    idxs = [np.argwhere(dir_labels == d)[0][0] for d in [135, 180, 225]]
+    idxs = [np.argwhere(dir_labels == d)[0][0] for d in show_spks]
+    rho_spikes = np.stack(
+        [np.concatenate([r[i] for r in dir_spks.values()]) for i in idxs], axis=0
+    )
+    max_rho_spikes = np.max(rho_spikes)
 
-    for a, idx in zip(ax[1:], idxs):
-        spks = np.concatenate([r[idx] for r in dir_spks.values()])
-        max_spks = np.max(spks)
+    for a, idx, spks in zip(ax[1:], idxs, rho_spikes):
+        max_spks = max_rho_spikes if share_ymax else np.max(spks)
         max_tick = max_spks if max_spks % 2 == 0 else max_spks + 1
         sns.violinplot(x=labels, y=spks, inner=viol_inner, ax=a)
         a.set_ylabel("Spikes in %d" % dir_labels[idx], size=14)
-        a.set_ylim(-1)
+        a.set_ylim(-1, max_spks)
         a.set_yticks([0, max_tick // 2, max_tick])
 
     ax[-1].set_xlabel("Correlation (rho)", size=14)
