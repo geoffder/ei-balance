@@ -83,9 +83,10 @@ class MotionResponse:
         edge_w = 0.075
         mid_w = (1 - edge_w * 2) / (ncols - 2)
         gs = self.fig.add_gridspec(
-            nrows=3, ncols=ncols,
+            nrows=3,
+            ncols=ncols,
             width_ratios=[edge_w] + (ncols - 2) * [mid_w] + [edge_w],
-            height_ratios=[0.75, 0.2, 0.05]
+            height_ratios=[0.75, 0.2, 0.05],
         )
         self.tree_ax = self.fig.add_subplot(gs[0, 1:9])
         self.colorbar_ax = self.fig.add_subplot(gs[0, 9])
@@ -181,7 +182,11 @@ class MotionResponse:
         self.update()
 
     def on_soma_click(self, event):
-        if event.button == 1 and event.inaxes == self.soma_ax:
+        if (
+            event.button == 1
+            and event.inaxes == self.soma_ax
+            and self.fig.canvas.manager.toolbar.mode == ""  # ignore if panning/zooming
+        ):
             self.tree_t = ana.nearest_index(self.time, event.xdata) // self.rate_diff
             self.update()
 
