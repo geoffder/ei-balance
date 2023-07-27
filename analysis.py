@@ -1163,6 +1163,10 @@ def plot_dends_overlay(
     sac_alpha=0.7,
     stim_angle=None,
     n_syn=None,
+    ach_color="green",
+    gaba_color="magenta",
+    ach_edge="face",
+    gaba_edge="face",
     cmap="plasma",
     syn_choice_seed=None,
     show_plex=False,
@@ -1200,25 +1204,32 @@ def plot_dends_overlay(
     for i in idxs:
         if show_plex and "PLEX" in bp_locs:
             for x, y in bp_locs["PLEX"][i]:
-                plot_stick(syn_xs[i], syn_ys[i], x, y, "g")
-        plot_stick(syn_xs[i], syn_ys[i], ach_xs[i], ach_ys[i], "g")
+                plot_stick(syn_xs[i], syn_ys[i], x, y, ach_color)
+        plot_stick(syn_xs[i], syn_ys[i], ach_xs[i], ach_ys[i], ach_color)
         if not np.isnan(gaba_xs[i]):  # type: ignore
-            plot_stick(syn_xs[i], syn_ys[i], gaba_xs[i], gaba_ys[i], "m")
+            plot_stick(syn_xs[i], syn_ys[i], gaba_xs[i], gaba_ys[i], gaba_color)
         scat_kwargs = {"s": sac_marker_size, "alpha": sac_alpha}
 
         if show_plex and "PLEX" in bp_locs:
             for (x, y), prob in zip(bp_locs["PLEX"][i], probs["PLEX"][i][angle_idx]):
-                clr = "g" if stim_angle is None else [colors[int(prob / 0.01)]]
-                ax.scatter(x, y, c=clr, **scat_kwargs)
+                clr = ach_color if stim_angle is None else [colors[int(prob / 0.01)]]
+                ax.scatter(x, y, c=clr, edgecolors=ach_edge, **scat_kwargs)
 
         prob = probs["E"][i][angle_idx]
-        clr = "g" if stim_angle is None else [colors[int(prob / 0.01)]]
-        ax.scatter(ach_xs[i], ach_ys[i], c=clr, **scat_kwargs)
+        clr = ach_color if stim_angle is None else [colors[int(prob / 0.01)]]
+        ax.scatter(ach_xs[i], ach_ys[i], c=clr, edgecolors=ach_edge, **scat_kwargs)
 
         if not np.isnan(gaba_xs[i]):  # type: ignore
             prob = probs["I"][i][angle_idx]
-            clr = "m" if stim_angle is None else [colors[int(prob / 0.01)]]
-            ax.scatter(gaba_xs[i], gaba_ys[i], marker="v", c=clr, **scat_kwargs)
+            clr = gaba_color if stim_angle is None else [colors[int(prob / 0.01)]]
+            ax.scatter(
+                gaba_xs[i],
+                gaba_ys[i],
+                marker="v",
+                c=clr,
+                edgecolors=gaba_edge,
+                **scat_kwargs,
+            )
 
     if stim_angle is not None:
         cbar = fig.colorbar(
@@ -1231,8 +1242,10 @@ def plot_dends_overlay(
         cbar.ax.tick_params(labelsize=12.0)
         cbar.set_label("Release Probability", fontsize=12)
 
-    ach_circ = ax.scatter([], [], c="g", s=sac_marker_size)
-    gaba_tri = ax.scatter([], [], c="m", marker="v", s=sac_marker_size)
+    ach_circ = ax.scatter([], [], c=ach_color, edgecolors=ach_edge, s=sac_marker_size)
+    gaba_tri = ax.scatter(
+        [], [], c=gaba_color, edgecolors=gaba_edge, marker="v", s=sac_marker_size
+    )
     ax.legend(
         [ach_circ, gaba_tri],
         ["ACh", "GABA"],
