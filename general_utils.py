@@ -101,3 +101,12 @@ def project_onto_line(line_a, line_b, pt):
     y = line_a[1] + len_proj * a_b[1] / len_a_b
     projected = np.array([x, y])
     return len_proj, projected
+
+
+def n_digits(i):
+    if i > 0:
+        return int(np.log10(i)) + 1
+    elif i == 0:
+        return 1
+    else:
+        return int(np.log10(-i)) + 1

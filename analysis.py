@@ -1104,7 +1104,14 @@ def rough_gaba_coverage_scaling():
 
 
 def sac_angle_distribution(
-    config, n_nets=100, rho=1.0, bins=[8, 12, 16], incl_yticks=False, **plot_kwargs
+    config,
+    n_nets=100,
+    rho=1.0,
+    bins=[8, 12, 16],
+    incl_yticks=False,
+    labelsize=14,
+    ticksize=12,
+    **plot_kwargs,
 ):
     """Plot SAC dendrite angle distribution histograms, aggregating over a
     number of generated networks to get a more accurate estimate."""
@@ -1138,14 +1145,14 @@ def sac_angle_distribution(
         if len(bins) > 1:
             axes[j].set_title("Bin Size: %.1f" % (360 / numBins))
 
-        axes[j].set_xlabel("SAC Dendrite Angle", fontsize=12.0)
-        axes[j].set_ylabel("Count", fontsize=12.0)
+        axes[j].set_xlabel("SAC Dendrite Angle", fontsize=labelsize)
+        axes[j].set_ylabel("Count", fontsize=labelsize)
         axes[j].set_xticks([0, 180, 360])
         if not incl_yticks:
             axes[j].set_yticks([])
 
-    fig.legend(frameon=False, fontsize=14)
-    clean_axes(axes, ticksize=12.0)
+    fig.legend(frameon=False, fontsize=labelsize)
+    clean_axes(axes, ticksize=ticksize)
 
     return fig, axes
 
