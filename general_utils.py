@@ -110,3 +110,7 @@ def n_digits(i):
         return 1
     else:
         return int(np.log10(-i)) + 1
+
+
+def norm_xcorr(a, b, mode="valid"):
+    return np.correlate(a / np.linalg.norm(a), b / np.linalg.norm(b), mode=mode)
