@@ -33,6 +33,8 @@ def clean_axes(
                 spine_width=spine_width,
             )
     else:
+        if spine_width is not None and tick_width is None:
+            tick_width = spine_width
         for r in remove_spines:
             axes.spines[r].set_visible(False)
         axes.tick_params(
