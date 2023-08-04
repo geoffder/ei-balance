@@ -232,14 +232,8 @@ class Model:
             + (n - p) * (1 - 0.98 / (1 + np.exp(d - 74.69) / 24.36)),
         }
 
-        self.null_rho = 0.9
-        self.pref_rho = 0.4
         self.space_rho = 0.9  # space correlation
         self.time_rho = 0.9  # time correlation
-        self.null_time_rho = 0.9
-        self.null_space_rho = 0.9
-        self.pref_time_rho = 0.3
-        self.pref_space_rho = 0.3
 
         self.sac_mode = True
         self.sac_offset = 50
