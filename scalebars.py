@@ -47,10 +47,11 @@ class AnchoredScaleBar(AnchoredOffsetbox):
             DrawingArea,
         )
 
+        inv = transform.inverted()  # convert display coords to axis coords
         bars = AuxTransformBox(transform)
         bar_off = (barwidth - 1)  / -2 - 1  # fudging to get butts to line up
-        x_pos = (bar_off, 0) if (sizex and sizey) else (0, 0)
-        y_pos = (0, bar_off) if (sizex and sizey) else (0, 0)
+        x_pos = inv.transform((bar_off, 0) if (sizex and sizey) else (0, 0))
+        y_pos = inv.transform((0, bar_off) if (sizex and sizey) else (0, 0))
 
         if sizex:
             bars.add_artist(
