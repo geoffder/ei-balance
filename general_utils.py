@@ -1,5 +1,4 @@
 import numpy as np
-import h5py as h5
 
 
 def merge(old, new):
@@ -115,4 +114,6 @@ def n_digits(i):
 
 
 def norm_xcorr(a, b, mode="valid"):
+    """Normalized 1d cross-correlation as in matlab
+    https://stackoverflow.com/a/71005798"""
     return np.correlate(a / np.linalg.norm(a), b / np.linalg.norm(b), mode=mode)
