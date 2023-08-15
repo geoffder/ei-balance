@@ -16,10 +16,12 @@ class AnchoredScaleBar(AnchoredOffsetbox):
         sizey=0,
         labelx=None,
         labely=None,
+        pad=0,
         loc=4,
-        pad=0.1,
         borderpad=0.1,
         sep=2,
+        xsep=None,
+        ysep=None,
         prop=None,
         barcolor="black",
         barwidth=1.,
@@ -49,6 +51,8 @@ class AnchoredScaleBar(AnchoredOffsetbox):
 
         inv = transform.inverted()  # convert display coords to axis coords
         bars = AuxTransformBox(transform)
+        xbar = AuxTransformBox(transform)
+        ybar = AuxTransformBox(transform)
         bar_off = (barwidth - 1)  / -2 - 1  # fudging to get butts to line up
         x_pos = inv.transform((bar_off, 0) if (sizex and sizey) else (0, 0))
         y_pos = inv.transform((0, bar_off) if (sizex and sizey) else (0, 0))
@@ -64,10 +68,12 @@ class AnchoredScaleBar(AnchoredOffsetbox):
 
         if sizex and labelx:
             self.xlabel = TextArea(labelx, textprops=textprops)
-            bars = VPacker(children=[bars, self.xlabel], align="center", pad=0, sep=sep)
+            xsep = sep if xsep is None else xsep
+            bars = VPacker(children=[bars, self.xlabel], align="center", pad=0, sep=xsep)
         if sizey and labely:
             self.ylabel = TextArea(labely, textprops=textprops)
-            bars = HPacker(children=[self.ylabel, bars], align="center", pad=0, sep=sep)
+            ysep = sep if ysep is None else ysep
+            bars = HPacker(children=[self.ylabel, bars], align="center", pad=0, sep=ysep)
 
         AnchoredOffsetbox.__init__(
             self,
