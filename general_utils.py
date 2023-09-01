@@ -117,3 +117,32 @@ def norm_xcorr(a, b, mode="valid"):
     """Normalized 1d cross-correlation as in matlab
     https://stackoverflow.com/a/71005798"""
     return np.correlate(a / np.linalg.norm(a), b / np.linalg.norm(b), mode=mode)
+
+
+def map_axis(f: Callable[[np.ndarray], np.ndarray], arr: np.ndarray, axis=-1):
+    """Map the specified axis (defaults to -1) with the function `f`. `f` should
+     thus expect an ndarray with the shape created by `axis` and all of its
+     'sub-axes'. The shape returned by `f` may differ from the original shape of
+    its input.
+
+    For example:
+    - `arr` of shape (2, 5) with `axis` = -1. f operates on a 1d array of length 5.
+    - `arr` of shape (2, 5, 5) with `axis` = 1. f operates on an array of shape (5, 5).
+    """
+    in_shape = arr.shape
+    if len(in_shape) > 1:
+        reshaped = arr.reshape(np.prod(in_shape[:axis]).astype(int), *in_shape[axis:])
+        mapped: np.ndarray = np.stack([f(a) for a in reshaped], axis=0)
+
+        if len(mapped.shape) == 1:
+            return mapped.reshape(in_shape[:axis])
+        else:
+            return mapped.reshape(*in_shape[:axis], *mapped.shape[1:])
+    else:
+        return f(arr)
+
+
+def rolling_average(arr: np.ndarray, n=3, axis=-1) -> np.ndarray:
+    """Same as moving average, but with convolve and same padding."""
+    ones = np.ones(n)
+    return map_axis(lambda a: np.convolve(a, ones, "same"), arr, axis=axis) / n
