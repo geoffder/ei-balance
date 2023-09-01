@@ -34,8 +34,10 @@ def sac_mode_config(
         # membrane properties
         "active_terms": False,
         "vshift_hh": -1,
+        "soma_Ra": 200,  # NOTE: NEW
+        "dend_Ra": 200,  # NOTE: NEW
         # "soma_Na": 0.2,  # NOTE: USUAL
-        "soma_Na": 0.4,
+        "soma_Na": 0.2,
         "soma_K": 0.07,
         "soma_Km": 0.0005,  # NOTE: NEW (decreasing weights)
         "soma_eleak_hh": eleak_hh,
@@ -80,7 +82,7 @@ def sac_mode_config(
                 "weight": 0.006,  # 0.006,
                 "tau1": 0.5,
                 "tau2": 16,
-                "rev": -70, # -65,  # -60.,
+                "rev": -70,  # -65,  # -60.,
             },
             "NMDA": {
                 "var": 7,
@@ -243,7 +245,7 @@ def sac_mode_config(
         # params["synprops"]["E"]["weight"] = base_w * 0.8
         # params["synprops"]["I"]["weight"] = base_w * 4  # NOTE: USUAL
         # params["synprops"]["I"]["weight"] = base_w * 3
-        params["synprops"]["I"]["weight"] = base_w * 1.2 # NOTE: USUAL
+        params["synprops"]["I"]["weight"] = base_w * 1.2  # NOTE: USUAL
         # params["synprops"]["I"]["weight"] = base_w
         # params["synprops"]["I"]["weight"] = base_w
         # params["synprops"]["NMDA"]["weight"] = base_w * 1.33  # NOTE: USUAL
@@ -400,7 +402,7 @@ def ball_stick_config(
                 "weight": 0.006,  # 0.006,
                 "tau1": 0.5,
                 "tau2": 16,
-                "rev": -70, #-65,  # -60., # NOTE: changed
+                "rev": -70,  # -65,  # -60., # NOTE: changed
                 "null_offset": 0,
                 "pref_offset": 0,
             },
