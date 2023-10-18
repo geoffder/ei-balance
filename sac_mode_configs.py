@@ -199,7 +199,7 @@ def decr_weight(
         "dt": 0.1,
         # synapse organization
         "term_syn_only": False,
-        "first_order": 4,  # 2,
+        "first_order": 2,  # 4,
         # membrane properties
         "active_terms": False,
         "vc_pas": vc_mode,
