@@ -147,3 +147,16 @@ def rolling_average(arr: np.ndarray, n=3, axis=-1) -> np.ndarray:
     """Same as moving average, but with convolve and same padding."""
     ones = np.ones(n)
     return map_axis(lambda a: np.convolve(a, ones, "same"), arr, axis=axis) / n
+
+def avg_radians(thetas):
+    s = 0
+    c = 0
+    n = 0
+    for t in thetas:
+        s += np.sin(t)
+        c += np.cos(t)
+        n += 1
+    return np.arctan2(s / n, c / n)
+
+def avg_degrees(degs):
+    return avg_radians(map(np.deg2rad, degs))
