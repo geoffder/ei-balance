@@ -304,7 +304,7 @@ def wrap_180(theta):
     if np.isnan(theta):
         return theta
     else:
-        theta %= 360
+        theta = theta % 360
         if theta > 180:
             return 360 - theta
         else:
