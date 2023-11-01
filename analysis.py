@@ -1178,6 +1178,8 @@ def plot_dends_overlay(
     cmap="plasma",
     syn_choice_seed=None,
     show_plex=False,
+    syn_number_size=None,
+    syn_number_color="black",
 ):
     # flip y-axis of image to match it up with coordinate system
     dsgc_img, extent = get_dsgc_img()
@@ -1238,6 +1240,8 @@ def plot_dends_overlay(
                 edgecolors=gaba_edge,
                 **scat_kwargs,
             )
+        if syn_number_size > 0:
+            ax.text(syn_xs[i], syn_ys[i], str(i), fontsize=syn_number_size)
 
     if stim_angle is not None:
         cbar = fig.colorbar(

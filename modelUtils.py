@@ -2,6 +2,7 @@ from neuron import h
 import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
+from general_utils import project_onto_line
 
 
 def frange(start, stop, step):
@@ -314,3 +315,34 @@ def wrap_180(theta):
 def scale_180_from_360(theta):
     """Wrap degrees from 360 scale to -180 -> 180 scale."""
     return ((theta - 180) % 360) - 180
+
+def calc_sweep_times(origin, dir_rads, bar, syn_locs, sac_net, hard_offsets, syn_kinds=["E", "I", "NMDA"]):
+    """Return dict with synapse activation times for each direction.
+    dir_idx -> syn_idx -> syn_kind"""
+    times = {}  # dir -> syn -> trans
+    start = bar["start_time"]
+    v = bar["speed"]
+    for i, r in enumerate(dir_rads):  # type:ignore
+        times[i] = {}
+        line_a = rot(r, bar["rel_start_pos"]) + origin
+        line_b = rot(r, bar["rel_end_pos"]) + origin
+
+        for syn in range(syn_locs.shape[0]):
+            times[i][syn] = {}
+            syn_dist = project_onto_line(line_a, line_b, syn_locs[syn, :2])[0]
+            for t in syn_kinds:
+                if t in ["E", "I", "PLEX"] and sac_net is not None:
+                    sac_loc = sac_net.get_syn_loc(t, syn, 0)
+                    if t == "PLEX":
+                        locs = np.array([sac_loc["x"], sac_loc["y"]]).T
+                        dist = np.array(
+                            [project_onto_line(line_a, line_b, l)[0] for l in locs]
+                        )
+                    else:
+                        sac_loc = np.array([sac_loc["x"], sac_loc["y"]])
+                        dist = project_onto_line(line_a, line_b, sac_loc)[0]
+                    times[i][syn][t] = start + dist / v
+                else:
+                    offset = hard_offsets[t][i]
+                    times[i][syn][t] = start + (offset + syn_dist) / v
+    return times

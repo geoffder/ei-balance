@@ -300,7 +300,7 @@ class SacNetwork:
             x, y = self.bp_locs[trans][num, 0], self.bp_locs[trans][num, 1]
         else:
             x, y = self.bp_locs[trans][num, :, 0], self.bp_locs[trans][num, :, 1]
-        x, y = rotate(self.origin, x, y, rotation)
+        x, y = x, y if rotation == 0 else rotate(self.origin, x, y, rotation)
         return {"x": x, "y": y}
 
     def plot_dends(self, stim_angle=None, separate=False, cmap="jet"):

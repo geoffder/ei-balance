@@ -287,6 +287,7 @@ def decr_weight(
         "quanta_inter_var": 3,  # 3
         # stimulus
         "light_bar": {
+            "start_time": 0,
             "speed": 1.0,
             "x_motion": True,
             "x_start": -60,
