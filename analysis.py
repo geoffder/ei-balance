@@ -1178,7 +1178,7 @@ def plot_dends_overlay(
     cmap="plasma",
     syn_choice_seed=None,
     show_plex=False,
-    syn_number_size=None,
+    syn_number_size=0,
     syn_number_color="black",
 ):
     # flip y-axis of image to match it up with coordinate system
