@@ -239,6 +239,8 @@ class Model:
         self.sac_offset = 50
         self.sac_rho = 0.9  # correlation of E and I dendrite angles
         self.sac_angle_rho_mode = True
+        # self.min_sac_rho = 0.0
+        # self.max_sac_rho = 0.9
         self.sac_uniform_dist = {0: False, 1: False}  # uniform or gaussian
         self.sac_shared_var = 30
         self.sac_theta_vars = {"E": 60, "I": 60}
@@ -779,7 +781,11 @@ class Model:
                 syn_rho = time_rho
             else:
                 # scale correlation of E and I by diff of their dend angles
-                syn_rho = time_rho - time_rho * sac.deltas[s] / 180
+                # syn_rho = time_rho - time_rho * sac.deltas[s] / 180
+                syn_rho = (
+                    self.max_sac_rho
+                    - (self.max_sac_rho - self.min_sac_rho) * sac.deltas[s] / 180
+                )
 
             probs = {}
             for t, props in self.synprops.items():
