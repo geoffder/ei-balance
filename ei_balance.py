@@ -35,7 +35,9 @@ class Model:
         if self.TTX:
             self.apply_TTX()
 
-        if self.vc_pas:
+        if self.vc_mode == "sealed":
+            self.apply_vc_sealed()
+        elif self.vc_mode == "passive":
             self.apply_vc_pas()
 
         self.load_DSGC()  # create a new DSGC from hoc spec
@@ -78,7 +80,7 @@ class Model:
 
         # global active properties
         self.TTX = False  # zero all Na conductances
-        self.vc_pas = False  # eliminate active properties for clamp
+        self.vc_mode = None  # eliminate active properties for clamp
         self.vshift_hh = 0
 
         # soma active properties
@@ -276,8 +278,7 @@ class Model:
         self.dend_Na = 0
         self.prime_Na = 0
 
-    def apply_vc_pas(self):
-        self.vc_pas = True
+    def apply_vc_sealed(self):
         self.active_soma = 0
         self.active_dend = 0
         self.active_terms = 0
@@ -285,6 +286,12 @@ class Model:
         self.soma_gleak_pas = 0
         self.dend_gleak_pas = 0
         self.prime_gleak_pas = 0
+
+    def apply_vc_pas(self):
+        self.active_soma = 0
+        self.active_dend = 0
+        self.active_terms = 0
+        self.dend_pas = 1
 
     def get_params_dict(self):
         skip = {

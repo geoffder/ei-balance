@@ -21,6 +21,7 @@ def sacnet_run(
     pool_sz=8,
     vc_mode=False,
     vc_simul=True,
+    vc_isolate=True,
 ):
     global _sacnet_repeat  # required to allow pickling for Pool
 
@@ -36,7 +37,11 @@ def sacnet_run(
             runner.model.build_sac_net(rho=rho)
             if vc_mode:
                 data[rho] = runner.vc_dir_run(
-                    n_trials, simultaneous=vc_simul, save_name=None, quiet=True
+                    n_trials,
+                    simultaneous=vc_simul,
+                    isolate_agonists=vc_isolate,
+                    save_name=None,
+                    quiet=True,
                 )
             else:
                 data[rho] = runner.dir_run(
@@ -88,7 +93,11 @@ def sacnet_gaba_titration_run(
             runner.model.build_sac_net(rho=rho)
             if vc_mode:
                 data[rho] = runner.vc_dir_run(
-                    n_trials, simultaneous=vc_simul, save_name=None, quiet=True
+                    n_trials,
+                    simultaneous=vc_simul,
+                    isolate_agonists=vc_isolate,
+                    save_name=None,
+                    quiet=True,
                 )
             else:
                 data[rho] = runner.dir_run(
@@ -117,6 +126,7 @@ def sacnet_gaba_titration_run(
                 idx = idx + n
     print("Done!")
 
+
 def sacnet_rho_run(
     save_path,
     model_config,
@@ -139,7 +149,11 @@ def sacnet_rho_run(
         runner.model.build_sac_net(rho=rho)
         if vc_mode:
             return runner.vc_dir_run(
-                n_trials, simultaneous=vc_simul, save_name=None, quiet=True
+                n_trials,
+                simultaneous=vc_simul,
+                isolate_agonists=vc_isolate,
+                save_name=None,
+                quiet=True,
             )
         else:
             return runner.dir_run(

@@ -11,7 +11,7 @@ def sac_mode_config(
     high_kv=False,
     non_ds_ach=False,
     offset_ampa_ach=False,
-    vc_mode=False,
+    vc_mode=None,
     record_tree=True,
     poisson_rates=None,
     plexus=0,
@@ -32,6 +32,7 @@ def sac_mode_config(
         "term_syn_only": False,
         "first_order": 4,  # 2,
         # membrane properties
+        "vc_mode": vc_mode,
         "active_terms": False,
         "vshift_hh": -1,
         "soma_Ra": 200,  # NOTE: NEW
@@ -205,9 +206,6 @@ def sac_mode_config(
         # params["synprops"]["NMDA"]["weight"] *= 0
         # params["synprops"]["I"]["weight"]    *= 2.
 
-    if vc_mode:
-        params["vc_pas"] = True
-
     # non-ds ACH
     if non_ds_ach:
         params["synprops"]["E"]["null_prob"] = 0.5
@@ -222,7 +220,7 @@ def sac_mode_config(
 
     if poisson_rates is not None:
         params["poisson_mode"] = True
-        params["tstop"] = 550 if not vc_mode else 750
+        params["tstop"] = 550 if vc_mode is None else 750
         params["sac_rate"] = poisson_rates["sac"]
         params["glut_rate"] = poisson_rates["glut"]
         params["rate_dt"] = poisson_rates["dt"] * 1000.0
@@ -277,6 +275,7 @@ def offset_mode_config():
         # synapse organization
         "first_order": 1,
         # membrane properties
+        "vc_mode": vc_mode,
         "soma_Na": 0.15,
         "soma_K": 0.07,
         "soma_gleak_hh": 0.0001667,
@@ -355,7 +354,7 @@ def ball_stick_config(
     ttx=False,
     leaky=False,
     high_kv=False,
-    vc_mode=False,
+    vc_mode=None,
     poisson_rates=None,
     record_tree=True,
 ):
@@ -365,6 +364,7 @@ def ball_stick_config(
         "steps_per_ms": 10,
         "dt": 0.1,
         # membrane properties
+        "vc_mode": vc_mode,
         "soma_na": 0.2,
         "soma_k": 0.07,
         "soma_gleak_hh": 0.0001667,
@@ -453,9 +453,6 @@ def ball_stick_config(
         # params["synprops"]["E"]["weight"]    *= 1.5
         # params["synprops"]["NMDA"]["weight"] *= 0
         # params["synprops"]["I"]["weight"]    *= 2.
-
-    if vc_mode:
-        params["vc_pas"] = True
 
     if poisson_rates is not None:
         params["poisson_mode"] = True

@@ -356,7 +356,13 @@ class Rig:
         self.data_path = base_data_path[:]
 
     def vc_dir_run(
-        self, n_trials=10, rhos=None, simultaneous=True, save_name=None, quiet=False
+        self,
+        n_trials=10,
+        rhos=None,
+        simultaneous=True,
+        isolate_agonists=True,
+        save_name=None,
+        quiet=False,
     ):
         """Similar to dir_run(), but running in voltage-clamp mode to record
         current at the soma. All other inputs are blocked when recording a
@@ -414,7 +420,11 @@ class Rig:
             for t, ps in self.model.synprops.items():
                 if not incl_plex and t == "PLEX":
                     continue
-                weight = ps["weight"] if t in settings["trans"] else 0
+                weight = (
+                    ps["weight"]
+                    if not isolate_agonists or t in settings["trans"]
+                    else 0
+                )
                 for netcon in self.model.syns[t]["con"]:
                     netcon.weight = weight
 
