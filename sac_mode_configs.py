@@ -9,7 +9,7 @@ def conf(
     ttx=False,
     non_ds_ach=False,
     offset_ampa_ach=False,
-    vc_mode=False,
+    vc_mode=None,
     record_tree=True,
     poisson_rates=None,
     plexus=0,
@@ -153,7 +153,7 @@ def conf(
 
     if poisson_rates is not None:
         params["poisson_mode"] = True
-        params["tstop"] = 550 if not vc_mode else 750
+        params["tstop"] = 550 if vc_mode is None else 750
         params["sac_rate"] = poisson_rates["sac"]
         params["glut_rate"] = poisson_rates["glut"]
         params["rate_dt"] = poisson_rates["dt"] * 1000.0
@@ -181,7 +181,7 @@ def decr_weight(
     ttx=False,
     non_ds_ach=False,
     offset_ampa_ach=False,
-    vc_mode=False,
+    vc_mode=None,
     record_tree=True,
     poisson_rates=None,
     plexus=0,
@@ -204,7 +204,7 @@ def decr_weight(
         "first_order": 2,  # 4,
         # membrane properties
         "active_terms": False,
-        "vc_pas": vc_mode,
+        "vc_mode": vc_mode,
         "vshift_hh": 0,
         "soma_Ra": 200,  # NOTE: NEW
         "dend_Ra": 200,  # NOTE: NEW
@@ -335,7 +335,7 @@ def decr_weight(
 
     if poisson_rates is not None:
         params["poisson_mode"] = True
-        params["tstop"] = 550 if not vc_mode else 750
+        params["tstop"] = 550 if vc_mode is None else 750
         params["sac_rate"] = poisson_rates["sac"]
         params["glut_rate"] = poisson_rates["glut"]
         params["rate_dt"] = poisson_rates["dt"] * 1000.0
@@ -363,7 +363,7 @@ def alt_conf(
     ttx=False,
     non_ds_ach=False,
     offset_ampa_ach=False,
-    vc_mode=False,
+    vc_mode=None,
     record_tree=True,
     poisson_rates=None,
     plexus=0,
@@ -509,7 +509,7 @@ def alt_conf(
 
     if poisson_rates is not None:
         params["poisson_mode"] = True
-        params["tstop"] = 550 if not vc_mode else 750
+        params["tstop"] = 550 if vc_mode is None else 750
         params["sac_rate"] = poisson_rates["sac"]
         params["glut_rate"] = poisson_rates["glut"]
         params["rate_dt"] = poisson_rates["dt"] * 1000.0
@@ -538,7 +538,7 @@ def alt_conf_2(
     ttx=False,
     non_ds_ach=False,
     offset_ampa_ach=False,
-    vc_mode=False,
+    vc_mode=None,
     record_tree=True,
     poisson_rates=None,
     plexus=0,
@@ -685,7 +685,7 @@ def alt_conf_2(
 
     if poisson_rates is not None:
         params["poisson_mode"] = True
-        params["tstop"] = 550 if not vc_mode else 750
+        params["tstop"] = 550 if vc_mode is None else 750
         params["sac_rate"] = poisson_rates["sac"]
         params["glut_rate"] = poisson_rates["glut"]
         params["rate_dt"] = poisson_rates["dt"] * 1000.0

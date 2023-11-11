@@ -241,8 +241,8 @@ class Model:
         self.sac_offset = 50
         self.sac_rho = 0.9  # correlation of E and I dendrite angles
         self.sac_angle_rho_mode = True
-        # self.min_sac_rho = 0.0
-        # self.max_sac_rho = 0.9
+        self.min_sac_rho = 0.0
+        self.max_sac_rho = 0.9
         self.sac_uniform_dist = {0: False, 1: False}  # uniform or gaussian
         self.sac_shared_var = 30
         self.sac_theta_vars = {"E": 60, "I": 60}
@@ -253,6 +253,7 @@ class Model:
         self.stacked_plex = False
 
         self.poisson_mode = False
+        self.jittering_poisson = False
         self.sac_rate = np.array([1.0])
         self.glut_rate = np.array([1.0])
         self.rate_dt = self.dt
@@ -784,6 +785,9 @@ class Model:
         corrs = []
         for s in range(self.n_syn):
             bar_times = self.bar_sweep(s, stim["dir"])
+            bar_times = {
+                k: (ts if k == "PLEX" else [ts]) for k, ts in bar_times.items()
+            }
             if sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[s]:
                 syn_rho = time_rho
             else:
@@ -815,7 +819,7 @@ class Model:
                     poissons[t] = [np.round((base + unshared) * probs[t]).astype(int)]
             else:
                 poissons["E"] = [self.np_rng.poisson(self.sac_rate * probs["E"])]
-                poissons["I"] = [np.array([0])]
+                poissons["I"] = [np.array([])]
 
             for t in ["AMPA", "NMDA"]:
                 poissons[t] = [self.np_rng.poisson(self.glut_rate * probs[t])]
@@ -825,10 +829,32 @@ class Model:
                     self.np_rng.poisson(self.sac_rate * pr) for pr in probs["PLEX"]
                 ]
 
-            for t in self.synprops.keys():
-                times = bar_times[t] if t == "PLEX" else [bar_times[t]]
-                for tm, psn in zip(times, poissons[t]):
-                    self.syns[t]["con"][s].add_quanta(psn, self.rate_dt, t0=tm)
+            if self.jittering_poisson:
+                jitters = {}
+                for t in self.synprops.keys():
+                    if self.n_plexus_ach > 0 and t == "PLEX":
+                        jitters["PLEX"] = [
+                            self.np_rng.normal(0, 1, size=len(sac_rate))
+                            for _ in range(self.n_plexus_ach)
+                        ]
+                    elif t != "PLEX":
+                        jitters[t] = [self.np_rng.normal(0, 1, len(poissons[t][0]))]
+
+                if sac.gaba_here[s]:
+                    jitters["E"] = [
+                        jitters["I"][0] * syn_rho
+                        + (jitters["E"][0] * np.sqrt(1 - syn_rho**2))
+                    ]
+
+                for t in self.synprops.keys():
+                    for tm, psn, jit in zip(bar_times[t], poissons[t], jitters[t]):
+                        self.syns[t]["con"][s].add_quanta(
+                            psn, self.rate_dt, t0=tm, jitters=jit * props["var"]
+                        )
+            else:
+                for t in self.synprops.keys():
+                    for tm, psn in zip(bar_times[t], poissons[t]):
+                        self.syns[t]["con"][s].add_quanta(psn, self.rate_dt, t0=tm)
 
     def get_failures(self, idx, stim):
         """

@@ -51,13 +51,15 @@ class NetQuanta:
     # def add_quanta(self, quanta: np.ndarray, dt: float, t0: float):
     #     self._add_quanta(self._events, self.delay, quanta, dt, t0)
 
-    def add_quanta(self, quanta, dt, t0):
+    def add_quanta(self, quanta, dt, t0, jitters=None):
         i = len(self._events)
-        self._events += [None] * np.sum(quanta)
+        self._events += [None] * max(0, np.sum(quanta))
+        jitters = np.zeros(len(quanta)) if jitters is None else jitters
         t = t0 + self.delay
-        for n in quanta:
+        for n, j in zip(quanta, jitters):
+            jittered = t + j
             for _ in range(n):
-                self._events[i] = t  # type:ignore
+                self._events[i] = jittered  # type:ignore
                 i += 1
             t += dt
 

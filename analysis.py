@@ -39,13 +39,13 @@ def nearest_index(arr, v):
     return bn.nanargmin(np.abs(arr - v))
 
 
-def spike_transform(vm, kernel_sz, kernel_var, thresh=0):
+def spike_transform(vm, kernel_sz, kernel_std, thresh=0):
     """Trying out a dead simple gaussian kernel transform to apply to Vm.
     Applies convolution to last dimension, all other dimensions should just
     be trials/locations/directions etc (e.g. data is just 1D time-series).
     Soma Vm is stored in shape (Trials, Directions, Time).
     """
-    kernel = signal.gaussian(kernel_sz, kernel_var)
+    kernel = signal.gaussian(kernel_sz, kernel_std)
     og_shape = vm.shape
     vm = vm[:].reshape(-1, vm.shape[-1])
 
@@ -464,6 +464,98 @@ def polar_plot(
         return ax
 
 
+def polar(
+    net_trials,
+    dirs,
+    radius=None,
+    net_shadows=False,
+    title=None,
+    title_metrics=True,
+    save=False,
+    save_pth="",
+    save_ext="png",
+    fig: Optional[FigureBase] = None,
+    sub_loc=(1, 1, 1),
+    dsi_tag_deg=-15.0,
+    dsi_tag_mult=1.05,
+    dsi_tag_fmt="DSi\n%.2f",
+):
+    # re-sort directions and make circular for polar axes
+    circ_vals = net_trials.transpose(2, 0, 1)[np.array(dirs).argsort()]
+    circ_vals = np.concatenate(
+        [circ_vals, np.expand_dims(circ_vals[0], axis=0)], axis=0
+    )
+    circle = np.radians([0, 45, 90, 135, 180, 225, 270, 315, 0])
+
+    peak = np.max(circ_vals)  # to set axis max
+
+    avg_DSi, avg_theta = calc_tuning(net_trials.sum(axis=(0, 1)), dirs)
+    avg_theta = np.radians(avg_theta)
+
+    # plot trials lighter
+    if net_shadows:
+        shadows = np.mean(circ_vals, axis=2)
+        DSis, thetas = calc_tuning(net_trials.sum(axis=1).T, dirs)
+    else:
+        shadows = circ_vals.reshape(circle.size, -1)
+        DSis, thetas = calc_tuning(net_trials.reshape(-1, len(dirs)).T, dirs)
+
+    thetas = np.radians(thetas)
+
+    if fig is None:
+        fig = plt.figure(figsize=(5, 6))
+        new_fig = True
+    else:
+        new_fig = False
+
+    ax = fig.add_subplot(*sub_loc, projection="polar")
+    ax.plot(circle, shadows, color=".75")
+    ax.plot([thetas, thetas], [np.zeros_like(DSis), DSis * peak], color=".75")
+
+    # plot avg darker
+    avg_spikes = np.mean(circ_vals.reshape(circle.size, -1), axis=1)
+    ax.plot(circle, avg_spikes, color=".0", linewidth=2)
+    ax.plot([avg_theta, avg_theta], [0.0, avg_DSi * peak], color=".0", linewidth=2)
+
+    # misc settings
+    radius = peak if radius is None else radius
+    ax.set_rmax(radius)
+    ax.set_rticks([radius])
+    ax.set_rlabel_position(45)
+    ax.set_thetagrids([0, 90, 180, 270])
+    ax.set_xticklabels([])
+    ax.tick_params(labelsize=15)
+    if title_metrics:
+        sub = "DSi = %.2f :: θ = %.2f\n  σ = %.2f :: σ = %.2f" % (
+            avg_DSi,
+            np.degrees(avg_theta),
+            np.std(DSis),
+            np.std(np.vectorize(scale_180_from_360)(np.degrees(thetas - avg_theta))),
+        )
+        title = sub if title is None else "%s\n%s" % (title, sub)
+    else:
+        ax.text(
+            np.radians(dsi_tag_deg),
+            radius * dsi_tag_mult,
+            dsi_tag_fmt % avg_DSi,
+            fontsize=13,
+        )
+
+    if title is not None:
+        ax.set_title(title, size=15)
+
+    if save:
+        fig.savefig(
+            "%spolar_%s.%s" % (save_pth, title.replace(" ", "_"), save_ext),
+            bbox_inches="tight",
+        )
+
+    if new_fig:
+        return fig, ax
+    else:
+        return ax
+
+
 def load_sac_rho_data(pth, prefix="sac_rho"):
     """Collect data from each of the hdf5 archives located in the target folder
     representing rho conditions and their trials and store them in a dict."""
@@ -545,7 +637,7 @@ def sac_rho_violins(
     **plot_kwargs,
 ):
     fig, ax = plt.subplots(1 + len(show_spks), 1, sharex=True, **plot_kwargs)
-    ax = [ax] if len(show_spks) == 0 else ax # wrap incase we only have one ax
+    ax = [ax] if len(show_spks) == 0 else ax  # wrap incase we only have one ax
 
     labels = [k for k, v in metrics.items() for _ in range(v["DSis"].size)]
     dsis = np.concatenate([r["DSis"].flatten() for r in metrics.values()])
@@ -557,11 +649,11 @@ def sac_rho_violins(
         dir_spks = {
             k: v["spikes"].transpose().reshape(v["spikes"].shape[-1], -1)
             for k, v in metrics.items()
-           }
+        }
         idxs = [np.argwhere(dir_labels == d)[0][0] for d in show_spks]
         rho_spikes = np.stack(
             [np.concatenate([r[i] for r in dir_spks.values()]) for i in idxs], axis=0
-           )
+        )
         max_rho_spikes = np.max(rho_spikes)
 
         for a, idx, spks in zip(ax[1:], idxs, rho_spikes):
