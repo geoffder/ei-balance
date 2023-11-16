@@ -160,3 +160,29 @@ def avg_radians(thetas):
 
 def avg_degrees(degs):
     return avg_radians(map(np.deg2rad, degs))
+
+def map_data(f, data):
+    """Recursively apply the same operation to all ndarrays stored in the given
+    dictionary. It may have arbitary levels of nesting, as long as the leaves are
+    arrays and they are a shape that the given function can operate on."""
+
+    def applyer(val):
+        if type(val) == dict:
+            return {k: applyer(v) for k, v in val.items()}
+        else:
+            return f(val)
+
+    return {k: applyer(v) for k, v in data.items()}
+
+
+def map2_data(f, d1, d2):
+    def applyer(v1, v2):
+        if type(v1) == dict:
+            return {k: applyer(v1, v2) for (k, v1), v2 in zip(v1.items(), v2.values())}
+        else:
+            return f(v1, v2)
+
+    if type(d1) == dict:
+        return {k: applyer(v1, v2) for (k, v1), v2 in zip(d1.items(), d2.values())}
+    else:
+        return applyer(d1, d2)
