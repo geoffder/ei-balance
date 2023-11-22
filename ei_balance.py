@@ -5,6 +5,7 @@ from neuron import h
 # science/math libraries
 import numpy as np
 import scipy.stats as st
+import statsmodels.api as sm
 from deconv import quanta_to_times
 from general_utils import project_onto_line  # for probabilistic distributions
 
@@ -258,6 +259,8 @@ class Model:
         self.glut_rate = np.array([1.0])
         self.rate_dt = self.dt
 
+        self.gclamp_mode = False
+
         # recording stuff
         self.downsample = {"Vm": 0.5, "iCa": 0.1, "cai": 0.1, "g": 0.1}
         self.record_tree = True
@@ -471,6 +474,10 @@ class Model:
         if incl_plex:
             self.syns["PLEX"] = {"syn": [], "con": []}
 
+        if self.gclamp_mode:
+            for k in self.syns.keys():
+                self.syns[k]["gclamp"] = []
+
         if self.term_syn_only:
             dend_list = self.terminals
         else:
@@ -522,6 +529,11 @@ class Model:
                         delay=props["delay"],
                     )
                 )
+
+                if self.gclamp_mode:
+                    self.syns[trans]["gclamp"].append(h.GClamp(0.5))
+                    self.syns[trans]["gclamp"][i].e = props["rev"]
+
             h.pop_section()
         self.syn_locs = np.array(locs)
 
@@ -812,6 +824,105 @@ class Model:
 
             poissons = {}
             if sac.gaba_here[s]:
+                base = self.np_rng.poisson(self.sac_rate * syn_rho)
+                inv_rate = self.sac_rate * (1 - syn_rho)
+                for t in ["E", "I"]:
+                    unshared = self.np_rng.poisson(inv_rate)
+                    poissons[t] = [np.round((base + unshared) * probs[t]).astype(int)]
+            else:
+                poissons["E"] = [self.np_rng.poisson(self.sac_rate * probs["E"])]
+                poissons["I"] = [np.array([])]
+
+            for t in ["AMPA", "NMDA"]:
+                poissons[t] = [self.np_rng.poisson(self.glut_rate * probs[t])]
+
+            if self.n_plexus_ach > 0:
+                poissons["PLEX"] = [
+                    self.np_rng.poisson(self.sac_rate * pr) for pr in probs["PLEX"]
+                ]
+
+            if self.jittering_poisson:
+                jitters = {}
+                for t in self.synprops.keys():
+                    if self.n_plexus_ach > 0 and t == "PLEX":
+                        jitters["PLEX"] = [
+                            self.np_rng.normal(0, 1, size=len(sac_rate))
+                            for _ in range(self.n_plexus_ach)
+                        ]
+                    elif t != "PLEX":
+                        jitters[t] = [self.np_rng.normal(0, 1, len(poissons[t][0]))]
+
+                if sac.gaba_here[s]:
+                    jitters["E"] = [
+                        jitters["I"][0] * syn_rho
+                        + (jitters["E"][0] * np.sqrt(1 - syn_rho**2))
+                    ]
+
+                for t in self.synprops.keys():
+                    for tm, psn, jit in zip(bar_times[t], poissons[t], jitters[t]):
+                        self.syns[t]["con"][s].add_quanta(
+                            psn, self.rate_dt, t0=tm, jitters=jit * props["var"]
+                        )
+            else:
+                for t in self.synprops.keys():
+                    for tm, psn in zip(bar_times[t], poissons[t]):
+                        self.syns[t]["con"][s].add_quanta(psn, self.rate_dt, t0=tm)
+
+    def bar_gclamps(self, stim):
+        sac = self.sac_net
+
+        time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
+        if self.gclamp_mode:
+            ar_params = np.array([0.9])
+            ma_params = np.array([0])
+            ar = np.r_[1, -ar_params]  # add zero-lag and negate
+            ma = np.r_[1, ma_params]  # add zero-lag
+            arma = sm.tsa.ArmaProcess(ar, ma)
+
+            def rate_mvar_fun(rate, factor, cov):
+                scale = rate.reshape(-1, 1) * factor
+
+                def fun(size):
+                    return (
+                        self.np_rng.multivariate_normal(np.zeros(2), cov, size=size)
+                        * scale
+                    )
+
+                return fun
+
+        corrs = []
+        for s in range(self.n_syn):
+            bar_times = self.bar_sweep(s, stim["dir"])
+            bar_times = {
+                k: (ts if k == "PLEX" else [ts]) for k, ts in bar_times.items()
+            }
+            if sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[s]:
+                syn_rho = time_rho
+            else:
+                # scale correlation of E and I by diff of their dend angles
+                syn_rho = (
+                    self.max_sac_rho
+                    - (self.max_sac_rho - self.min_sac_rho) * sac.deltas[s] / 180
+                )
+
+            probs = {}
+            for t, props in self.synprops.items():
+                if stim["type"] == "flash":
+                    probs[t] = props["prob"]
+                elif sac is not None and t in ["E", "I", "PLEX"]:
+                    probs[t] = sac.probs[t][s, stim["dir"]]
+                else:
+                    # calculate probability of release
+                    probs[t] = self.dir_sigmoids["prob"](
+                        self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
+                    )
+
+            poissons = {}
+            if sac.gaba_here[s]:
+                cov_mat = np.array([[1, syn_rho], [syn_rho, 1]])
+                innovations = rate_mvar_fun(
+                    np.zeros(2), cov_mat, size=len(self.sac_rate)
+                )
                 base = self.np_rng.poisson(self.sac_rate * syn_rho)
                 inv_rate = self.sac_rate * (1 - syn_rho)
                 for t in ["E", "I"]:
