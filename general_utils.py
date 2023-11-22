@@ -186,3 +186,21 @@ def map2_data(f, d1, d2):
         return {k: applyer(v1, v2) for (k, v1), v2 in zip(d1.items(), d2.values())}
     else:
         return applyer(d1, d2)
+
+def biexp(x, m, t1, t2, b):
+    return m * (np.exp(-x / t1) - np.exp(-x / t2)) + b
+
+def heaveside(x):
+    if x < 0:
+        return 0
+    elif x == 0:
+        return 0.5
+    else:
+        return 1
+
+def alpha_fun(scale, tau):
+    return np.vectorize(lambda x: scale * x / tau * np.exp(1 - (x / tau)) * heaveside(x))
+
+def bialpha_fun(scale, tau1, tau2):
+    scale = scale * tau1 / tau2
+    return np.vectorize(lambda x: scale * x / tau1 * np.exp(1 - (x / tau2)) * heaveside(x))
