@@ -147,6 +147,8 @@ class Rig:
         elif stim["type"] == "bar":
             if self.model.poisson_mode:
                 self.model.bar_poissons(stim)
+            elif self.model.gclamp_mode:
+                self.model.bar_gclamps(stim)
             else:
                 self.model.bar_onsets(stim)
 
@@ -442,6 +444,8 @@ class Rig:
 
                     if self.model.poisson_mode:
                         self.model.bar_poissons(stim)
+                    elif self.model.gclamp_mode:
+                        self.model.bar_gclamps(stim)
                     else:
                         self.model.bar_onsets(stim)
 
