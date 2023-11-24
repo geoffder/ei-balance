@@ -517,7 +517,7 @@ def alt_conf(
             params["synprops"][t]["tau1"] = 0.14
             params["synprops"][t]["tau2"] = 0.54
 
-        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2278860/ (ach mini)
+        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2278860/ (ach mini -- actually not!)
         # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6772523/ (gaba mini)
         params["synprops"]["I"]["tau2"] = 2.0
         params["synprops"]["E"]["tau2"] = 0.3

@@ -8,6 +8,7 @@ import scipy.stats as st
 import statsmodels.api as sm
 from deconv import quanta_to_times
 from general_utils import project_onto_line  # for probabilistic distributions
+from general_utils import rate_scaled_mvar, rate_scaled_normal
 
 # local imports
 from modelUtils import (
@@ -262,6 +263,16 @@ class Model:
         self.rate_dt = self.dt
 
         self.gclamp_mode = False
+        self.gclamp_ar_params = np.array([0.9])
+        self.gclamp_ma_params = np.array([0.0])
+        self.gclamp_innov_scale = 1
+        self.gclamp_base_scale = 0
+
+        self.poissarma_mode = False
+        self.poissarma_ar_params = np.array([0.9])
+        self.poissarma_ma_params = np.array([0.0])
+        self.poissarma_innov_scale = 1
+        self.poissarma_base_scale = 0
 
         # recording stuff
         self.downsample = {"Vm": 0.5, "iCa": 0.1, "cai": 0.1, "g": 0.1}
@@ -755,11 +766,7 @@ class Model:
 
         for s in range(self.n_syn):
             bar_times = self.bar_sweep(s, stim["dir"])
-            if sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[s]:
-                syn_rho = time_rho
-            else:
-                # scale correlation of E and I by diff of their dend angles
-                syn_rho = time_rho - time_rho * sac.deltas[s] / 180
+            syn_rho = self.get_syn_rho(sac, s, time_rho)
 
             # shared jitter
             jit = self.np_rng.normal(0, 1)
@@ -804,27 +811,8 @@ class Model:
             bar_times = {
                 k: (ts if k == "PLEX" else [ts]) for k, ts in bar_times.items()
             }
-            if sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[s]:
-                syn_rho = time_rho
-            else:
-                # scale correlation of E and I by diff of their dend angles
-                # syn_rho = time_rho - time_rho * sac.deltas[s] / 180
-                syn_rho = (
-                    self.max_sac_rho
-                    - (self.max_sac_rho - self.min_sac_rho) * sac.deltas[s] / 180
-                )
-
-            probs = {}
-            for t, props in self.synprops.items():
-                if stim["type"] == "flash":
-                    probs[t] = props["prob"]
-                elif sac is not None and t in ["E", "I", "PLEX"]:
-                    probs[t] = sac.probs[t][s, stim["dir"]]
-                else:
-                    # calculate probability of release
-                    probs[t] = self.dir_sigmoids["prob"](
-                        self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
-                    )
+            syn_rho = self.get_syn_rho(s, time_rho)
+            probs = self.get_trans_probs(stim, s)
 
             poissons = {}
             if sac.gaba_here[s]:
@@ -876,30 +864,9 @@ class Model:
         sac = self.sac_net
 
         time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
-        ar_params = np.array([0.9])
-        ma_params = np.array([0])
-        ar = np.r_[1, -ar_params]  # add zero-lag and negate
-        ma = np.r_[1, ma_params]  # add zero-lag
+        ar = np.r_[1, -self.gclamp_ar_params]  # add zero-lag and negate
+        ma = np.r_[1, self.gclamp_ma_params]  # add zero-lag
         arma = sm.tsa.ArmaProcess(ar, ma)
-        innov_factor = 1  # 0.3 # 0.2
-
-        def rate_mvar_fun(rate, factor, cov):
-            scale = rate.reshape(-1, 1) * factor
-
-            def fun(size):
-                return (
-                    self.np_rng.multivariate_normal(np.zeros(2), cov, size=size) * scale
-                )
-
-            return fun
-
-        def rate_solo_fun(rate, factor):
-            scale = rate * factor
-
-            def fun(size):
-                return self.np_rng.normal(0, size=size) * scale
-
-            return fun
 
         corrs = []
         for s in range(self.n_syn):
@@ -907,50 +874,39 @@ class Model:
             bar_times = {
                 k: (ts if k == "PLEX" else [ts]) for k, ts in bar_times.items()
             }
-            if sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[s]:
-                syn_rho = time_rho
-            else:
-                # scale correlation of E and I by diff of their dend angles
-                syn_rho = (
-                    self.max_sac_rho
-                    - (self.max_sac_rho - self.min_sac_rho) * sac.deltas[s] / 180
-                )
-
-            probs = {}
-            for t, props in self.synprops.items():
-                if stim["type"] == "flash":
-                    probs[t] = props["prob"]
-                elif sac is not None and t in ["E", "I", "PLEX"]:
-                    probs[t] = sac.probs[t][s, stim["dir"]]
-                else:
-                    # calculate probability of release
-                    probs[t] = self.dir_sigmoids["prob"](
-                        self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
-                    )
+            syn_rho = self.get_syn_rho(s, time_rho)
+            probs = self.get_trans_probs(stim, s)
 
             noise = {}
-            # TODO: actually gwaves needs to cover the whole length of the sim
-            # of the rate, so that it can be played properly. But it can use a tvec
-            # so that I don't need the same number of points as there are timesteps.
+            # NOTE:
             # But for PLEX, I would have to since they could start at any time, and overlap.
             # So maybe I should just have a separate gclamp for each to make it simpler?
             # I still need to use a tvec though, since I want to have synapses able to start
             # up at any time, not just locked to the dt of the rate wave.
             gwaves = {}
-            gvecs = {}
             if sac.gaba_here[s]:
                 cov_mat = np.array([[1, syn_rho], [syn_rho, 1]])
                 # need to use a normalized sac rate then scale it with the weight eventually
-                innovations = rate_mvar_fun(self.sac_rate, innov_factor, cov_mat)
+                innovations = rate_scaled_mvar(
+                    self.np_rng,
+                    self.sac_rate,
+                    self.gclamp_innov_scale,
+                    cov_mat,
+                    means=np.zeros(2),
+                )
                 nz_waves = arma.generate_sample(len(self.sac_rate), distrvs=innovations)
                 for i, t in enumerate(["E", "I"]):
                     noise[t] = nz_waves[:, i]
             else:
-                innov = rate_solo_fun(self.sac_rate, innov_factor)
+                innov = rate_scaled_normal(
+                    self.np_rng, self.sac_rate, self.gclamp_innov_scale
+                )
                 noise["E"] = arma.generate_sample(len(self.sac_rate), distrvs=innov)
 
             for t in ["AMPA", "NMDA"]:
-                innov = rate_solo_fun(self.glut_rate, innov_factor)
+                innov = rate_scaled_normal(
+                    self.np_rng, self.sac_rate, self.gclamp_innov_scale
+                )
                 noise[t] = arma.generate_sample(len(self.glut_rate), distrvs=innov)
 
             for t, nz in noise.items():
@@ -958,8 +914,7 @@ class Model:
                     continue
                 r = self.sac_rate if t == "E" or t == "I" else self.glut_rate
                 gwave = (
-                    # np.clip(r + nz, 0, np.inf) * probs[t] * self.synprops[t]["weight"]
-                    np.clip(nz, 0, np.inf)
+                    np.clip(r * self.gclamp_base_scale + nz, 0, np.inf)
                     * probs[t]
                     * self.synprops[t]["weight"]
                 )
@@ -967,20 +922,18 @@ class Model:
 
                 ts = np.arange(len(gwave)) * self.rate_dt + bar_times[t][0]
                 tvec = h.Vector(
-                    np.r_[
-                        0, bar_times[t][0] - self.dt, ts, ts[-1] + self.dt, self.tstop
-                    ]
+                    np.r_[0, ts[0] - self.dt, ts, ts[-1] + self.dt, self.tstop]
                 )
                 gvec.play(self.syns[t]["gclamp"][s]._ref_g, tvec, True)
                 self.play_vecs.append(gvec)
                 self.play_vecs.append(tvec)
 
             if self.n_plexus_ach > 0:
+                innov = rate_scaled_normal(
+                    self.np_rng, self.sac_rate, self.gclamp_innov_scale
+                )
                 noise["PLEX"] = [
-                    arma.generate_sample(
-                        len(self.sac_rate),
-                        distrvs=rate_solo_fun(self.sac_rate, innov_factor),
-                    )
+                    arma.generate_sample(len(self.sac_rate), distrvs=innov)
                     for _ in probs["PLEX"]
                 ]
                 gwaves["PLEX"] = np.zeros_like(self.sac_rate)
@@ -991,6 +944,95 @@ class Model:
             # for t in self.synprops.keys():
             #     for tm, nz in zip(bar_times[t], noise[t]):
             #         self.syns[t]["con"][s].add_quanta(psn, self.rate_dt, t0=tm)
+
+    def bar_arma_poissons(self, stim):
+        sac = self.sac_net
+
+        time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
+        ar = np.r_[1, -self.poissarma_ar_params]  # add zero-lag and negate
+        ma = np.r_[1, self.poissarma_ma_params]  # add zero-lag
+        arma = sm.tsa.ArmaProcess(ar, ma)
+
+        corrs = []
+        for s in range(self.n_syn):
+            bar_times = self.bar_sweep(s, stim["dir"])
+            bar_times = {
+                k: (ts if k == "PLEX" else [ts]) for k, ts in bar_times.items()
+            }
+            syn_rho = self.get_syn_rho(s, time_rho)
+            probs = self.get_trans_probs(stim, s)
+
+            poissons = {}
+            if sac.gaba_here[s]:
+                cov_mat = np.array([[1, syn_rho], [syn_rho, 1]])
+                innovations = rate_scaled_mvar(
+                    self.np_rng,
+                    self.sac_rate,
+                    self.poissarma_innov_scale,
+                    cov_mat,
+                    means=np.zeros(2),
+                )
+                nz = arma.generate_sample(len(self.sac_rate), distrvs=innovations)
+                for i, t in enumerate(["E", "I"]):
+                    rate = (
+                        nz[:, i] + self.sac_rate * self.poissarma_base_scale
+                    ) * probs[t]
+                    poissons[t] = [self.np_rng.poisson(np.clip(rate, 0, np.inf))]
+            else:
+                innov = rate_scaled_normal(
+                    self.np_rng, self.sac_rate, self.poissarma_innov_scale
+                )
+                nz = arma.generate_sample(len(self.sac_rate), distrvs=innov)
+                rate = (nz + self.sac_rate * self.poissarma_base_scale) * probs["E"]
+                poissons["E"] = [self.np_rng.poisson(np.clip(rate, 0, np.inf))]
+                poissons["I"] = [np.array([])]
+
+            for t in ["AMPA", "NMDA"]:
+                innov = rate_scaled_normal(
+                    self.np_rng, self.glut_rate, self.poissarma_innov_scale
+                )
+                nz = arma.generate_sample(len(self.glut_rate), distrvs=innov)
+                rate = (nz + self.glut_rate * self.poissarma_base_scale) * probs[t]
+                poissons[t] = [self.np_rng.poisson(np.clip(rate, 0, np.inf))]
+
+            if self.n_plexus_ach > 0:
+                poissons["PLEX"] = []
+                for pr in probs["PLEX"]:
+                    innov = rate_scaled_normal(
+                        self.np_rng, self.sac_rate, self.poissarma_innov_scale
+                    )
+                    nz = arma.generate_sample(len(self.sac_rate), distrvs=innov)
+                    rate = (nz + self.sac_rate * self.poissarma_base_scale) * pr
+                    poissons["PLEX"].append(
+                        self.np_rng.poisson(np.clip(rate, 0, np.inf))
+                    )
+
+            if self.jittering_poisson:
+                jitters = {}
+                for t in self.synprops.keys():
+                    if self.n_plexus_ach > 0 and t == "PLEX":
+                        jitters["PLEX"] = [
+                            self.np_rng.normal(0, 1, size=len(self.sac_rate))
+                            for _ in range(self.n_plexus_ach)
+                        ]
+                    elif t != "PLEX":
+                        jitters[t] = [self.np_rng.normal(0, 1, len(poissons[t][0]))]
+
+                if sac.gaba_here[s]:
+                    jitters["E"] = [
+                        jitters["I"][0] * syn_rho
+                        + (jitters["E"][0] * np.sqrt(1 - syn_rho**2))
+                    ]
+
+                for t in self.synprops.keys():
+                    for tm, psn, jit in zip(bar_times[t], poissons[t], jitters[t]):
+                        self.syns[t]["con"][s].add_quanta(
+                            psn, self.rate_dt, t0=tm, jitters=jit * props["var"]
+                        )
+            else:
+                for t in self.synprops.keys():
+                    for tm, psn in zip(bar_times[t], poissons[t]):
+                        self.syns[t]["con"][s].add_quanta(psn, self.rate_dt, t0=tm)
 
     def get_failures(self, idx, stim):
         """
@@ -1089,3 +1131,28 @@ class Model:
 
     def n_terminals(self):
         return len(self.terminals)
+
+    def get_syn_rho(self, syn_idx, time_rho):
+        sac = self.sac_net
+        if sac is None or not self.sac_angle_rho_mode or not sac.gaba_here[syn_idx]:
+            return time_rho
+        else:
+            # scale correlation of E and I by diff of their dend angles
+            return (
+                self.max_sac_rho
+                - (self.max_sac_rho - self.min_sac_rho) * sac.deltas[syn_idx] / 180
+            )
+
+    def get_trans_probs(self, stim, syn_idx):
+        probs = {}
+        for t, props in self.synprops.items():
+            if stim["type"] == "flash":
+                probs[t] = props["prob"]
+            elif self.sac_net is not None and t in ["E", "I", "PLEX"]:
+                probs[t] = self.sac_net.probs[t][syn_idx, stim["dir"]]
+            else:
+                # calculate probability of release
+                probs[t] = self.dir_sigmoids["prob"](
+                    self.dirs[stim["dir"]], props["pref_prob"], props["null_prob"]
+                )
+        return probs

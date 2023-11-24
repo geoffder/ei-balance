@@ -147,6 +147,8 @@ class Rig:
         elif stim["type"] == "bar":
             if self.model.poisson_mode:
                 self.model.bar_poissons(stim)
+            elif self.model.poissarma_mode:
+                self.model.bar_arma_poissons(stim)
             elif self.model.gclamp_mode:
                 self.model.bar_gclamps(stim)
             else:
@@ -410,6 +412,7 @@ class Rig:
 
         rec_data = {k: [] for k in conditions.keys()}
 
+        orig_weights = {t: props["weight"] for t, props in self.model.synprops.items()}
         for cond, settings in conditions.items():
             if not quiet:
                 print("Condition: %s" % cond)
@@ -419,16 +422,17 @@ class Rig:
 
             VC.amp1 = settings["holding"]
 
-            for t, ps in self.model.synprops.items():
+            for t, w in orig_weights.items():
                 if not incl_plex and t == "PLEX":
                     continue
-                weight = (
-                    ps["weight"]
-                    if not isolate_agonists or t in settings["trans"]
-                    else 0
+                # temporarily change the weight in properties as well for
+                # compatibility with gclamp mode which relies on the weight
+                # value to scale the conductance vectors
+                self.model.synprops[t]["weight"] = (
+                    w if not isolate_agonists or t in settings["trans"] else 0
                 )
                 for netcon in self.model.syns[t]["con"]:
-                    netcon.weight = weight
+                    netcon.weight = self.model.synprops[t]["weight"]
 
             for j in range(n_trials):
                 if not quiet:
@@ -444,6 +448,8 @@ class Rig:
 
                     if self.model.poisson_mode:
                         self.model.bar_poissons(stim)
+                    elif self.model.poissarma_mode:
+                        self.model.bar_arma_poissons(stim)
                     elif self.model.gclamp_mode:
                         self.model.bar_gclamps(stim)
                     else:
@@ -461,10 +467,11 @@ class Rig:
 
         # reset all synaptic connection weights
         for cond, settings in conditions.items():
-            for t, ps in self.model.synprops.items():
+            for t, w in orig_weights.items():
+                self.model.synprops[t]["weight"] = w
                 if t != "PLEX" or incl_plex:
                     for netcon in self.model.syns[t]["con"]:
-                        netcon.weight = ps["weight"]
+                        netcon.weight = w
 
         all_data = {
             "params": params,

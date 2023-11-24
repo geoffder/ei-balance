@@ -148,6 +148,7 @@ def rolling_average(arr: np.ndarray, n=3, axis=-1) -> np.ndarray:
     ones = np.ones(n)
     return map_axis(lambda a: np.convolve(a, ones, "same"), arr, axis=axis) / n
 
+
 def avg_radians(thetas):
     s = 0
     c = 0
@@ -158,8 +159,10 @@ def avg_radians(thetas):
         n += 1
     return np.arctan2(s / n, c / n)
 
+
 def avg_degrees(degs):
     return avg_radians(map(np.deg2rad, degs))
+
 
 def map_data(f, data):
     """Recursively apply the same operation to all ndarrays stored in the given
@@ -187,8 +190,13 @@ def map2_data(f, d1, d2):
     else:
         return applyer(d1, d2)
 
-def biexp(x, m, t1, t2, b):
+
+def biexp(x, t1, t2, m=1, b=0):
+    """biexp(x, t1, t2, m, b)
+    Biexponential over time array `x`, scaled by `m`, with rise and decay taus
+    `t1`, and `t2`, and y-offset `b`."""
     return m * (np.exp(-x / t1) - np.exp(-x / t2)) + b
+
 
 def heaveside(x):
     if x < 0:
@@ -198,9 +206,33 @@ def heaveside(x):
     else:
         return 1
 
+
 def alpha_fun(scale, tau):
-    return np.vectorize(lambda x: scale * x / tau * np.exp(1 - (x / tau)) * heaveside(x))
+    return np.vectorize(
+        lambda x: scale * x / tau * np.exp(1 - (x / tau)) * heaveside(x)
+    )
+
 
 def bialpha_fun(scale, tau1, tau2):
     scale = scale * tau1 / tau2
-    return np.vectorize(lambda x: scale * x / tau1 * np.exp(1 - (x / tau2)) * heaveside(x))
+    return np.vectorize(
+        lambda x: scale * x / tau1 * np.exp(1 - (x / tau2)) * heaveside(x)
+    )
+
+
+def rate_scaled_mvar(rng, rate, factor, cov, means=np.zeros(1)):
+    scale = rate.reshape(-1, 1) * factor
+
+    def fun(size):
+        return rng.multivariate_normal(means, cov, size=size) * scale
+
+    return fun
+
+
+def rate_scaled_normal(rng, rate, factor, mean=0):
+    scale = rate * factor
+
+    def fun(size):
+        return rng.normal(mean, size=size) * scale
+
+    return fun
