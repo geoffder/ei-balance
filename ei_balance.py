@@ -545,8 +545,14 @@ class Model:
                 )
 
                 if self.gclamp_mode:
-                    self.syns[trans]["gclamp"].append(h.GClamp(0.5))
-                    self.syns[trans]["gclamp"][i].e = props["rev"]
+                    if trans == "PLEX":
+                        self.syns[trans]["gclamp"].append([])
+                        for plx in range(self.n_plexus_ach):
+                            self.syns[trans]["gclamp"][i].append(h.GClamp(0.5))
+                            self.syns[trans]["gclamp"][i][plx].e = props["rev"]
+                    else:
+                        self.syns[trans]["gclamp"].append(h.GClamp(0.5))
+                        self.syns[trans]["gclamp"][i].e = props["rev"]
 
             h.pop_section()
         self.syn_locs = np.array(locs)
@@ -932,18 +938,23 @@ class Model:
                 innov = rate_scaled_normal(
                     self.np_rng, self.sac_rate, self.gclamp_innov_scale
                 )
-                noise["PLEX"] = [
-                    arma.generate_sample(len(self.sac_rate), distrvs=innov)
-                    for _ in probs["PLEX"]
-                ]
-                gwaves["PLEX"] = np.zeros_like(self.sac_rate)
-                for nz in noise["PLEX"]:
-                    # gwaves["PLEX"] +=
-                    continue
-
-            # for t in self.synprops.keys():
-            #     for tm, nz in zip(bar_times[t], noise[t]):
-            #         self.syns[t]["con"][s].add_quanta(psn, self.rate_dt, t0=tm)
+                for gclamp, onset in zip(
+                    self.syns["PLEX"]["gclamp"][s], bar_times["PLEX"]
+                ):
+                    nz = arma.generate_sample(len(self.sac_rate), distrvs=innov)
+                    gwave = (
+                        np.clip(self.sac_rate * self.gclamp_base_scale + nz, 0, np.inf)
+                        * probs["PLEX"]
+                        * self.synprops["PLEX"]["weight"]
+                    )
+                    gvec = h.Vector(np.r_[0, 0, gwave, 0, 0])
+                    ts = np.arange(len(gwave)) * self.rate_dt + onset
+                    tvec = h.Vector(
+                        np.r_[0, ts[0] - self.dt, ts, ts[-1] + self.dt, self.tstop]
+                    )
+                    gvec.play(gclamp._ref_g, tvec, True)
+                    self.play_vecs.append(gvec)
+                    self.play_vecs.append(tvec)
 
     def bar_arma_poissons(self, stim):
         sac = self.sac_net
