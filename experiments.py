@@ -59,11 +59,11 @@ def sacnet_run(
                 flush=True,
             )
             res = pool.map(_sacnet_repeat, [idx + i for i in range(n)])
-            for i in range(n):
-                data = {r: {idx + i: res[0][r]} for r in res[0].keys()}
+            for _ in range(n):
+                data = {r: {idx: res[0][r]} for r in res[0].keys()}
                 pack_dataset(pckg, data, compression=None)
                 del data, res[0]  # delete head
-            idx = idx + n
+                idx += 1
     print("Done!")
 
 
@@ -119,11 +119,11 @@ def sacnet_gaba_titration_run(
                     flush=True,
                 )
                 res = pool.map(f, [idx + i for i in range(n)])
-                for i in range(n):
-                    data = {r: {idx + i: res[0][r]} for r in res[0].keys()}
+                for _ in range(n):
+                    data = {r: {idx: res[0][r]} for r in res[0].keys()}
                     pack_dataset(grp, data, compression=None)
                     del data, res[0]  # delete head
-                idx = idx + n
+                    idx += 1
     print("Done!")
 
 
@@ -173,11 +173,11 @@ def sacnet_rho_run(
                     flush=True,
                 )
                 res = pool.map(f, [idx + i for i in range(n)])
-                for i in range(n):
-                    data = {i: res[0]}
+                for _ in range(n):
+                    data = {idx: res[0]}
                     pack_dataset(grp, data, compression=None)
                     del data, res[0]  # delete head
-                idx = idx + n
+                    idx += 1
     print("Done!")
 
 
