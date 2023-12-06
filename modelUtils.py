@@ -317,7 +317,13 @@ def scale_180_from_360(theta):
     # return (((theta - 180) % 360) - 180)
     return (((theta - 180) % 360) - 180) if theta != 180 else 180
 
-def calc_sweep_times(origin, dir_rads, bar, syn_locs, sac_net, hard_offsets, syn_kinds=["E", "I", "NMDA"]):
+
+scale_180_from_360 = np.vectorize(scale_180_from_360)
+
+
+def calc_sweep_times(
+    origin, dir_rads, bar, syn_locs, sac_net, hard_offsets, syn_kinds=["E", "I", "NMDA"]
+):
     """Return dict with synapse activation times for each direction.
     dir_idx -> syn_idx -> syn_kind"""
     times = {}  # dir -> syn -> trans

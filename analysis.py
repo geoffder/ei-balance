@@ -471,14 +471,17 @@ def polar(
     net_shadows=False,
     title=None,
     title_metrics=True,
-    save=False,
-    save_pth="",
-    save_ext="png",
     fig: Optional[FigureBase] = None,
     sub_loc=(1, 1, 1),
     dsi_tag_deg=-15.0,
     dsi_tag_mult=1.05,
     dsi_tag_fmt="DSi\n%.2f",
+    avg_colour="black",
+    avg_alpha=1.0,
+    avg_linewidth=2,
+    shadow_colour=None,
+    shadow_alpha=0.25,
+    shadow_linewidth=1.2,
 ):
     # re-sort directions and make circular for polar axes
     circ_vals = net_trials.transpose(2, 0, 1)[np.array(dirs).argsort()]
@@ -509,13 +512,19 @@ def polar(
         new_fig = False
 
     ax = fig.add_subplot(*sub_loc, projection="polar")
-    ax.plot(circle, shadows, color=".75")
-    ax.plot([thetas, thetas], [np.zeros_like(DSis), DSis * peak], color=".75")
+    shadow_kwargs = {
+        "color": avg_colour if shadow_colour is None else shadow_colour,
+        "alpha": shadow_alpha,
+        "linewidth": shadow_linewidth,
+    }
+    ax.plot(circle, shadows, **shadow_kwargs)
+    ax.plot([thetas, thetas], [np.zeros_like(DSis), DSis * peak], **shadow_kwargs)
 
     # plot avg darker
+    avg_kwargs = {"color": avg_colour, "alpha": avg_alpha, "linewidth": avg_linewidth}
     avg_spikes = np.mean(circ_vals.reshape(circle.size, -1), axis=1)
-    ax.plot(circle, avg_spikes, color=".0", linewidth=2)
-    ax.plot([avg_theta, avg_theta], [0.0, avg_DSi * peak], color=".0", linewidth=2)
+    ax.plot(circle, avg_spikes, **avg_kwargs)
+    ax.plot([avg_theta, avg_theta], [0.0, avg_DSi * peak], **avg_kwargs)
 
     # misc settings
     radius = peak if radius is None else radius
@@ -543,12 +552,6 @@ def polar(
 
     if title is not None:
         ax.set_title(title, size=15)
-
-    if save:
-        fig.savefig(
-            "%spolar_%s.%s" % (save_pth, title.replace(" ", "_"), save_ext),
-            bbox_inches="tight",
-        )
 
     if new_fig:
         return fig, ax
