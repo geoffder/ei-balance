@@ -1239,7 +1239,7 @@ def sac_angle_distribution(
             axes[j].set_title("Bin Size: %.1f" % (360 / numBins))
 
         axes[j].set_xlabel("SAC Dendrite Angle", fontsize=labelsize)
-        axes[j].set_ylabel("Count", fontsize=labelsize)
+        axes[j].set_ylabel("Count (%i nets)" % n_nets, fontsize=labelsize)
         axes[j].set_xticks([0, 180, 360])
         if not incl_yticks:
             axes[j].set_yticks([])

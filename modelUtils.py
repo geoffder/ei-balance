@@ -314,7 +314,8 @@ def wrap_180(theta):
 
 def scale_180_from_360(theta):
     """Wrap degrees from 360 scale to -180 -> 180 scale."""
-    return ((theta - 180) % 360) - 180
+    # return (((theta - 180) % 360) - 180)
+    return (((theta - 180) % 360) - 180) if theta != 180 else 180
 
 def calc_sweep_times(origin, dir_rads, bar, syn_locs, sac_net, hard_offsets, syn_kinds=["E", "I", "NMDA"]):
     """Return dict with synapse activation times for each direction.
