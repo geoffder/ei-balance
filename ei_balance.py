@@ -273,6 +273,7 @@ class Model:
         self.poissarma_ma_params = np.array([0.0])
         self.poissarma_innov_scale = 1
         self.poissarma_base_scale = 0
+        self.correlated_plex = False
 
         # recording stuff
         self.downsample = {"Vm": 0.5, "iCa": 0.1, "cai": 0.1, "g": 0.1}
@@ -959,43 +960,88 @@ class Model:
     def bar_arma_poissons(self, stim):
         sac = self.sac_net
 
+        keys_flat = ["E", *(["PLEX"] * self.n_plexus_ach), "I"]
         time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
         ar = np.r_[1, -self.poissarma_ar_params]  # add zero-lag and negate
         ma = np.r_[1, self.poissarma_ma_params]  # add zero-lag
         arma = sm.tsa.ArmaProcess(ar, ma)
+        # n_sacs = 2 + self.n_plexus_ach
+        delta_to_rho = np.vectorize(
+            lambda d: self.max_sac_rho - (self.max_sac_rho - self.min_sac_rho) * d / 180
+        )
+        rho_matrix = np.nan_to_num(delta_to_rho(sac.delta_matrix))
+        if self.n_plexus_ach > 0 and not self.correlated_plex:
+            rho_matrix[:, 1:-1, :] = 0.0
+            rho_matrix[:, :, 1:-1] = 0.0
 
         for s in range(self.n_syn):
             bar_times = self.bar_sweep(s, stim["dir"])
             bar_times = {
                 k: (ts if k == "PLEX" else [ts]) for k, ts in bar_times.items()
             }
-            syn_rho = self.get_syn_rho(s, time_rho)
+            syn_rho = self.get_syn_rho(s, time_rho)  # still used in jittering
             probs = self.get_trans_probs(stim, s)
+            probs_flat = [probs["E"], *probs.get("PLEX", []), probs["I"]]
+
+            cov_mat = rho_matrix[s]
+            np.fill_diagonal(cov_mat, 1)
+            innovations = rate_scaled_mvar(
+                self.np_rng,
+                self.sac_rate,
+                self.poissarma_innov_scale,
+                cov_mat,
+                means=np.zeros(len(cov_mat)),
+            )
+            nz = arma.generate_sample(len(self.sac_rate), distrvs=innovations)
 
             poissons = {}
-            if sac.gaba_here[s]:
-                cov_mat = np.array([[1, syn_rho], [syn_rho, 1]])
-                innovations = rate_scaled_mvar(
-                    self.np_rng,
-                    self.sac_rate,
-                    self.poissarma_innov_scale,
-                    cov_mat,
-                    means=np.zeros(2),
-                )
-                nz = arma.generate_sample(len(self.sac_rate), distrvs=innovations)
-                for i, t in enumerate(["E", "I"]):
-                    rate = (
-                        nz[:, i] + self.sac_rate * self.poissarma_base_scale
-                    ) * probs[t]
-                    poissons[t] = [self.np_rng.poisson(np.clip(rate, 0, np.inf))]
-            else:
-                innov = rate_scaled_normal(
-                    self.np_rng, self.sac_rate, self.poissarma_innov_scale
-                )
-                nz = arma.generate_sample(len(self.sac_rate), distrvs=innov)
-                rate = (nz + self.sac_rate * self.poissarma_base_scale) * probs["E"]
-                poissons["E"] = [self.np_rng.poisson(np.clip(rate, 0, np.inf))]
-                poissons["I"] = [np.array([])]
+            for i, (k, pr) in enumerate(zip(keys_flat, probs_flat)):
+                if k == "I" and not sac.gaba_here[s]:
+                    poissons["I"] = [np.array([])]
+                else:
+                    rate = (nz[:, i] + self.sac_rate * self.poissarma_base_scale) * pr
+                    psn = self.np_rng.poisson(np.clip(rate, 0, np.inf))
+                    if k in poissons:
+                        poissons[k].append(psn)  # handle multiple plex
+                    else:
+                        poissons[k] = [psn]
+
+            # poissons = {}
+            # if sac.gaba_here[s]:
+            #     cov_mat = np.array([[1, syn_rho], [syn_rho, 1]])
+            #     innovations = rate_scaled_mvar(
+            #         self.np_rng,
+            #         self.sac_rate,
+            #         self.poissarma_innov_scale,
+            #         cov_mat,
+            #         means=np.zeros(2),
+            #     )
+            #     nz = arma.generate_sample(len(self.sac_rate), distrvs=innovations)
+            #     for i, t in enumerate(["E", "I"]):
+            #         rate = (
+            #             nz[:, i] + self.sac_rate * self.poissarma_base_scale
+            #         ) * probs[t]
+            #         poissons[t] = [self.np_rng.poisson(np.clip(rate, 0, np.inf))]
+            # else:
+            #     innov = rate_scaled_normal(
+            #         self.np_rng, self.sac_rate, self.poissarma_innov_scale
+            #     )
+            #     nz = arma.generate_sample(len(self.sac_rate), distrvs=innov)
+            #     rate = (nz + self.sac_rate * self.poissarma_base_scale) * probs["E"]
+            #     poissons["E"] = [self.np_rng.poisson(np.clip(rate, 0, np.inf))]
+            #     poissons["I"] = [np.array([])]
+
+            # if self.n_plexus_ach > 0:
+            #     poissons["PLEX"] = []
+            #     for pr in probs["PLEX"]:
+            #         innov = rate_scaled_normal(
+            #             self.np_rng, self.sac_rate, self.poissarma_innov_scale
+            #         )
+            #         nz = arma.generate_sample(len(self.sac_rate), distrvs=innov)
+            #         rate = (nz + self.sac_rate * self.poissarma_base_scale) * pr
+            #         poissons["PLEX"].append(
+            #             self.np_rng.poisson(np.clip(rate, 0, np.inf))
+            #         )
 
             for t in ["AMPA", "NMDA"]:
                 innov = rate_scaled_normal(
@@ -1004,18 +1050,6 @@ class Model:
                 nz = arma.generate_sample(len(self.glut_rate), distrvs=innov)
                 rate = (nz + self.glut_rate * self.poissarma_base_scale) * probs[t]
                 poissons[t] = [self.np_rng.poisson(np.clip(rate, 0, np.inf))]
-
-            if self.n_plexus_ach > 0:
-                poissons["PLEX"] = []
-                for pr in probs["PLEX"]:
-                    innov = rate_scaled_normal(
-                        self.np_rng, self.sac_rate, self.poissarma_innov_scale
-                    )
-                    nz = arma.generate_sample(len(self.sac_rate), distrvs=innov)
-                    rate = (nz + self.sac_rate * self.poissarma_base_scale) * pr
-                    poissons["PLEX"].append(
-                        self.np_rng.poisson(np.clip(rate, 0, np.inf))
-                    )
 
             if self.jittering_poisson:
                 jitters = {}
