@@ -964,7 +964,6 @@ class Model:
         ma = np.r_[1, self.poissarma_ma_params]  # add zero-lag
         arma = sm.tsa.ArmaProcess(ar, ma)
 
-        corrs = []
         for s in range(self.n_syn):
             bar_times = self.bar_sweep(s, stim["dir"])
             bar_times = {
