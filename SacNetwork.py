@@ -10,6 +10,7 @@ from scipy.optimize import curve_fit
 
 from modelUtils import rotate, wrap_180, wrap_360
 from general_utils import clean_axes
+from scipy.optimize import bisect
 
 
 class SacNetwork:
@@ -30,6 +31,8 @@ class SacNetwork:
         n_plexus_ach=0,
         plexus_share=None,
         stacked_plex=False,
+        fix_rho_mode=False,
+        plexus_syn_mode="all",
     ):
         self.syn_locs = syn_locs  # xy coord ndarray of shape (N, 2)
         self.dir_pr = dir_pr  # {"E": {"null": _, "pref": _} ...}
@@ -45,6 +48,25 @@ class SacNetwork:
         self.cell_pref = cell_pref
         self.n_plexus_ach = n_plexus_ach
         self.stacked_plex = stacked_plex
+        self.fix_rho_mode = fix_rho_mode
+        self.plexus_syn_mode = plexus_syn_mode
+        # polyfit params obtained in sacnet_angle_sanity.ipynb
+        # describing the relationship between input rho and the resulting
+        # circular correlation coefficient (astropy.stats.circstats.circcorrcoef),
+        # which is somewhat logarithmic in appearance despite not well fit by same.
+        # The corrcoef rises faster than rho initially (inflating actual
+        # correlation), and slows as rho approaches 1.
+        # These params are used with bisect to find a "fixed rho" that will
+        # target the same corrcoef (so rho ~= corr).
+        self.rho_corr_poly_params = np.array(
+            [-1.20091016, 1.26930728, 0.92224309, 0.0029899]
+        )
+        rho_corr_poly = np.poly1d(self.rho_corr_poly_params)
+        self.fixed_rho = (
+            rho
+            if rho == 0 or rho == 1
+            else bisect(lambda x: rho_corr_poly(x) - rho, 0, 1)
+        )
 
         if n_plexus_ach > 0:
             if plexus_share is None:
@@ -108,39 +130,49 @@ class SacNetwork:
 
             if self.n_plexus_ach > 0:
                 ach_prob = self.probs["E"][i]
-                self.probs["E"][i] = ach_prob * self.syn_prob_mod
-                if self.stacked_plex:
-                    n = self.n_plexus_ach
-                    self.thetas["PLEX"].append([e_theta] * n)
-                    self.bp_locs["PLEX"][i] = np.repeat(
-                        np.expand_dims(self.bp_locs["E"][i], 0), n, axis=0
-                    )
-                    self.probs["PLEX"].append(
-                        np.repeat(
-                            np.expand_dims(ach_prob * self.plex_prob_mod, 0), n, axis=0
-                        ).T
-                    )
+                n = self.n_plexus_ach
+                if (self.plexus_syn_mode == "only_pref" and has_gaba) or (
+                    self.plexus_syn_mode == "only_null" and not has_gaba
+                ):
+                    self.probs["PLEX"].append(np.zeros((len(self.dir_labels), n)))
+                    self.bp_locs["PLEX"][i] = np.full((n, 2), np.nan)
+                    self.thetas["PLEX"].append([np.nan] * n)
                 else:
-                    thetas = [
-                        self.np_rng.uniform() * 360.0 for _ in range(self.n_plexus_ach)
-                    ]
-                    self.bp_locs["PLEX"][i] = np.array(
-                        [self.locate_bp(syn_x, syn_y, theta) for theta in thetas]
-                    )
-                    self.probs["PLEX"].append(
-                        np.array(
-                            [
-                                self.compute_probs(
-                                    ach_pref,
-                                    ach_null,
-                                    theta,
-                                )
-                                * self.plex_prob_mod
-                                for theta in thetas
-                            ]
-                        ).T
-                    )
-                    self.thetas["PLEX"].append(thetas)
+                    self.probs["E"][i] = ach_prob * self.syn_prob_mod
+                    if self.stacked_plex:
+                        self.thetas["PLEX"].append([e_theta] * n)
+                        self.bp_locs["PLEX"][i] = np.repeat(
+                            np.expand_dims(self.bp_locs["E"][i], 0), n, axis=0
+                        )
+                        self.probs["PLEX"].append(
+                            np.repeat(
+                                np.expand_dims(ach_prob * self.plex_prob_mod, 0),
+                                n,
+                                axis=0,
+                            ).T
+                        )
+                    else:
+                        thetas = [
+                            self.np_rng.uniform() * 360.0
+                            for _ in range(self.n_plexus_ach)
+                        ]
+                        self.bp_locs["PLEX"][i] = np.array(
+                            [self.locate_bp(syn_x, syn_y, theta) for theta in thetas]
+                        )
+                        self.probs["PLEX"].append(
+                            np.array(
+                                [
+                                    self.compute_probs(
+                                        ach_pref,
+                                        ach_null,
+                                        theta,
+                                    )
+                                    * self.plex_prob_mod
+                                    for theta in thetas
+                                ]
+                            ).T
+                        )
+                        self.thetas["PLEX"].append(thetas)
 
         self.origin = self.find_origin()
         self.gaba_here = np.array(self.gaba_here)
@@ -259,7 +291,8 @@ class SacNetwork:
         # gaba_prob = p + (n - p) * (1 - 1 / (1 + np.exp((np.abs(base) - 90) * 0.12)))
         # var = 180 * np.sqrt(1 - self.rho**2)  # type:ignore
         # var = 180 * np.sqrt(1 - self.rho)  # type:ignore
-        var = 180 * (1 - self.rho)  # type:ignore
+        rho = self.fixed_rho if self.fix_rho_mode else self.rho
+        var = 180 * (1 - rho)  # type:ignore
 
         gaba_here = self.np_rng.uniform(0, 1) < gaba_prob
         i_theta = base + self.cell_pref

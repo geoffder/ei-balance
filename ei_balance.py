@@ -255,9 +255,10 @@ class Model:
         self.n_plexus_ach = 0
         self.plexus_share = None
         self.stacked_plex = False
+        self.plexus_syn_mode = "all"  # "all", "pref_only", "null_only"
 
         self.poisson_mode = False
-        self.jittering_poisson = False
+        self.jittering_poisson = False  # not used in poissarma mode
         self.sac_rate = np.array([1.0])
         self.glut_rate = np.array([1.0])
         self.rate_dt = self.dt
@@ -273,6 +274,9 @@ class Model:
         self.poissarma_ma_params = np.array([0.0])
         self.poissarma_innov_scale = 1
         self.poissarma_base_scale = 0
+
+        # plexus settings only used in poissarma mode
+        # # plexus inputs correlated by delta with eachother and EI
         self.correlated_plex = False
 
         # recording stuff
@@ -613,6 +617,7 @@ class Model:
             n_plexus_ach=self.n_plexus_ach,
             plexus_share=self.plexus_share,
             stacked_plex=self.stacked_plex,
+            plexus_syn_mode=self.plexus_syn_mode,
         )
 
         if self.n_plexus_ach > 0 and "PLEX" not in self.synprops:
@@ -621,6 +626,22 @@ class Model:
             del self.synprops["PLEX"]
 
         self.sweep_times = self.calc_sweep_times()
+
+        # build rho matrix used for covariance matrices from angular deltas
+        # shape (n_syn, 2 + n_plex, 2 + n_plex) with E column and I column as bookends
+        # around the plexus dends (if they exist)
+        delta_to_rho = np.vectorize(
+            lambda d: self.max_sac_rho - (self.max_sac_rho - self.min_sac_rho) * d / 180
+        )
+        self.rho_matrix = np.nan_to_num(delta_to_rho(self.sac_net.delta_matrix))
+        if self.n_plexus_ach > 0 and not self.correlated_plex:
+            # zero out all correlations involving plexus dends
+            self.rho_matrix[:, 1:-1, :] = 0.0
+            self.rho_matrix[:, 0, 1:-1] = 0.0
+            self.rho_matrix[:, -1, 1:-1] = 0.0
+        # correct diagonal (self correlations) to 1 from max_sac_rho
+        diag_idxs = np.diag_indices(self.rho_matrix.shape[1], 1)
+        self.rho_matrix[:, diag_idxs, diag_idxs] = 1
 
     def flash_onsets(self):
         """
@@ -958,33 +979,20 @@ class Model:
                     self.play_vecs.append(tvec)
 
     def bar_arma_poissons(self, stim):
-        sac = self.sac_net
-
         keys_flat = ["E", *(["PLEX"] * self.n_plexus_ach), "I"]
-        time_rho = stim.get("rhos", {"time": self.time_rho})["time"]
         ar = np.r_[1, -self.poissarma_ar_params]  # add zero-lag and negate
         ma = np.r_[1, self.poissarma_ma_params]  # add zero-lag
         arma = sm.tsa.ArmaProcess(ar, ma)
-        # n_sacs = 2 + self.n_plexus_ach
-        delta_to_rho = np.vectorize(
-            lambda d: self.max_sac_rho - (self.max_sac_rho - self.min_sac_rho) * d / 180
-        )
-        rho_matrix = np.nan_to_num(delta_to_rho(sac.delta_matrix))
-        if self.n_plexus_ach > 0 and not self.correlated_plex:
-            rho_matrix[:, 1:-1, :] = 0.0
-            rho_matrix[:, :, 1:-1] = 0.0
 
         for s in range(self.n_syn):
             bar_times = self.bar_sweep(s, stim["dir"])
             bar_times = {
                 k: (ts if k == "PLEX" else [ts]) for k, ts in bar_times.items()
             }
-            syn_rho = self.get_syn_rho(s, time_rho)  # still used in jittering
             probs = self.get_trans_probs(stim, s)
             probs_flat = [probs["E"], *probs.get("PLEX", []), probs["I"]]
 
-            cov_mat = rho_matrix[s]
-            np.fill_diagonal(cov_mat, 1)
+            cov_mat = self.rho_matrix[s]
             innovations = rate_scaled_mvar(
                 self.np_rng,
                 self.sac_rate,
@@ -996,15 +1004,17 @@ class Model:
 
             poissons = {}
             for i, (k, pr) in enumerate(zip(keys_flat, probs_flat)):
-                if k == "I" and not sac.gaba_here[s]:
-                    poissons["I"] = [np.array([])]
-                else:
+                # when sac.gaba_here[s] is False or plex are missing pr == 0.
+                if pr > 0.0:
                     rate = (nz[:, i] + self.sac_rate * self.poissarma_base_scale) * pr
                     psn = self.np_rng.poisson(np.clip(rate, 0, np.inf))
-                    if k in poissons:
-                        poissons[k].append(psn)  # handle multiple plex
-                    else:
-                        poissons[k] = [psn]
+                else:
+                    psn = np.array([])
+
+                if k in poissons:
+                    poissons[k].append(psn)  # handle multiple plex
+                else:
+                    poissons[k] = [psn]
 
             # poissons = {}
             # if sac.gaba_here[s]:
@@ -1051,32 +1061,9 @@ class Model:
                 rate = (nz + self.glut_rate * self.poissarma_base_scale) * probs[t]
                 poissons[t] = [self.np_rng.poisson(np.clip(rate, 0, np.inf))]
 
-            if self.jittering_poisson:
-                jitters = {}
-                for t in self.synprops.keys():
-                    if self.n_plexus_ach > 0 and t == "PLEX":
-                        jitters["PLEX"] = [
-                            self.np_rng.normal(0, 1, size=len(self.sac_rate))
-                            for _ in range(self.n_plexus_ach)
-                        ]
-                    elif t != "PLEX":
-                        jitters[t] = [self.np_rng.normal(0, 1, len(poissons[t][0]))]
-
-                if sac.gaba_here[s]:
-                    jitters["E"] = [
-                        jitters["I"][0] * syn_rho
-                        + (jitters["E"][0] * np.sqrt(1 - syn_rho**2))
-                    ]
-
-                for t in self.synprops.keys():
-                    for tm, psn, jit in zip(bar_times[t], poissons[t], jitters[t]):
-                        self.syns[t]["con"][s].add_quanta(
-                            psn, self.rate_dt, t0=tm, jitters=jit * props["var"]
-                        )
-            else:
-                for t in self.synprops.keys():
-                    for tm, psn in zip(bar_times[t], poissons[t]):
-                        self.syns[t]["con"][s].add_quanta(psn, self.rate_dt, t0=tm)
+            for t in self.synprops.keys():
+                for tm, psn in zip(bar_times[t], poissons[t]):
+                    self.syns[t]["con"][s].add_quanta(psn, self.rate_dt, t0=tm)
 
     def get_failures(self, idx, stim):
         """
