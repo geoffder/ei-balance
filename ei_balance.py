@@ -256,6 +256,7 @@ class Model:
         self.plexus_share = None
         self.stacked_plex = False
         self.plexus_syn_mode = "all"  # "all", "pref_only", "null_only"
+        self.fix_rho_mode = False
 
         self.poisson_mode = False
         self.jittering_poisson = False  # not used in poissarma mode
@@ -618,6 +619,7 @@ class Model:
             plexus_share=self.plexus_share,
             stacked_plex=self.stacked_plex,
             plexus_syn_mode=self.plexus_syn_mode,
+            fix_rho_mode=self.fix_rho_mode,
         )
 
         if self.n_plexus_ach > 0 and "PLEX" not in self.synprops:
