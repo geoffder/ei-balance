@@ -22,6 +22,7 @@ def sacnet_run(
     vc_mode=False,
     vc_simul=True,
     vc_isolate=True,
+    reset_seed_between_rho=False,
 ):
     global _sacnet_repeat  # required to allow pickling for Pool
 
@@ -34,7 +35,7 @@ def sacnet_run(
         data = {}
         for rho in rho_steps:
             runner.model.nz_seed = 0
-            runner.model.build_sac_net(rho=rho)
+            runner.model.build_sac_net(rho=rho, reset_rng=reset_seed_between_rho)
             if vc_mode:
                 data[rho] = runner.vc_dir_run(
                     n_trials,
@@ -77,6 +78,7 @@ def sacnet_gaba_titration_run(
     pool_sz=8,
     vc_mode=False,
     vc_simul=True,
+    reset_seed_between_rho=False,
 ):
     global _sacnet_gaba_titration_repeat  # required to allow pickling for Pool
 
@@ -90,7 +92,7 @@ def sacnet_gaba_titration_run(
         data = {}
         for rho in rho_steps:
             runner.model.nz_seed = 0
-            runner.model.build_sac_net(rho=rho)
+            runner.model.build_sac_net(rho=rho, reset_rng=reset_seed_between_rho)
             if vc_mode:
                 data[rho] = runner.vc_dir_run(
                     n_trials,

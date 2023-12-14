@@ -6,7 +6,6 @@ from neuron import h
 import numpy as np
 import scipy.stats as st
 import statsmodels.api as sm
-from deconv import quanta_to_times
 from general_utils import project_onto_line  # for probabilistic distributions
 from general_utils import rate_scaled_mvar, rate_scaled_normal
 
@@ -590,9 +589,12 @@ class Model:
             if trans != "PLEX"
         }
 
-    def build_sac_net(self, rho=None):
+    def build_sac_net(self, rho=None, reset_rng=False):
         if rho is not None:
             self.sac_rho = rho
+
+        if reset_rng:
+            self.reset_rng()
 
         probs = {
             t: {
