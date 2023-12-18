@@ -16,6 +16,8 @@ class MotionResponse:
         figsize=(5, 6),
         tree_vmin=None,
         tree_vmax=None,
+        soma_vmin=-70,
+        soma_vmax=30,
         bar_width=200,
         bar_height=300,
         bar_edge=(0, 0, 0, 0.5),
@@ -61,7 +63,9 @@ class MotionResponse:
             hatch=bar_hatch,
         )
         self.tree_ax.add_patch(self.stim)
-        self.fig.colorbar(self.scat, cax=self.colorbar_ax, orientation="vertical")
+        self.colorbar = self.fig.colorbar(
+            self.scat, cax=self.colorbar_ax, orientation="vertical"
+        )
 
         self.time: np.ndarray = np.linspace(
             0, self.soma_pts * net_data["params"]["dt"], self.soma_pts
@@ -71,7 +75,7 @@ class MotionResponse:
             self.time[0], self.soma[0, 0, 0], marker="x", c="red"
         )[0]
         self.soma_ax.set_xlim(self.time.min(), self.time.max())
-        self.soma_ax.set_ylim(-70, 30)
+        self.soma_ax.set_ylim(soma_vmin, soma_vmax)
 
         self.connect_events()
 
