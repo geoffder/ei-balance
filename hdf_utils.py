@@ -58,7 +58,8 @@ def pack_hdf(pth, data_dict, compression: Optional[str] = None):
     same structure. Keys are converted to strings to comply to hdf5 group naming
     convention. In `unpack_hdf`, if the key is all digits, it will be converted
     back from string."""
-    with h5.File(pth + ".h5", "w") as pckg:
+    pth = pth if pth.endswith(".h5") else pth + ".h5"
+    with h5.File(pth, "w") as pckg:
         pack_dataset(pckg, data_dict, compression=compression)
 
 
@@ -166,7 +167,9 @@ class Workspace:
 
     def items(self):
         if self.is_hdf:
-            return map(lambda k: (unpack_key(k), self.__getitem__(k)), self._data.keys())
+            return map(
+                lambda k: (unpack_key(k), self.__getitem__(k)), self._data.keys()
+            )
         else:
             return self._data.items()
 
