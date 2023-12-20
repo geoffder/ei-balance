@@ -23,6 +23,7 @@ def sacnet_run(
     vc_simul=True,
     vc_isolate=True,
     reset_seed_between_rho=False,
+        reset_rng_before_runs=False,
 ):
     global _sacnet_repeat  # required to allow pickling for Pool
 
@@ -36,6 +37,8 @@ def sacnet_run(
         for rho in rho_steps:
             runner.model.nz_seed = 0
             runner.model.build_sac_net(rho=rho, reset_rng=reset_seed_between_rho)
+            if reset_rng_before_runs:
+                runner.model.reset_rng()
             if vc_mode:
                 data[rho] = runner.vc_dir_run(
                     n_trials,

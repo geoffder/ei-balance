@@ -197,6 +197,11 @@ class Rig:
 
         metrics = self.summary(n_trials, plot=plot_summary, quiet=quiet)
 
+        # params["rng_state"] = np.array(
+        #     [self.model.np_rng.__getstate__()["state"]["state"]]
+        # )
+        params["rng_state"] = str(self.model.np_rng.__getstate__()["state"]["state"])
+        params["rng_inc"] = str(self.model.np_rng.__getstate__()["state"]["inc"])
         all_data = {
             "params": params,
             "metrics": metrics,
@@ -473,6 +478,11 @@ class Rig:
                     for netcon in self.model.syns[t]["con"]:
                         netcon.weight = w
 
+        # params["rng_state"] = np.array(
+        #     [self.model.np_rng.__getstate__()["state"]["state"]]
+        # )
+        params["rng_state"] = str(self.model.np_rng.__getstate__()["state"]["state"])
+        params["rng_inc"] = str(self.model.np_rng.__getstate__()["state"]["inc"])
         all_data = {
             "params": params,
             # "params": json.dumps(params),

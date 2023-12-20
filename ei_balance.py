@@ -1009,10 +1009,13 @@ class Model:
             poissons = {}
             for i, (k, pr) in enumerate(zip(keys_flat, probs_flat)):
                 # when sac.gaba_here[s] is False or plex are missing pr == 0.
+                # HACK: checking if this leads to rng inconsistency
+                rate = (nz[:, i] + self.sac_rate * self.poissarma_base_scale) * pr
                 if pr > 0.0:
-                    rate = (nz[:, i] + self.sac_rate * self.poissarma_base_scale) * pr
+                    # rate = (nz[:, i] + self.sac_rate * self.poissarma_base_scale) * pr
                     psn = self.np_rng.poisson(np.clip(rate, 0, np.inf))
                 else:
+                    _ = self.np_rng.poisson(np.clip(rate, 0, np.inf))
                     psn = np.array([])
 
                 if k in poissons:

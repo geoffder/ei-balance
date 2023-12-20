@@ -46,9 +46,21 @@ def pack_dataset(
                 else:
                     rec(v, grp.create_group(k))
             elif isinstance(v, (float, int, str, np.integer)):  # type: ignore
-                grp.create_dataset(k, data=v)  # can't compress scalars
+                try:
+                    grp.create_dataset(k, data=v)  # can't compress scalars
+                except TypeError as e:
+                    print("Failed dataset creation on...")
+                    print("key:", k)
+                    print("value:", v)
+                    raise e
             elif v is not None:
-                grp.create_dataset(k, data=v, compression=compression)
+                try:
+                    grp.create_dataset(k, data=v, compression=compression)
+                except TypeError as e:
+                    print("Failed dataset creation on...")
+                    print("key:", k)
+                    print("value:", v)
+                    raise e
 
     rec(data_dict, h5_file)
 
