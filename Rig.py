@@ -23,19 +23,18 @@ class Rig:
         self.model.soma.push()
         self.initialize_handler = h.FInitializeHandler(self.model.init_synapses)
 
-    def place_electrodes(self):
+    def place_electrodes(self, vc_mode=False):
         self.soma_rec = h.Vector()
         self.soma_rec.record(self.model.soma(0.5)._ref_v)
         self.soma_data = {"Vm": [], "area": [], "thresh_count": []}
 
         step = self.model.seg_step
-        self.recs = {"Vm": [], "iCa": [], "cai": [], "g": {t: [] for t in ["E", "I"]}}
-        self.dend_data = {
-            "Vm": [],
-            "iCa": [],
-            "cai": [],
-            "g": {t: [] for t in ["E", "I"]},
-        }
+        self.recs = {"Vm": [], "g": {t: [] for t in ["E", "I"]}}
+        self.dend_data = {"Vm": [], "g": {t: [] for t in ["E", "I"]}}
+        if not vc_mode:
+            for k in ["iCa", "cai"]:
+                self.recs[k] = []
+                self.dend_data[k] = []
 
         if self.model.record_tree:
             for n, dend in enumerate(self.model.all_dends):
@@ -43,11 +42,12 @@ class Rig:
                     self.recs["Vm"].append(h.Vector())
                     self.recs["Vm"][-1].record(dend(i * step)._ref_v)
 
-                    self.recs["iCa"].append(h.Vector())
-                    self.recs["iCa"][-1].record(dend(i * step)._ref_ica)
+                    if not vc_mode:
+                        self.recs["iCa"].append(h.Vector())
+                        self.recs["iCa"][-1].record(dend(i * step)._ref_ica)
 
-                    self.recs["cai"].append(h.Vector())
-                    self.recs["cai"][-1].record(dend(i * step)._ref_cai)
+                        self.recs["cai"].append(h.Vector())
+                        self.recs["cai"][-1].record(dend(i * step)._ref_cai)
 
             for n in range(self.model.n_syn):
                 for t in self.recs["g"].keys():
@@ -62,11 +62,12 @@ class Rig:
 
         if self.model.record_tree:
             for r in ["Vm", "iCa", "cai"]:
-                if self.model.downsample[r] < 1:
-                    for rec in self.recs[r]:
-                        rec.resample(rec, self.model.downsample[r])
+                if r in self.recs:
+                    if self.model.downsample[r] < 1:
+                        for rec in self.recs[r]:
+                            rec.resample(rec, self.model.downsample[r])
 
-                self.dend_data[r].append(np.round(self.recs[r], decimals=6))
+                    self.dend_data[r].append(np.round(self.recs[r], decimals=6))
 
             for t in self.recs["g"].keys():
                 if self.model.downsample["g"] < 1:
@@ -79,12 +80,25 @@ class Rig:
         self.soma_rec.resize(0)
 
         for r in ["Vm", "iCa", "cai"]:
-            for i in range(len(self.recs["Vm"])):
-                self.recs[r][i].resize(0)
+            if r in self.recs:
+                for i in range(len(self.recs["Vm"])):
+                    self.recs[r][i].resize(0)
 
         for trans in self.recs["g"].values():
             for rec in trans:
                 rec.resize(0)
+
+    def delete_data(self):
+        for k in self.soma_data.keys():
+            self.soma_data[k] = []
+
+        if self.model.record_tree:
+            for r in self.dend_data.keys():
+                if r == "g":
+                    for t in self.recs["g"].keys():
+                        self.dend_data["g"][t] = []
+                else:
+                    self.dend_data[r] = []
 
     def summary(self, n_trials, plot=True, quiet=False):
         rads = self.model.dir_rads
@@ -393,6 +407,19 @@ class Rig:
             self.model.space_rho = params["space_rho"]
             self.model.time_rho = params["time_rho"]
 
+        conditions = {
+            "E": {"trans": ["E", "AMPA", "PLEX"], "holding": -60},
+            "ACH": {"trans": ["E", "PLEX"], "holding": -60},
+            "AMPA": {"trans": ["AMPA"], "holding": -60},
+            "GABA": {"trans": ["I"], "holding": 0},
+        }
+
+        rec_data = {k: [] for k in conditions.keys()}
+
+        if self.model.record_tree:
+            self.place_electrodes(vc_mode=True)
+            tree_data = {}
+
         # create voltage clamp
         self.model.soma.push()
         h("objref VC")
@@ -407,15 +434,6 @@ class Rig:
 
         rec = h.Vector()
         rec.record(VC._ref_i)
-
-        conditions = {
-            "E": {"trans": ["E", "AMPA", "PLEX"], "holding": -60},
-            "ACH": {"trans": ["E", "PLEX"], "holding": -60},
-            "AMPA": {"trans": ["AMPA"], "holding": -60},
-            "GABA": {"trans": ["I"], "holding": 0},
-        }
-
-        rec_data = {k: [] for k in conditions.keys()}
 
         orig_weights = {t: props["weight"] for t, props in self.model.synprops.items()}
         for cond, settings in conditions.items():
@@ -463,12 +481,26 @@ class Rig:
                     self.model.update_noise()
 
                     rec.resize(0)
+                    if self.model.record_tree:
+                        self.clear_recordings()
                     h.run()
                     rec_data[cond].append(np.round(rec, decimals=5))
+                    if self.model.record_tree:
+                        self.dump_recordings()
                     self.model.clear_synapses()
 
                 if not quiet:
                     print("")  # next line
+
+            if self.model.record_tree:
+                tree_data[cond] = {
+                    "Vm": self.stack_trials(n_trials, n_dirs, self.dend_data["Vm"]),
+                    "g": {
+                        k: self.stack_trials(n_trials, n_dirs, v)
+                        for k, v in self.dend_data["g"].items()
+                    },
+                }
+                self.delete_data()
 
         # reset all synaptic connection weights
         for cond, settings in conditions.items():
@@ -492,6 +524,12 @@ class Rig:
             },
             "syn_locs": self.model.syn_locs,
         }
+
+        if self.model.record_tree:
+            all_data["dendrites"] = {
+                "locs": self.model.get_recording_locations(),
+                **tree_data,
+            }
 
         if self.model.sac_net is not None:
             all_data["sac_net"] = self.model.sac_net.get_wiring_dict()
