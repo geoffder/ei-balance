@@ -236,3 +236,20 @@ def rate_scaled_normal(rng, rate, factor, mean=0):
         return rng.normal(mean, size=size) * scale
 
     return fun
+
+
+def dummy_yaxis_label(ax, lbl, offset=-0.6, **ylabel_kwargs):
+    """Create a dummy twin axis so that an additional (usually horizontal) label
+    can be added to the left of the actual ylabel. Useful for labelling rows of
+    subplots."""
+    if "rotation" not in ylabel_kwargs:
+        ylabel_kwargs["rotation"] = 0
+    lbl_ax = ax.twinx()
+    lbl_ax.yaxis.set_label_position("left")
+    lbl_ax.spines["left"].set_position(("axes", offset))
+    lbl_ax.spines["left"].set_visible(False)
+    lbl_ax.spines["top"].set_visible(False)
+    lbl_ax.spines["right"].set_visible(False)
+    lbl_ax.set_yticks([])
+    lbl_ax.set_ylabel(lbl, size="large", ha="right", va="center", **ylabel_kwargs)
+    return lbl_ax
