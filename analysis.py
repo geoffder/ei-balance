@@ -1275,6 +1275,8 @@ def plot_dends_overlay(
     show_plex=False,
     syn_number_size=0,
     syn_number_color="black",
+    show_ach=True,
+    show_gaba=True,
 ):
     # flip y-axis of image to match it up with coordinate system
     dsgc_img, extent = get_dsgc_img()
@@ -1292,6 +1294,8 @@ def plot_dends_overlay(
     ax.set_ylim(-30, 260)
 
     def plot_stick(syn_x, syn_y, bp_x, bp_y, clr):
+        if syn_x == bp_x and syn_y == bp_y:
+            return  # don't plot if stick is zero length
         x = [syn_x, bp_x]
         y = [syn_y, bp_y]
         ax.plot(x, y, c=clr, linewidth=sac_thickness, alpha=sac_alpha)
@@ -1307,24 +1311,30 @@ def plot_dends_overlay(
         colors, angle_idx = [], 0
 
     for i in idxs:
-        if show_plex and "PLEX" in bp_locs:
-            for x, y in bp_locs["PLEX"][i]:
-                plot_stick(syn_xs[i], syn_ys[i], x, y, ach_color)
-        plot_stick(syn_xs[i], syn_ys[i], ach_xs[i], ach_ys[i], ach_color)
-        if not np.isnan(gaba_xs[i]):  # type: ignore
+        if show_ach:
+            if show_plex and "PLEX" in bp_locs:
+                for x, y in bp_locs["PLEX"][i]:
+                    plot_stick(syn_xs[i], syn_ys[i], x, y, ach_color)
+            plot_stick(syn_xs[i], syn_ys[i], ach_xs[i], ach_ys[i], ach_color)
+        if show_gaba and not np.isnan(gaba_xs[i]):  # type: ignore
             plot_stick(syn_xs[i], syn_ys[i], gaba_xs[i], gaba_ys[i], gaba_color)
         scat_kwargs = {"s": sac_marker_size, "alpha": sac_alpha}
 
-        if show_plex and "PLEX" in bp_locs:
-            for (x, y), prob in zip(bp_locs["PLEX"][i], probs["PLEX"][i][angle_idx]):
-                clr = ach_color if stim_angle is None else [colors[int(prob / 0.01)]]
-                ax.scatter(x, y, c=clr, edgecolors=ach_edge, **scat_kwargs)
+        if show_ach:
+            if show_plex and "PLEX" in bp_locs:
+                for (x, y), prob in zip(
+                    bp_locs["PLEX"][i], probs["PLEX"][i][angle_idx]
+                ):
+                    clr = (
+                        ach_color if stim_angle is None else [colors[int(prob / 0.01)]]
+                    )
+                    ax.scatter(x, y, c=clr, edgecolors=ach_edge, **scat_kwargs)
 
-        prob = probs["E"][i][angle_idx]
-        clr = ach_color if stim_angle is None else [colors[int(prob / 0.01)]]
-        ax.scatter(ach_xs[i], ach_ys[i], c=clr, edgecolors=ach_edge, **scat_kwargs)
+            prob = probs["E"][i][angle_idx]
+            clr = ach_color if stim_angle is None else [colors[int(prob / 0.01)]]
+            ax.scatter(ach_xs[i], ach_ys[i], c=clr, edgecolors=ach_edge, **scat_kwargs)
 
-        if not np.isnan(gaba_xs[i]):  # type: ignore
+        if show_gaba and not np.isnan(gaba_xs[i]):  # type: ignore
             prob = probs["I"][i][angle_idx]
             clr = gaba_color if stim_angle is None else [colors[int(prob / 0.01)]]
             ax.scatter(
@@ -1336,7 +1346,13 @@ def plot_dends_overlay(
                 **scat_kwargs,
             )
         if syn_number_size > 0:
-            ax.text(syn_xs[i], syn_ys[i], str(i), fontsize=syn_number_size)
+            ax.text(
+                syn_xs[i],
+                syn_ys[i],
+                str(i),
+                fontsize=syn_number_size,
+                c=syn_number_color,
+            )
 
     if stim_angle is not None:
         cbar = fig.colorbar(
