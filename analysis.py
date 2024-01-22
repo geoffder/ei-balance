@@ -1207,6 +1207,8 @@ def sac_angle_distribution(
     incl_yticks=False,
     labelsize=14,
     ticksize=12,
+        ach_clr="green",
+        gaba_clr="magenta",
     **plot_kwargs,
 ):
     """Plot SAC dendrite angle distribution histograms, aggregating over a
@@ -1230,7 +1232,7 @@ def sac_angle_distribution(
 
     for j, numBins in enumerate(bins):
         binAx = [i * 360 / numBins for i in range(numBins)]
-        for ts, clr, lbl in [(eThetas, "g", "ACh"), (iThetas, "m", "GABA")]:
+        for ts, clr, lbl in [(eThetas, ach_clr, "ACh"), (iThetas, gaba_clr, "GABA")]:
             lbl = lbl if not j else None
             counts, bins = np.histogram(ts, bins=binAx)  # type:ignore
             counts = np.concatenate([counts, [counts[0]]])
