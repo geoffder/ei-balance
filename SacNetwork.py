@@ -59,12 +59,13 @@ class SacNetwork:
         # These params are used with bisect to find a "fixed rho" that will
         # target the same corrcoef (so rho ~= corr).
         self.rho_corr_poly_params = np.array(
-            [-1.20091016, 1.26930728, 0.92224309, 0.0029899]
+            # [-1.20091016, 1.26930728, 0.92224309, 0.0029899]
+            [-1.16934424, 1.22487229, 0.9426825, -0.00157329] # recomputed with more points
         )
         rho_corr_poly = np.poly1d(self.rho_corr_poly_params)
         self.fixed_rho = (
             rho
-            if rho == 0 or rho == 1
+            if (rho == 0 or rho == 1 or not self.fix_rho_mode)
             else bisect(lambda x: rho_corr_poly(x) - rho, 0, 1)
         )
 
