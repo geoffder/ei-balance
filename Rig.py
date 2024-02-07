@@ -21,7 +21,7 @@ class Rig:
         self.model = model
         self.data_path = data_path
         self.model.soma.push()
-        self.pc = h.ParallelContext()
+        # self.pc = h.ParallelContext()
         self.initialize_handler = h.FInitializeHandler(self.model.init_synapses)
 
     def place_electrodes(self, vc_mode=False):
@@ -174,7 +174,7 @@ class Rig:
 
         self.clear_recordings()
         h.run()
-        # self.pc.psolve(h.tstop)
+        # self.pc.psolve(h.tstop)  # seems to segfault (crashes jupyter)
         self.dump_recordings()
         self.model.clear_synapses()
 
