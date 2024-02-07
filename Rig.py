@@ -21,6 +21,7 @@ class Rig:
         self.model = model
         self.data_path = data_path
         self.model.soma.push()
+        self.pc = h.ParallelContext()
         self.initialize_handler = h.FInitializeHandler(self.model.init_synapses)
 
     def place_electrodes(self, vc_mode=False):
@@ -155,6 +156,7 @@ class Rig:
         membrane noise seeds and run the model. Calculate somatic response and
         return to calling function."""
         h.init()
+        # h.stdinit()
 
         if stim["type"] == "flash":
             self.model.flash_onsets()
@@ -172,6 +174,7 @@ class Rig:
 
         self.clear_recordings()
         h.run()
+        # self.pc.psolve(h.tstop)
         self.dump_recordings()
         self.model.clear_synapses()
 

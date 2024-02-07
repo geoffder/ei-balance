@@ -119,7 +119,7 @@ class Model:
         self.dend_eleak_pas = -60  # [mV]
 
         # membrane noise
-        self.nz_factor = 0.0  # default NF_HHst = 1
+        # self.nz_factor = 0.0  # default NF_HHst = 1
 
         # synaptic properties
         self.term_syn_only = True
@@ -348,7 +348,7 @@ class Model:
         h.celsius = self.celsius
         if self.active_soma or self.active_terms or self.active_dend:
             h.vshift_HHst = self.vshift_hh
-            h.NF_HHst = self.nz_factor
+            # h.NF_HHst = self.nz_factor
 
     def load_DSGC(self):
         _ = h.load_file("RGCmodelGD.hoc")
@@ -1148,7 +1148,7 @@ class Model:
     def update_noise(self):
         # set HHst noise seeds
         if self.active_soma or self.active_terms or self.active_dend:
-            h.seed_HHst = self.nz_seed
+            # h.seed_HHst = self.nz_seed
             self.nz_seed += 1
 
     def get_recording_locations(self):
