@@ -23,7 +23,7 @@ def sacnet_run(
     vc_simul=True,
     vc_isolate=True,
     reset_seed_between_rho=False,
-        reset_rng_before_runs=False,
+    reset_rng_before_runs=False,
 ):
     global _sacnet_repeat  # required to allow pickling for Pool
 
@@ -54,20 +54,30 @@ def sacnet_run(
 
         return data
 
-    with multiprocessing.Pool(pool_sz) as pool, h5.File(save_path, "w") as pckg:
-        idx = 0
-        while idx < n_nets:
-            n = min(pool_sz, n_nets - idx)
-            print(
-                "sac net trials %i to %i (of %i)..." % (idx + 1, idx + n, n_nets),
-                flush=True,
-            )
-            res = pool.map(_sacnet_repeat, [idx + i for i in range(n)])
-            for _ in range(n):
-                data = {r: {idx: res[0][r]} for r in res[0].keys()}
+    if pool_sz > 1:
+        with multiprocessing.Pool(pool_sz) as pool, h5.File(save_path, "w") as pckg:
+            idx = 0
+            while idx < n_nets:
+                n = min(pool_sz, n_nets - idx)
+                print(
+                    "sac net trials %i to %i (of %i)..." % (idx + 1, idx + n, n_nets),
+                    flush=True,
+                )
+                res = pool.map(_sacnet_repeat, [idx + i for i in range(n)])
+                for _ in range(n):
+                    data = {r: {idx: res[0][r]} for r in res[0].keys()}
+                    pack_dataset(pckg, data, compression=None)
+                    del data, res[0]  # delete head
+                    idx += 1
+    else:
+        with h5.File(save_path, "w") as pckg:
+            for n in range(n_nets):
+                e = "\r" if n < n_nets - 1 else "\n"
+                print("sac net trial %i of %i..." % (n + 1, n_nets), end=e, flush=True)
+                res = _sacnet_repeat(n)
+                data = {r: {n: res[r]} for r in res.keys()}
                 pack_dataset(pckg, data, compression=None)
-                del data, res[0]  # delete head
-                idx += 1
+                del data, res  # delete head
     print("Done!")
 
 
