@@ -49,7 +49,7 @@ class SacNetwork:
         self.n_plexus_ach = n_plexus_ach
         self.stacked_plex = stacked_plex
         self.fix_rho_mode = fix_rho_mode
-        self.plexus_syn_mode = plexus_syn_mode
+        self.plexus_syn_mode = plexus_syn_mode  # "all", "only_pref", "only_null"
         # polyfit params obtained in sacnet_angle_sanity.ipynb
         # describing the relationship between input rho and the resulting
         # circular correlation coefficient (astropy.stats.circstats.circcorrcoef),
