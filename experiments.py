@@ -84,7 +84,7 @@ def sacnet_run(
 def sacnet_titration_run(
     save_path,
     model_config,
-    param_path,
+    param_paths,
     titration_steps,
     n_nets=3,
     n_trials=3,
@@ -95,17 +95,26 @@ def sacnet_titration_run(
     vc_isolate=True,
     reset_seed_between_rho=False,
 ):
+    """'Titration' of the parameters pointed to by param_paths (string list or
+    string list list) in the given model_config. titration_steps is still a
+    float list, so each parameter is scaled by the same multiplication factor at
+    each step. For context, this extension beyond the original gaba titration
+    script is mainly to enable scaling ACh probability which requires changing
+    'E' and 'PLEX' at the same time."""
     global _sacnet_titration_repeat  # required to allow pickling for Pool
+    param_paths = [param_paths] if type(param_paths[0]) != list else param_paths
 
     def new_params(factor):
         params = deepcopy(model_config)
-        param_ref = params
-        for p in param_path[:-1]:
-            param_ref = param_ref[p]
-        param_ref[param_path[-1]] *= factor
+        for pth in param_paths:
+            param_ref = params
+            for p in pth[:-1]:
+                param_ref = param_ref[p]
+            param_ref[pth[-1]] *= factor
         return params
 
-    lbl = "/".join(param_path)
+    lbls = map(lambda p: "/".join(p), param_paths)
+    lbl = " and ".join(lbls)
 
     def _sacnet_titration_repeat(step, i):
         params = new_params(step)
