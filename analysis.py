@@ -1,5 +1,7 @@
 # science/math libraries
 from typing import Tuple, Optional
+import matplotlib as mpl
+from matplotlib.colors import Colormap
 import numpy as np
 import bottleneck as bn
 from scipy import signal
@@ -1207,8 +1209,8 @@ def sac_angle_distribution(
     incl_yticks=False,
     labelsize=14,
     ticksize=12,
-        ach_clr="green",
-        gaba_clr="magenta",
+    ach_clr="green",
+    gaba_clr="magenta",
     **plot_kwargs,
 ):
     """Plot SAC dendrite angle distribution histograms, aggregating over a
@@ -1266,6 +1268,7 @@ def plot_dends_overlay(
     sac_marker_size=120,
     sac_thickness=None,
     sac_alpha=0.7,
+    sac_edge_alpha=None,
     stim_angle=None,
     n_syn=None,
     ach_color="green",
@@ -1273,6 +1276,9 @@ def plot_dends_overlay(
     ach_edge="face",
     gaba_edge="face",
     cmap="plasma",
+    ach_cmap=None,
+    gaba_cmap=None,
+    cbar_orientation="horizontal",
     syn_choice_seed=None,
     show_plex=False,
     syn_number_size=0,
@@ -1295,6 +1301,39 @@ def plot_dends_overlay(
     ax.set_xlim(-30, 230)
     ax.set_ylim(-30, 260)
 
+    sac_edge_alpha = sac_alpha if sac_edge_alpha is None else sac_edge_alpha
+    ach_color = (
+        mpl.colors.colorConverter.to_rgba(ach_color, alpha=sac_alpha)
+        if type(ach_color) == str
+        else ach_color
+    )
+    gaba_color = (
+        mpl.colors.colorConverter.to_rgba(gaba_color, alpha=sac_alpha)
+        if type(gaba_color) == str
+        else gaba_color
+    )
+    ach_edge = (
+        [mpl.colors.colorConverter.to_rgba(ach_edge, alpha=sac_alpha)]
+        if type(ach_edge) == str and ach_edge not in ["face", "none"]
+        else ach_edge
+    )
+    gaba_edge = (
+        [mpl.colors.colorConverter.to_rgba(gaba_edge, alpha=sac_alpha)]
+        if type(gaba_edge) == str and gaba_edge not in ["face", "none"]
+        else gaba_edge
+    )
+    cmap: Colormap = plt.get_cmap(cmap) if type(cmap) == str else cmap  # type:ignore
+    ach_cmap: Colormap = (
+        plt.get_cmap(ach_cmap)
+        if type(ach_cmap) == str
+        else (cmap if ach_cmap is None else ach_cmap)
+    )
+    gaba_cmap: Colormap = (
+        plt.get_cmap(gaba_cmap)
+        if type(gaba_cmap) == str
+        else (cmap if gaba_cmap is None else gaba_cmap)
+    )
+
     def plot_stick(syn_x, syn_y, bp_x, bp_y, clr):
         if syn_x == bp_x and syn_y == bp_y:
             return  # don't plot if stick is zero length
@@ -1307,10 +1346,9 @@ def plot_dends_overlay(
         len(syn_xs), size=len(syn_xs) if n_syn is None else n_syn, replace=False
     )
     if stim_angle is not None:
-        colors = [plt.get_cmap(cmap)(1.0 * i / 100) for i in range(100)]
         angle_idx = np.argwhere(dirs == np.array(stim_angle))[0][0]
     else:
-        colors, angle_idx = [], 0
+        angle_idx = [], 0
 
     for i in idxs:
         if show_ach:
@@ -1320,25 +1358,23 @@ def plot_dends_overlay(
             plot_stick(syn_xs[i], syn_ys[i], ach_xs[i], ach_ys[i], ach_color)
         if show_gaba and not np.isnan(gaba_xs[i]):  # type: ignore
             plot_stick(syn_xs[i], syn_ys[i], gaba_xs[i], gaba_ys[i], gaba_color)
-        scat_kwargs = {"s": sac_marker_size, "alpha": sac_alpha}
+        scat_kwargs = {"s": sac_marker_size}
 
         if show_ach:
             if show_plex and "PLEX" in bp_locs:
                 for (x, y), prob in zip(
                     bp_locs["PLEX"][i], probs["PLEX"][i][angle_idx]
                 ):
-                    clr = (
-                        ach_color if stim_angle is None else [colors[int(prob / 0.01)]]
-                    )
+                    clr = [ach_color if stim_angle is None else ach_cmap(prob)]
                     ax.scatter(x, y, c=clr, edgecolors=ach_edge, **scat_kwargs)
 
             prob = probs["E"][i][angle_idx]
-            clr = ach_color if stim_angle is None else [colors[int(prob / 0.01)]]
+            clr = [ach_color if stim_angle is None else ach_cmap(prob)]
             ax.scatter(ach_xs[i], ach_ys[i], c=clr, edgecolors=ach_edge, **scat_kwargs)
 
         if show_gaba and not np.isnan(gaba_xs[i]):  # type: ignore
             prob = probs["I"][i][angle_idx]
-            clr = gaba_color if stim_angle is None else [colors[int(prob / 0.01)]]
+            clr = [gaba_color if stim_angle is None else gaba_cmap(prob)]
             ax.scatter(
                 gaba_xs[i],
                 gaba_ys[i],
@@ -1357,19 +1393,29 @@ def plot_dends_overlay(
             )
 
     if stim_angle is not None:
-        cbar = fig.colorbar(
-            ScalarMappable(Normalize(vmin=0.0, vmax=1.0), cmap=cmap),
-            ax=ax,
-            orientation="horizontal",
-            pad=0.0,
-            shrink=0.75,
-        )
-        cbar.ax.tick_params(labelsize=12.0)
-        cbar.set_label("Release Probability", fontsize=12)
 
-    ach_circ = ax.scatter([], [], c=ach_color, edgecolors=ach_edge, s=sac_marker_size)
+        def clrbar(cmap, lbl, shrink):
+            cbar = fig.colorbar(
+                ScalarMappable(Normalize(vmin=0.0, vmax=1.0), cmap=cmap),
+                ax=ax,
+                orientation=cbar_orientation,
+                pad=0.0,
+                shrink=shrink,
+            )
+            cbar.ax.tick_params(labelsize=12.0)
+            cbar.set_label(lbl, fontsize=12)
+
+        if ach_cmap == gaba_cmap:
+            clrbar(cmap, "Release Probability", 0.75)
+        else:
+            clrbar(ach_cmap, "ACh Release Probability", 0.45)
+            clrbar(gaba_cmap, "GABA Release Probability", 0.45)
+
+    ach_clr = [ach_color if stim_angle is None else np.zeros(4)]
+    ach_circ = ax.scatter([], [], c=ach_clr, edgecolors=ach_edge, s=sac_marker_size)
+    gaba_clr = [gaba_color if stim_angle is None else np.zeros(4)]
     gaba_tri = ax.scatter(
-        [], [], c=gaba_color, edgecolors=gaba_edge, marker="v", s=sac_marker_size
+        [], [], c=gaba_clr, edgecolors=gaba_edge, marker="v", s=sac_marker_size
     )
     ax.legend(
         [ach_circ, gaba_tri],
