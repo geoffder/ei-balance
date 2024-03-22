@@ -1345,10 +1345,9 @@ def plot_dends_overlay(
     idxs = rng.choice(
         len(syn_xs), size=len(syn_xs) if n_syn is None else n_syn, replace=False
     )
-    if stim_angle is not None:
-        angle_idx = np.argwhere(dirs == np.array(stim_angle))[0][0]
-    else:
-        angle_idx = [], 0
+    angle_idx = (
+        np.argwhere(dirs == np.array(stim_angle))[0][0] if stim_angle is not None else 0
+    )
 
     for i in idxs:
         if show_ach:
