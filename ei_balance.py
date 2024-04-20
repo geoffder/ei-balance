@@ -251,6 +251,7 @@ class Model:
         self.sac_theta_vars = {"E": 60, "I": 60}
         self.sac_gaba_coverage = 0.5
         self.sac_theta_mode = "PN"
+        self.sac_gaba_everywhere = "no"
         self.n_plexus_ach = 0
         self.plexus_share = None
         self.stacked_plex = False
@@ -622,6 +623,7 @@ class Model:
             stacked_plex=self.stacked_plex,
             plexus_syn_mode=self.plexus_syn_mode,
             fix_rho_mode=self.fix_rho_mode,
+            gaba_everywhere=self.sac_gaba_everywhere,
         )
 
         if self.n_plexus_ach > 0 and "PLEX" not in self.synprops:

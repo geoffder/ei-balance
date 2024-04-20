@@ -33,6 +33,7 @@ class SacNetwork:
         stacked_plex=False,
         fix_rho_mode=False,
         plexus_syn_mode="all",
+        gaba_everywhere="no",  # "no", "mirror", "reroll"
     ):
         self.syn_locs = syn_locs  # xy coord ndarray of shape (N, 2)
         self.dir_pr = dir_pr  # {"E": {"null": _, "pref": _} ...}
@@ -41,6 +42,7 @@ class SacNetwork:
         self.shared_var = shared_var
         self.theta_vars = theta_vars  # {"E": _, "I": _}
         self.gaba_coverage = gaba_coverage
+        self.gaba_everywhere = gaba_everywhere
         self.dir_labels = dirs
         self.offset = offset
         self.np_rng = np_rng
@@ -60,7 +62,12 @@ class SacNetwork:
         # target the same corrcoef (so rho ~= corr).
         self.rho_corr_poly_params = np.array(
             # [-1.20091016, 1.26930728, 0.92224309, 0.0029899]
-            [-1.16934424, 1.22487229, 0.9426825, -0.00157329] # recomputed with more points
+            [
+                -1.16934424,
+                1.22487229,
+                0.9426825,
+                -0.00157329,
+            ]  # recomputed with more points
         )
         rho_corr_poly = np.poly1d(self.rho_corr_poly_params)
         self.fixed_rho = (
@@ -298,6 +305,20 @@ class SacNetwork:
         gaba_here = self.np_rng.uniform(0, 1) < gaba_prob
         i_theta = base + self.cell_pref
         e_theta = i_theta + self.np_rng.uniform(-var, var)
+
+        if not gaba_here and self.gaba_everywhere == "mirror":
+            i_theta = i_theta + 180
+            gaba_here = True
+        elif not gaba_here and self.gaba_everywhere == "reroll":
+            while not gaba_here:
+                base = self.np_rng.uniform(-180, 180)
+                gaba_prob = p + (n - p) * (
+                    1 - 1 / (1 + np.exp((np.abs(base) - 90) * 0.1))
+                )
+                gaba_here = self.np_rng.uniform(0, 1) < gaba_prob
+            i_theta = base + self.cell_pref
+        else:
+            pass
 
         return (
             wrap_360(e_theta),
