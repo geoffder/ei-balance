@@ -129,9 +129,9 @@ class NrnObjref:
         self.ref[i] = obj
 
 
-def build_stim():
+def build_stim(loc=0.5):
     """Return basic initialized NetStim object."""
-    stim = h.NetStim(0.5)
+    stim = h.NetStim(loc)
     stim.interval = 0
     stim.number = 1
     stim.noise = 0
