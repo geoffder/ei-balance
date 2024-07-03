@@ -26,6 +26,8 @@ class AnchoredScaleBar(AnchoredOffsetbox):
         barcolor="black",
         barwidth=1.,
         textprops={"fontsize": 13},
+            xtextprops={},
+            ytextprops={},
         **kwargs
     ):
         """
@@ -67,11 +69,11 @@ class AnchoredScaleBar(AnchoredOffsetbox):
             )
 
         if sizex and labelx:
-            self.xlabel = TextArea(labelx, textprops=textprops)
+            self.xlabel = TextArea(labelx, textprops={**textprops, **xtextprops})
             xsep = sep if xsep is None else xsep
             bars = VPacker(children=[bars, self.xlabel], align="center", pad=0, sep=xsep)
         if sizey and labely:
-            self.ylabel = TextArea(labely, textprops=textprops)
+            self.ylabel = TextArea(labely, textprops={**textprops, **ytextprops})
             ysep = sep if ysep is None else ysep
             bars = HPacker(children=[self.ylabel, bars], align="center", pad=0, sep=ysep)
 
