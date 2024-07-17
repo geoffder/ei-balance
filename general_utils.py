@@ -251,5 +251,5 @@ def dummy_yaxis_label(ax, lbl, offset=-0.6, **ylabel_kwargs):
     lbl_ax.spines["top"].set_visible(False)
     lbl_ax.spines["right"].set_visible(False)
     lbl_ax.set_yticks([])
-    lbl_ax.set_ylabel(lbl, size="large", ha="right", va="center", **ylabel_kwargs)
+    lbl_ax.set_ylabel(lbl, ha="right", va="center", **ylabel_kwargs)
     return lbl_ax
