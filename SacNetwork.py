@@ -34,6 +34,8 @@ class SacNetwork:
         fix_rho_mode=False,
         plexus_syn_mode="all",
         gaba_everywhere="no",  # "no", "mirror", "reroll"
+        ach_offset=None,
+        gaba_offset=None,
     ):
         self.syn_locs = syn_locs  # xy coord ndarray of shape (N, 2)
         self.dir_pr = dir_pr  # {"E": {"null": _, "pref": _} ...}
@@ -44,7 +46,9 @@ class SacNetwork:
         self.gaba_coverage = gaba_coverage
         self.gaba_everywhere = gaba_everywhere
         self.dir_labels = dirs
-        self.offset = offset
+        self.ach_offset = offset if ach_offset is None else ach_offset
+        self.gaba_offset = offset if gaba_offset is None else gaba_offset
+        self.offset = {"E": self.ach_offset, "I": self.gaba_offset}
         self.np_rng = np_rng
         self.theta_mode = theta_mode  # TODO: Make a theta param dict...
         self.cell_pref = cell_pref
@@ -129,7 +133,9 @@ class SacNetwork:
             for t in ["E", "I"]:
                 # Coordinates of current SAC dendrites INPUT location that
                 # governs stimulus offset of the output on to the DSGC.
-                self.bp_locs[t][i] = self.locate_bp(syn_x, syn_y, self.thetas[t][-1])
+                self.bp_locs[t][i] = self.locate_bp(
+                    syn_x, syn_y, self.thetas[t][-1], self.offset[t]
+                )
 
                 # Probabilities of release based on similarity of dendrite
                 # angle with direction of stimulus.
@@ -165,7 +171,10 @@ class SacNetwork:
                             for _ in range(self.n_plexus_ach)
                         ]
                         self.bp_locs["PLEX"][i] = np.array(
-                            [self.locate_bp(syn_x, syn_y, theta) for theta in thetas]
+                            [
+                                self.locate_bp(syn_x, syn_y, theta, self.offset["E"])
+                                for theta in thetas
+                            ]
                         )
                         self.probs["PLEX"].append(
                             np.array(
@@ -341,11 +350,11 @@ class SacNetwork:
 
         return (left_x + (right_x - left_x) / 2, bot_y + (top_y - bot_y) / 2)
 
-    def locate_bp(self, syn_x, syn_y, theta):
+    def locate_bp(self, syn_x, syn_y, theta, offset):
         return np.array(
             [
-                syn_x - self.offset * np.cos(np.deg2rad(theta)),
-                syn_y - self.offset * np.sin(np.deg2rad(theta)),
+                syn_x - offset * np.cos(np.deg2rad(theta)),
+                syn_y - offset * np.sin(np.deg2rad(theta)),
             ]
         )
 

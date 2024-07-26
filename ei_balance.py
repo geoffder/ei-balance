@@ -242,6 +242,8 @@ class Model:
 
         self.sac_mode = True
         self.sac_offset = 50
+        self.sac_ach_offset = None
+        self.sac_gaba_offset = None
         self.sac_rho = 0.9  # correlation of E and I dendrite angles
         self.sac_angle_rho_mode = True
         self.min_sac_rho = 0.0
@@ -624,6 +626,8 @@ class Model:
             plexus_syn_mode=self.plexus_syn_mode,
             fix_rho_mode=self.fix_rho_mode,
             gaba_everywhere=self.sac_gaba_everywhere,
+            ach_offset=self.sac_ach_offset,
+            gaba_offset=self.sac_gaba_offset,
         )
 
         if self.n_plexus_ach > 0 and "PLEX" not in self.synprops:
