@@ -36,6 +36,7 @@ class SacNetwork:
         gaba_everywhere="no",  # "no", "mirror", "reroll"
         ach_offset=None,
         gaba_offset=None,
+        dir_sigmoid_slope=0.1,
     ):
         self.syn_locs = syn_locs  # xy coord ndarray of shape (N, 2)
         self.dir_pr = dir_pr  # {"E": {"null": _, "pref": _} ...}
@@ -56,6 +57,7 @@ class SacNetwork:
         self.stacked_plex = stacked_plex
         self.fix_rho_mode = fix_rho_mode
         self.plexus_syn_mode = plexus_syn_mode  # "all", "only_pref", "only_null"
+        self.dir_sigmoid_slope = dir_sigmoid_slope
         # polyfit params obtained in sacnet_angle_sanity.ipynb
         # describing the relationship between input rho and the resulting
         # circular correlation coefficient (astropy.stats.circstats.circcorrcoef),
@@ -364,7 +366,9 @@ class SacNetwork:
             pr = np.abs(theta - d)
             pr = np.abs(pr - 360) if pr > 180 else pr
             # pr = pref + (null - pref) * (1 - 1 / (1 + np.exp((pr - 90) * 0.05)))
-            pr = pref + (null - pref) * (1 - 1 / (1 + np.exp((pr - 90) * 0.1)))
+            pr = pref + (null - pref) * (
+                1 - 1 / (1 + np.exp((pr - 90) * self.dir_sigmoid_slope))
+            )
             probs.append(pr)
         return np.array(probs)
 

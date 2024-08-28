@@ -259,6 +259,7 @@ class Model:
         self.stacked_plex = False
         self.plexus_syn_mode = "all"  # "all", "pref_only", "null_only"
         self.fix_rho_mode = False
+        self.sac_dir_sigmoid_slope = 0.1
 
         self.poisson_mode = False
         self.jittering_poisson = False  # not used in poissarma mode
@@ -628,6 +629,7 @@ class Model:
             gaba_everywhere=self.sac_gaba_everywhere,
             ach_offset=self.sac_ach_offset,
             gaba_offset=self.sac_gaba_offset,
+            dir_sigmoid_slope=self.sac_dir_sigmoid_slope,
         )
 
         if self.n_plexus_ach > 0 and "PLEX" not in self.synprops:
