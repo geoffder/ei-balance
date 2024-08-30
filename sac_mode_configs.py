@@ -721,10 +721,12 @@ def thesis(
     plexus=0,
     plexus_share=None,
     stacked_plex=False,
+        eleak=-65,
+        gleak=0.0001667,
 ):
-    gleak_hh = 0.0001667  # NOTE: USUAL
+    gleak_hh = gleak  # NOTE: USUAL = 0.0001667
     # gleak_hh = 0.000275  # poleg-polsky 2016
-    eleak_hh = -65
+    eleak_hh = eleak
 
     # TODO: adjust active properties of the dendrites (Na/K)
     # would like to turn down E a bit and *increase* spiking if possible
