@@ -22,6 +22,7 @@ def sacnet_run(
     vc_mode=False,
     vc_simul=True,
     vc_isolate=True,
+    vc_nmda_set_vm=False,
     reset_seed_between_rho=False,
     reset_rng_before_runs=False,
 ):
@@ -44,6 +45,7 @@ def sacnet_run(
                     n_trials,
                     simultaneous=vc_simul,
                     isolate_agonists=vc_isolate,
+                    nmda_set_vm=vc_nmda_set_vm,
                     save_name=None,
                     quiet=True,
                 )

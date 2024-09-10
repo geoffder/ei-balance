@@ -842,6 +842,7 @@ def spike_rasters(
     rec_sz = data[rhos[0]][0]["soma"]["Vm"].shape[-1]
     rel_dirs = [d if d <= 180 else d - 360 for d in dirs]
 
+    out = {}
     data = data if rho is None else {rho: data[rho]}
     if bin_ms < 1:
         fig, axes = plt.subplots(
@@ -906,15 +907,23 @@ def spike_rasters(
                 cum_spks.append([np.sum(ts < (p * dt)) for ts in dir_ts.values()])
             cum_spks = np.array(cum_spks)
             bin_spks = (cum_spks[1:] - cum_spks[0:-1]).T
+            total_spks = np.sum(bin_spks, axis=0)
 
             # calculate and plot theta/DSi for each bin
             mean_DSi, mean_theta = calc_tuning(bin_spks, dirs, dir_ax=0)
 
             style = {"color": colour, "linestyle": "--", "marker": "D"}
-            col[1].plot(bin_centres, np.sum(bin_spks, axis=0), **style)
+            col[1].plot(bin_centres, total_spks, **style)
             col[1].set_ylim(0, spike_vmax)
             col[2].plot(bin_centres, mean_theta, **style)
             col[3].plot(bin_centres, mean_DSi, **style)
+
+            out[rho] = {
+                "bin_spks": bin_spks,
+                "total_spks": total_spks,
+                "mean_DSi": mean_DSi,
+                "mean_theta": mean_theta,
+            }
 
         # shared X settings
         col[0].set_xlim(0, rec_sz * dt)
@@ -932,7 +941,7 @@ def spike_rasters(
 
     fig.tight_layout()
 
-    return fig
+    return fig, out
 
 
 def time_evolution(data, dirs, kernel_var=30, rhos=None, net_idx=None, **plot_kwargs):

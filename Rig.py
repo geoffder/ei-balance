@@ -389,6 +389,8 @@ class Rig:
         isolate_agonists=True,
         save_name=None,
         quiet=False,
+        nmda_set_vm=False,
+        nmda_holding=-30,
     ):
         """Similar to dir_run(), but running in voltage-clamp mode to record
         current at the soma. All other inputs are blocked when recording a
@@ -403,6 +405,11 @@ class Rig:
         params = self.model.get_params_dict()  # for logging
         incl_plex = self.model.n_plexus_ach > 0 and "PLEX" in self.model.synprops
 
+        orig_Voff = self.model.synprops["NMDA"]["Voff"]
+        self.model.synprops["NMDA"]["Voff"] = int(nmda_set_vm)
+        for syn in self.model.syns["NMDA"]["syn"]:
+            syn.Voff = self.model.synprops["NMDA"]["Voff"]
+
         if rhos is not None:
             stim["rhos"] = rhos
             params["space_rho"] = rhos.get("space", 0)
@@ -415,6 +422,10 @@ class Rig:
             "ACH": {"trans": ["E", "PLEX"], "holding": -60},
             "AMPA": {"trans": ["AMPA"], "holding": -60},
             "GABA": {"trans": ["I"], "holding": 0},
+            "NMDA": {
+                "trans": ["NMDA"],
+                "holding": -60 if nmda_set_vm else nmda_holding,
+            },
         }
 
         rec_data = {k: [] for k in conditions.keys()}
@@ -513,6 +524,9 @@ class Rig:
                     for netcon in self.model.syns[t]["con"]:
                         netcon.weight = w
 
+        self.model.synprops["NMDA"]["Voff"] = orig_Voff
+        for syn in self.model.syns["NMDA"]["syn"]:
+            syn.Voff = orig_Voff
         # params["rng_state"] = np.array(
         #     [self.model.np_rng.__getstate__()["state"]["state"]]
         # )
