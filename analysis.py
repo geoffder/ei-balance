@@ -474,6 +474,7 @@ def polar(
     title=None,
     title_metrics=True,
     fig: Optional[FigureBase] = None,
+    ax=None,
     sub_loc=(1, 1, 1),
     dsi_tag_deg=-15.0,
     dsi_tag_mult=1.05,
@@ -507,13 +508,14 @@ def polar(
 
     thetas = np.radians(thetas)
 
-    if fig is None:
+    if fig is None and ax is None:
         fig = plt.figure(figsize=(5, 6))
         new_fig = True
     else:
         new_fig = False
 
-    ax = fig.add_subplot(*sub_loc, projection="polar")
+    ax_exists = ax is not None
+    ax = fig.add_subplot(*sub_loc, projection="polar") if not ax_exists else ax
     shadow_kwargs = {
         "color": avg_colour if shadow_colour is None else shadow_colour,
         "alpha": shadow_alpha,
@@ -545,11 +547,13 @@ def polar(
         )
         title = sub if title is None else "%s\n%s" % (title, sub)
     else:
+        deg = dsi_tag_deg + 20 if ax_exists else dsi_tag_deg  # HACK: ok for one overlay
         ax.text(
-            np.radians(dsi_tag_deg),
+            np.radians(deg),
             radius * dsi_tag_mult,
             dsi_tag_fmt % avg_DSi,
             fontsize=13,
+            c=avg_colour,
         )
 
     if title is not None:
