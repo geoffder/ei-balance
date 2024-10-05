@@ -22,7 +22,7 @@ import json
 # local libraries
 from modelUtils import rotate, scale_180_from_360, wrap_180
 from hdf_utils import unpack_hdf
-from general_utils import clean_axes
+from general_utils import clean_axes, map_data
 from ei_balance import Model
 
 
@@ -942,6 +942,119 @@ def spike_rasters(
     axes[0][2].set_ylim(-180, 180)
     axes[0][3].set_ylabel("DSi", size=14)
     axes[0][3].set_ylim(0, 1)
+
+    fig.tight_layout()
+
+    return fig, out
+
+def comp_spike_rasters(
+    data,
+    dirs,
+        dt,
+    thresh=0,
+    bin_ms=0,
+        offsets=None,
+    palette=["C%i" % i for i in range(10)],
+    spike_vmax=None,
+        linelengths=30,
+    **plot_kwargs,
+):
+    """Plot spike-time raster for each direction. Spikes are
+    pooled across trials, and also networks if arrays are 4d.
+    Optionally, display binned tuning calculations beneath raster."""
+    conds = list(data.keys())
+    rec_sz = data[conds[0]].shape[-1]
+    rel_dirs = [d if d <= 180 else d - 360 for d in dirs]
+
+    linelengths = linelengths / len(conds)
+    out = {}
+    if bin_ms < 1:
+        fig, ax = plt.subplots(1, **plot_kwargs)
+    else:
+        fig, ax = plt.subplots(
+            4,
+            sharex=True,
+            gridspec_kw={"height_ratios": [0.6, 0.133, 0.133, 0.133]},
+            **plot_kwargs,
+        )
+        pts_per_bin = int(bin_ms / dt)
+        bin_pts = np.array(
+            [pts_per_bin * i for i in range(1, rec_sz // pts_per_bin + 1)]
+        )
+        bin_centres = dt * (bin_pts - pts_per_bin / 2)  # for plotting
+
+    dir_ts = {}
+    for idx, (cond, vm) in enumerate(data.items()):
+        dir_ts[cond] = {d: [] for d in dirs}
+        # flatten nets and trials if shape is (net, trial, dir, time)
+        vm = vm.reshape(vm.shape[0] * vm.shape[1], vm.shape[2], -1) if vm.ndim == 4 else vm
+        for trial in vm:
+            for d, rec in zip(dirs, trial):
+                idxs, _ = signal.find_peaks(rec, height=thresh)
+                dir_ts[cond][d].append(idxs * dt)
+
+        dir_ts[cond] = map_data(np.concatenate, dir_ts[cond])
+        if offsets is not None:
+            dir_ts[cond] = {d: ts + off for (d, ts), off in zip(dir_ts[cond].items(), offsets)}
+
+        if bin_ms > 0:
+            cum_spks = [np.zeros(len(dir_ts[cond]))]
+            for p in bin_pts:
+                # number of spikes before each bin margin (for each direction)
+                cum_spks.append([np.sum(ts < (p * dt)) for ts in dir_ts[cond].values()])
+            cum_spks = np.array(cum_spks)
+            bin_spks = (cum_spks[1:] - cum_spks[0:-1]).T
+            total_spks = np.sum(bin_spks, axis=0)
+
+            # calculate and plot theta/DSi for each bin
+            mean_DSi, mean_theta = calc_tuning(bin_spks, dirs, dir_ax=0)
+
+            style = {"color": palette[idx], "linestyle": "--", "marker": "D"}
+            ax[1].plot(bin_centres, total_spks, **style)
+            ax[1].set_ylim(0, spike_vmax)
+            ax[2].plot(bin_centres, mean_theta, **style)
+            ax[3].plot(bin_centres, mean_DSi, **style)
+
+            out[cond] = {
+                "bin_spks": bin_spks,
+                "total_spks": total_spks,
+                "mean_DSi": mean_DSi,
+                "mean_theta": mean_theta,
+            }
+
+        # shared X settings
+        ax[0].set_xlim(0, rec_sz * dt)
+        ax[-1].set_xlabel("Time (ms)", size=14)
+
+    all_dir_ts = [ts for cond in dir_ts.values() for ts in cond.values()]
+    if len(conds) == 1:
+        lineoffsets = rel_dirs
+    else:
+        s = (len(conds) // 2)
+        s = s  if len(conds) % 2 == 1 else s - 0.5
+        lineoffsets = [d + (i - s) * linelengths for i in range(len(conds)) for d in rel_dirs]
+
+    ax[0].eventplot(
+        all_dir_ts,
+        lineoffsets=lineoffsets,
+        linelengths=linelengths,
+        colors=[c for c in palette[:len(conds)] for _ in rel_dirs],
+        alpha=0.5,
+    )
+
+    if bin_ms > 0:
+        for p in bin_pts:
+            # mark bin margins on raster plot
+            ax[0].axvline(p * dt, c="black", linestyle="--", alpha=0.5)
+
+    # shared Y settings
+    ax[0].set_ylabel("Direction (°)", size=14)
+    ax[0].set_yticks(rel_dirs)
+    ax[1].set_ylabel("Total Spikes", size=14)
+    ax[2].set_ylabel("theta (°)", size=14)
+    ax[2].set_ylim(-180, 180)
+    ax[3].set_ylabel("DSi", size=14)
+    ax[3].set_ylim(0, 1)
 
     fig.tight_layout()
 
