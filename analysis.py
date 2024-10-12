@@ -947,16 +947,17 @@ def spike_rasters(
 
     return fig, out
 
+
 def comp_spike_rasters(
     data,
     dirs,
-        dt,
+    dt,
     thresh=0,
     bin_ms=0,
-        offsets=None,
+    offsets=None,
     palette=["C%i" % i for i in range(10)],
     spike_vmax=None,
-        linelengths=30,
+    linelengths=30,
     **plot_kwargs,
 ):
     """Plot spike-time raster for each direction. Spikes are
@@ -987,7 +988,11 @@ def comp_spike_rasters(
     for idx, (cond, vm) in enumerate(data.items()):
         dir_ts[cond] = {d: [] for d in dirs}
         # flatten nets and trials if shape is (net, trial, dir, time)
-        vm = vm.reshape(vm.shape[0] * vm.shape[1], vm.shape[2], -1) if vm.ndim == 4 else vm
+        vm = (
+            vm.reshape(vm.shape[0] * vm.shape[1], vm.shape[2], -1)
+            if vm.ndim == 4
+            else vm
+        )
         for trial in vm:
             for d, rec in zip(dirs, trial):
                 idxs, _ = signal.find_peaks(rec, height=thresh)
@@ -995,7 +1000,9 @@ def comp_spike_rasters(
 
         dir_ts[cond] = map_data(np.concatenate, dir_ts[cond])
         if offsets is not None:
-            dir_ts[cond] = {d: ts + off for (d, ts), off in zip(dir_ts[cond].items(), offsets)}
+            dir_ts[cond] = {
+                d: ts + off for (d, ts), off in zip(dir_ts[cond].items(), offsets)
+            }
 
         if bin_ms > 0:
             cum_spks = [np.zeros(len(dir_ts[cond]))]
@@ -1030,15 +1037,17 @@ def comp_spike_rasters(
     if len(conds) == 1:
         lineoffsets = rel_dirs
     else:
-        s = (len(conds) // 2)
-        s = s  if len(conds) % 2 == 1 else s - 0.5
-        lineoffsets = [d + (i - s) * linelengths for i in range(len(conds)) for d in rel_dirs]
+        s = len(conds) // 2
+        s = s if len(conds) % 2 == 1 else s - 0.5
+        lineoffsets = [
+            d + (i - s) * linelengths for i in range(len(conds)) for d in rel_dirs
+        ]
 
     ax[0].eventplot(
         all_dir_ts,
         lineoffsets=lineoffsets,
         linelengths=linelengths,
-        colors=[c for c in palette[:len(conds)] for _ in rel_dirs],
+        colors=[c for c in palette[: len(conds)] for _ in rel_dirs],
         alpha=0.5,
     )
 
@@ -1392,6 +1401,7 @@ def plot_dends_overlay(
     dirs,
     dsgc_alpha=0.35,
     sac_marker_size=120,
+    sac_min_marker_size=None,
     sac_thickness=None,
     sac_alpha=0.7,
     sac_edge_alpha=None,
@@ -1409,6 +1419,8 @@ def plot_dends_overlay(
     show_plex=False,
     syn_number_size=0,
     syn_number_color="black",
+    incl_cbars=True,
+    scaling_legend=True,
     show_ach=True,
     show_gaba=True,
 ):
@@ -1460,6 +1472,15 @@ def plot_dends_overlay(
         else (cmap if gaba_cmap is None else gaba_cmap)
     )
 
+    sz = (
+        (lambda _: sac_marker_size)
+        if sac_min_marker_size is None
+        else (
+            lambda pr: (sac_marker_size - sac_min_marker_size) * pr
+            + sac_min_marker_size
+        )
+    )
+
     def plot_stick(syn_x, syn_y, bp_x, bp_y, clr):
         if syn_x == bp_x and syn_y == bp_y:
             return  # don't plot if stick is zero length
@@ -1483,7 +1504,7 @@ def plot_dends_overlay(
             plot_stick(syn_xs[i], syn_ys[i], ach_xs[i], ach_ys[i], ach_color)
         if show_gaba and not np.isnan(gaba_xs[i]):  # type: ignore
             plot_stick(syn_xs[i], syn_ys[i], gaba_xs[i], gaba_ys[i], gaba_color)
-        scat_kwargs = {"s": sac_marker_size}
+        # scat_kwargs = {"s": sac_marker_size}
 
         if show_ach:
             if show_plex and "PLEX" in bp_locs:
@@ -1491,11 +1512,11 @@ def plot_dends_overlay(
                     bp_locs["PLEX"][i], probs["PLEX"][i][angle_idx]
                 ):
                     clr = [ach_color if stim_angle is None else ach_cmap(prob)]
-                    ax.scatter(x, y, c=clr, edgecolors=ach_edge, **scat_kwargs)
+                    ax.scatter(x, y, c=clr, edgecolors=ach_edge, s=sz(prob))
 
             prob = probs["E"][i][angle_idx]
             clr = [ach_color if stim_angle is None else ach_cmap(prob)]
-            ax.scatter(ach_xs[i], ach_ys[i], c=clr, edgecolors=ach_edge, **scat_kwargs)
+            ax.scatter(ach_xs[i], ach_ys[i], c=clr, edgecolors=ach_edge, s=sz(prob))
 
         if show_gaba and not np.isnan(gaba_xs[i]):  # type: ignore
             prob = probs["I"][i][angle_idx]
@@ -1506,7 +1527,7 @@ def plot_dends_overlay(
                 marker="v",
                 c=clr,
                 edgecolors=gaba_edge,
-                **scat_kwargs,
+                s=sz(prob),
             )
         if syn_number_size > 0:
             ax.text(
@@ -1517,7 +1538,7 @@ def plot_dends_overlay(
                 c=syn_number_color,
             )
 
-    if stim_angle is not None:
+    if stim_angle is not None and incl_cbars:
 
         def clrbar(cmap, lbl, shrink):
             cbar = fig.colorbar(
@@ -1536,16 +1557,36 @@ def plot_dends_overlay(
             clrbar(ach_cmap, "ACh Release Probability", 0.45)
             clrbar(gaba_cmap, "GABA Release Probability", 0.45)
 
-    ach_clr = [ach_color if stim_angle is None else np.zeros(4)]
-    ach_circ = ax.scatter([], [], c=ach_clr, edgecolors=ach_edge, s=sac_marker_size)
-    gaba_clr = [gaba_color if stim_angle is None else np.zeros(4)]
-    gaba_tri = ax.scatter(
-        [], [], c=gaba_clr, edgecolors=gaba_edge, marker="v", s=sac_marker_size
-    )
+    if stim_angle is None or not scaling_legend:
+        ach_clr = [ach_color if stim_angle is None else np.zeros(4)]
+        ach_circ = ax.scatter([], [], c=ach_clr, edgecolors=ach_edge, s=sac_marker_size)
+        gaba_clr = [gaba_color if stim_angle is None else np.zeros(4)]
+        gaba_tri = ax.scatter(
+            [], [], c=gaba_clr, edgecolors=gaba_edge, marker="v", s=sac_marker_size
+        )
+        items = [ach_circ, gaba_tri]
+        lbls = ["ACh", "GABA"]
+    else:
+        prs = [0.0, 0.5, 1.0]
+        ach_circs = [
+            ax.scatter([], [], c=[ach_cmap(pr)], edgecolors=ach_edge, s=sz(pr))
+            for pr in prs
+        ]
+        gaba_tris = [
+            ax.scatter(
+                [], [], c=[gaba_cmap(pr)], edgecolors=gaba_edge, marker="v", s=sz(pr)
+            )
+            for pr in prs
+        ]
+        items = [*ach_circs, *gaba_tris]
+        lbls = [
+            *("ACh %s" % str(pr) for pr in prs),
+            *("GABA %s" % str(pr) for pr in prs),
+        ]
     ax.legend(
-        [ach_circ, gaba_tri],
-        ["ACh", "GABA"],
-        ncol=1,
+        items,
+        lbls,
+        ncol=2,
         frameon=False,
         fontsize=12,
         handlelength=2,
