@@ -487,11 +487,13 @@ def polar(
     shadow_linewidth=1.2,
 ):
     # re-sort directions and make circular for polar axes
-    circ_vals = net_trials.transpose(2, 0, 1)[np.array(dirs).argsort()]
+    dirs = np.array(dirs)
+    sort_idxs = dirs.argsort()
+    circ_vals = net_trials.transpose(2, 0, 1)[sort_idxs]
     circ_vals = np.concatenate(
         [circ_vals, np.expand_dims(circ_vals[0], axis=0)], axis=0
     )
-    circle = np.radians([0, 45, 90, 135, 180, 225, 270, 315, 0])
+    circle = np.radians(np.r_[dirs[sort_idxs], dirs[sort_idxs[0]]])
 
     peak = np.max(circ_vals)  # to set axis max
 
