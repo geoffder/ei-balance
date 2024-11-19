@@ -37,6 +37,7 @@ class SacNetwork:
         ach_offset=None,
         gaba_offset=None,
         dir_sigmoid_slope=0.1,
+        fixed_picker=None,  # closure
     ):
         self.syn_locs = syn_locs  # xy coord ndarray of shape (N, 2)
         self.dir_pr = dir_pr  # {"E": {"null": _, "pref": _} ...}
@@ -58,6 +59,10 @@ class SacNetwork:
         self.fix_rho_mode = fix_rho_mode
         self.plexus_syn_mode = plexus_syn_mode  # "all", "only_pref", "only_null"
         self.dir_sigmoid_slope = dir_sigmoid_slope
+        # closure that returns (e_theta, has_gaba, i_theta)
+        # if provided, theta_mode is set to "fixed"
+        # added to enable retrofixing ball-stick toy examples into ei_balance
+        self.fixed_picker = fixed_picker
         # polyfit params obtained in sacnet_angle_sanity.ipynb
         # describing the relationship between input rho and the resulting
         # circular correlation coefficient (astropy.stats.circstats.circcorrcoef),
@@ -93,7 +98,10 @@ class SacNetwork:
             self.syn_prob_mod = 1.0
             self.plex_prob_mod = 0.0
 
-        if self.theta_mode == "PN":
+        if fixed_picker is not None:
+            self.theta_mode = "fixed"
+            self.theta_picker = self.fixed_picker
+        elif self.theta_mode == "PN":
             self.theta_picker = self.theta_picker_PN
         elif self.theta_mode == "cardinal":
             self.theta_picker = self.theta_picker_cardinal

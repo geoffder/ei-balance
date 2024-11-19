@@ -17,6 +17,7 @@ from modelUtils import (
     merge,
     cable_dist_to_soma,
     rot,
+    nrn_section,
 )
 from SacNetwork import SacNetwork
 from NetQuanta import NetQuanta
@@ -279,6 +280,9 @@ class Model:
         self.poissarma_innov_scale = 1
         self.poissarma_base_scale = 0
 
+        self.ballstick_mode = False  # currently only for tuning toy examples
+        self.sac_fixed_picker = None
+
         # plexus settings only used in poissarma mode
         # # plexus inputs correlated by delta with eachother and EI
         self.correlated_plex = False
@@ -336,6 +340,7 @@ class Model:
             "np_rng",
             "syn_locs",
             "play_vecs",
+            "sac_fixed_picker",
         }
 
         params = {k: v for k, v in self.__dict__.items() if k not in skip}
@@ -355,13 +360,47 @@ class Model:
             # h.NF_HHst = self.nz_factor
 
     def load_DSGC(self):
-        _ = h.load_file("RGCmodelGD.hoc")
-        self.RGC = h.DSGC(0, 0)
-        self.soma = self.RGC.soma
-        self.all_dends = self.RGC.dend
-        self.origin = find_origin(self.all_dends)
-        self.soma.push()
-        self.order_list, self.terminals, self.non_terms = map_tree(self.RGC)
+        if self.ballstick_mode:
+            self.term_syn_only = True
+            y, z = 100, 0
+
+            self.soma = nrn_section("soma")
+            h.pt3dclear(sec=self.soma)
+            h.pt3dadd(-self.soma_L / 2, y, z, 0, sec=self.soma)
+            h.pt3dadd(self.soma_L / 2, y, z, 0, sec=self.soma)
+            self.soma.push()
+
+            initial = nrn_section("initial")
+            dend = nrn_section("dend")
+            term = nrn_section("term")
+            initial.connect(self.soma)
+            dend.connect(initial)
+            term.connect(dend)
+            self.all_dends = [initial, dend, term]
+            self.order_list = [[d] for d in self.all_dends]
+            self.terminals = [term]
+            self.non_terms = [initial, dend]
+
+            dend_lens = [20, 70, 10]
+            x = self.soma_L / 2
+            for d, l in zip(self.all_dends, dend_lens):
+                d.L = l
+                d.Ra = self.dend_Ra
+                d.nseg = self.dend_nseg
+                h.pt3dclear(sec=d)
+                h.pt3dadd(x, y, z, 0, sec=d)
+                x += l
+                h.pt3dadd(x, y, z, 0, sec=d)
+
+            self.origin = (x, y)
+        else:
+            _ = h.load_file("RGCmodelGD.hoc")
+            self.RGC = h.DSGC(0, 0)
+            self.soma = self.RGC.soma
+            self.all_dends = self.RGC.dend
+            self.origin = find_origin(self.all_dends)
+            self.soma.push()
+            self.order_list, self.terminals, self.non_terms = map_tree(self.RGC)
 
     def config_soma(self):
         """Build and set membrane properties of soma compartment"""
@@ -514,7 +553,15 @@ class Model:
             # 3D location of the synapses on this dendrite
             # place them in the middle since only one syn per dend
             pts = int(h.n3d())
-            if pts % 2:  # odd number of points
+            if pts == 2:
+                locs.append(
+                    [
+                        (h.x3d(0) + h.x3d(1)) / 2,
+                        (h.y3d(0) + h.y3d(1)) / 2,
+                        (h.z3d(0) + h.z3d(1)) / 2,
+                    ]
+                )
+            elif pts % 2:  # odd number of points
                 u = (pts - 1) / 2
                 locs.append([h.x3d(u), h.y3d(u), h.z3d(u)])
             else:
@@ -630,6 +677,7 @@ class Model:
             ach_offset=self.sac_ach_offset,
             gaba_offset=self.sac_gaba_offset,
             dir_sigmoid_slope=self.sac_dir_sigmoid_slope,
+            fixed_picker=self.sac_fixed_picker,
         )
 
         if self.n_plexus_ach > 0 and "PLEX" not in self.synprops:
@@ -1127,10 +1175,23 @@ class Model:
             dend.push()
             pts = int(h.n3d())
 
+            if pts == 2:
+
+                def f(s):
+                    x = h.x3d(0) + (h.x3d(1) - h.x3d(0)) * (s / per)
+                    y = h.y3d(0) + (h.y3d(1) - h.y3d(0)) * (s / per)
+                    return [x, y]
+
+            else:
+                # HACK: this should instead use a linear interpolation of the path
+                # through all of the 3d pts of the section
+                def f(s):
+                    return [h.x3d(s * (pts - 1) / per), h.y3d(s * (pts - 1) / per)]
+
             # Rough coordinates based on indexing the list of 3d points
             # assigned to the current section. Number of points vary.
             for s in range(per):
-                locs.append([h.x3d(s * (pts - 1) / per), h.y3d(s * (pts - 1) / per)])
+                locs.append(f(s))
 
             h.pop_section()
 
