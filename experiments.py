@@ -33,6 +33,8 @@ def sacnet_run(
         params["seed"] = i
         dsgc = Model(params)
         runner = Rig(dsgc)
+        if dsgc.sac_fixed_picker is not None:
+            dsgc.sac_fixed_picker(i)
 
         data = {}
         for rho in rho_steps:
