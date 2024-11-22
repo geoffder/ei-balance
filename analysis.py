@@ -567,6 +567,11 @@ def polar(
         return ax
 
 
+def vonmises(x, rmax, k, mu):
+    """von Mises fitting function. For use with scipy.optimize.curve_fit(f, x, y)."""
+    return rmax * np.exp(k * np.cos(x - mu)) / np.exp(k)
+
+
 def load_sac_rho_data(pth, prefix="sac_rho"):
     """Collect data from each of the hdf5 archives located in the target folder
     representing rho conditions and their trials and store them in a dict."""
