@@ -76,6 +76,7 @@ class Model:
         self.dend_nseg = 1
         self.seg_step = 1 / (self.dend_nseg * 2) if self.dend_nseg != 10 else 0.1
         self.rec_per_sec = self.dend_nseg * 2 if self.dend_nseg != 10 else 10
+        self.rec_skip_0th_pos = True
         self.dend_diam = 0.5
         self.dend_Ra = 100
 
@@ -1171,6 +1172,7 @@ class Model:
     def get_recording_locations(self):
         locs = []
         per = self.rec_per_sec
+        st = 1 if self.rec_skip_0th_pos else 0
         for dend in self.all_dends:
             dend.push()
             pts = int(h.n3d())
@@ -1183,14 +1185,16 @@ class Model:
                     return [x, y]
 
             else:
-                # HACK: this should instead use a linear interpolation of the path
-                # through all of the 3d pts of the section
+                # TODO: this should instead use a linear interpolation of the
+                # path through all of the 3d pts of the section, which would
+                # remove the need for the branch here. ALSO, don't forget that
+                # synapse locations would also need to be corrected
                 def f(s):
                     return [h.x3d(s * (pts - 1) / per), h.y3d(s * (pts - 1) / per)]
 
             # Rough coordinates based on indexing the list of 3d points
             # assigned to the current section. Number of points vary.
-            for s in range(per):
+            for s in range(st, per + st):
                 locs.append(f(s))
 
             h.pop_section()

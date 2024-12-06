@@ -37,9 +37,10 @@ class Rig:
                 self.recs[k] = []
                 self.dend_data[k] = []
 
+        s = 1 if self.model.rec_skip_0th_pos else 0
         if self.model.record_tree:
             for n, dend in enumerate(self.model.all_dends):
-                for i in range(self.model.rec_per_sec):
+                for i in range(s, self.model.rec_per_sec + s):
                     self.recs["Vm"].append(h.Vector())
                     self.recs["Vm"][-1].record(dend(i * step)._ref_v)
 

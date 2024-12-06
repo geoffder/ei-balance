@@ -686,7 +686,7 @@ def sac_rho_violins(
     return fig, ax
 
 
-def dendritic_ds(tree_recs, dirs, pref=0, thresh=None, bin_pts=None):
+def dendritic_ds(tree_recs, dirs, pref=0, thresh=None, bin_pts=None, peak=False):
     """Expected dendrite recordings are in an array of shape (N, Dirs, Locs, T).
     If passing in an average, include a singleton 0th dimension.
     """
@@ -698,10 +698,11 @@ def dendritic_ds(tree_recs, dirs, pref=0, thresh=None, bin_pts=None):
     else:
         tree_recs = tree_recs - bn.nanmin(tree_recs)
 
-    areas = bn.nansum(tree_recs, axis=3)
+    f = bn.nanmax if peak else bn.nansum
+    metric = f(tree_recs, axis=3)
 
     # direction selective tuning for each recording location on tree
-    DSis, thetas = calc_tuning(areas, dirs, dir_ax=1)
+    DSis, thetas = calc_tuning(metric, dirs, dir_ax=1)
     if pref != 0:
         # NOTE: This is on 0 -> 180 scale, so ABSOLUTE theta diff from preferred
         # NOT -180 -> 180 scale. Make sure that this is what I want.
@@ -710,7 +711,7 @@ def dendritic_ds(tree_recs, dirs, pref=0, thresh=None, bin_pts=None):
     return {"DSi": DSis, "theta": thetas}
 
 
-def analyze_tree(data, dirs, rec_key="Vm", pref=0, thresh=None, bin_pts=None):
+def analyze_tree(data, dirs, rec_key="Vm", **ds_kwargs):
     """Build dendritic tree tuning (preferred thetas and DSis for each
     recording location) dict containing all of the DSGCs at each rho level
     included in the given data dict."""
@@ -718,15 +719,11 @@ def analyze_tree(data, dirs, rec_key="Vm", pref=0, thresh=None, bin_pts=None):
     for cond, nets in data.items():
         tuning[cond] = {}
         for i in nets.keys():
-            tree_recs = data[cond][i]["dendrites"][rec_key]
+            tree_recs = data[cond][i]["dendrites"][rec_key][:]
             avg_recs = np.expand_dims(bn.nanmean(tree_recs, axis=0), 0)
             tuning[cond][i] = {
-                "trials": dendritic_ds(
-                    tree_recs, dirs, pref=pref, thresh=thresh, bin_pts=bin_pts
-                ),
-                "avg": dendritic_ds(
-                    avg_recs, dirs, pref=pref, thresh=thresh, bin_pts=bin_pts
-                ),
+                "trials": dendritic_ds(tree_recs, dirs, **ds_kwargs),
+                "avg": dendritic_ds(avg_recs, dirs, **ds_kwargs),
                 "locs": data[cond][i]["dendrites"]["locs"],
             }
 
@@ -804,19 +801,26 @@ def plot_tree_tuning(tuning_dict, net_idx, trial=None, dsi_size=True, dsi_mul=25
     return fig
 
 
-def ds_scatter(tuning_dict, x_max=None, **plot_kwargs):
+def ds_scatter(tuning_dict, x_max=None, avg=False, palette="black", **plot_kwargs):
     fig, axes = plt.subplots(1, len(tuning_dict), sharey=True, **plot_kwargs)
     axes = axes if len(tuning_dict) > 1 else [axes]
     dsi_max = 0.0
+    n_nets = len(tuning_dict[list(tuning_dict.keys())[0]])
+    if type(palette) == str:
+        palette = [palette for _ in range(n_nets)]
+    elif len(palette) < n_nets:
+        palette = palette * int(np.ceil(n_nets / len(palette)))
 
+    get = (lambda n, m: n["avg"][m]) if avg else (lambda n, m: n["trials"][m].flatten())
     # sort dict so rho increases left to right
     for (cond, nets), ax in zip(sorted(tuning_dict.items()), axes):
         pts = {
-            m: np.concatenate([n["trials"][m].flatten() for n in nets.values()])
+            m: np.stack([get(n, m) for n in nets.values()], axis=0)
             for m in ["DSi", "theta"]
         }
         dsi_max = max(dsi_max, np.max(pts["DSi"]))
-        ax.scatter(pts["DSi"], pts["theta"], c="black", alpha=0.1)
+        for n in range(n_nets):
+            ax.scatter(pts["DSi"][n], pts["theta"][n], c=palette[n], alpha=0.1)
         ax.set_xlabel("DSi", size=14)
         title = cond if type(cond) is str else "rho = %s" % cond
         ax.set_title(title, fontsize=18)
@@ -1197,8 +1201,8 @@ def get_syn_rec_lookups(rec_locs, syn_locs):
     rec_to_syn = {}
     for i in range(syn_locs.shape[0]):
         rec_idx = np.argmin(
-            np.abs((syn_locs[i, 0] - rec_locs[0]))
-            + np.abs((syn_locs[i, 1] - rec_locs[1]))
+            np.abs((syn_locs[i, 0] - rec_locs[:, 0]))
+            + np.abs((syn_locs[i, 1] - rec_locs[:, 1]))
         )
         syn_to_rec[i] = rec_idx
         rec_to_syn[rec_idx] = i
