@@ -766,8 +766,8 @@ def plot_tree_tuning(tuning_dict, net_idx, trial=None, dsi_size=True, dsi_mul=25
 
         sz = net[level]["DSi"][trial] * dsi_mul if dsi_size else 20
         scatter = ax.scatter(
-            net["locs"][0],
-            net["locs"][1],
+            net["locs"][:, 0],
+            net["locs"][:, 1],
             s=sz,
             alpha=0.5,
             c=np.abs(net[level]["theta"][trial]),
