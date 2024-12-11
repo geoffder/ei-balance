@@ -1446,7 +1446,8 @@ def plot_dends_overlay(
     gaba_xs = bp_locs["I"][:, 0]
     gaba_ys = bp_locs["I"][:, 1]
 
-    ax.imshow(dsgc_img, extent=extent, alpha=dsgc_alpha, cmap="gray")
+    if dsgc_alpha > 0:
+        ax.imshow(dsgc_img, extent=extent, alpha=dsgc_alpha, cmap="gray")
     ax.set_xlim(-30, 230)
     ax.set_ylim(-30, 260)
 
