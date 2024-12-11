@@ -11,7 +11,7 @@ import json
 from typing import List
 
 # local imports
-from modelUtils import find_spikes
+from modelUtils import find_spikes, rec_dist_matrix
 from general_utils import clean_axes
 from hdf_utils import pack_hdf
 
@@ -232,6 +232,7 @@ class Rig:
         if self.model.record_tree:
             all_data["dendrites"] = {
                 "locs": self.model.get_recording_locations(),
+                "rec_dists": rec_dist_matrix(self.model),
                 "Vm": self.stack_trials(n_trials, n_dirs, self.dend_data["Vm"]),
                 "iCa": self.stack_trials(n_trials, n_dirs, self.dend_data["iCa"]),
                 "cai": self.stack_trials(n_trials, n_dirs, self.dend_data["cai"]),

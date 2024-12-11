@@ -222,6 +222,33 @@ def dist_calc(pth, model):
         dists.to_csv(pth + "distBetwRecs.csv", index=False)
 
 
+def rec_dist_matrix(model):
+    """
+    Return cable distance matrix of recording locations.
+    """
+    per = model.rec_per_sec
+    step = model.seg_step
+    st = 1 if model.rec_skip_0th_pos else 0
+    dends = model.all_dends
+    n_dends = len(dends)
+    n_locs = n_dends * per
+    m = np.zeros((n_locs, n_locs))
+
+    for i in range(n_dends):
+        dends[i].push()
+        for i_seg in range(per):
+            i_idx = i * per + i_seg
+            h.distance(0, (i_seg + st) * step)  # set origin to current seg
+            for k in range(n_dends):
+                dends[k].push()
+                for k_seg in range(per):
+                    m[i_idx, k * per + k_seg] = h.distance(1, (k_seg + st) * step)
+                h.pop_section()
+        h.pop_section()
+
+    return m
+
+
 def cable_dist_to_soma(model):
     model.soma.push()
     h.distance(0, 0.5)  # set origin at soma
