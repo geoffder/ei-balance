@@ -809,6 +809,7 @@ def tree_tuning(
     dsi,
     abstheta=True,
     dsi_mul=250,
+    min_dsi_size=0,
     dsi_min=None,
     dsi_max=None,
     theta_min=None,
@@ -821,7 +822,7 @@ def tree_tuning(
     legend_kwargs={},
 ):
     theta = np.abs(theta) if abstheta else theta
-    dsi_sz = dsi * dsi_mul
+    dsi_sz = dsi * dsi_mul + min_dsi_size
 
     # range vars for size and colour legend
     dsi_min = dsi.min() if dsi_min is None else dsi_min
@@ -843,8 +844,12 @@ def tree_tuning(
 
     if legend is not None:
         # draw legend mapping DSi -> size with min/max examples.
-        mn = ax.scatter([], [], c="black", s=dsi_min * dsi_mul, edgecolors="none")
-        mx = ax.scatter([], [], c="black", s=dsi_max * dsi_mul, edgecolors="none")
+        min_s = dsi_min * dsi_mul + min_dsi_size
+        max_s = dsi_max * dsi_mul + min_dsi_size
+        # mn = ax.scatter([], [], c="black", s=min_s, edgecolors="none")
+        # mx = ax.scatter([], [], c="black", s=max_s, edgecolors="none")
+        mn = ax.scatter([], [], s=min_s, edgecolors="black", facecolors="none")
+        mx = ax.scatter([], [], s=max_s, edgecolors="black", facecolors="none")
         labels = ["%.2f" % m for m in [dsi_min, dsi_max]]
         legend_kwargs = merge(
             dict(
@@ -855,8 +860,8 @@ def tree_tuning(
                 loc="upper right",
                 borderpad=1,
                 handletextpad=1,
-                title="DSI Bounds",
-                title_fontsize=18,
+                title="DSI",
+                title_fontsize=14,
             ),
             legend_kwargs,
         )
