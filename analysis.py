@@ -22,7 +22,7 @@ import json
 # local libraries
 from modelUtils import rotate, scale_180_from_360, wrap_180
 from hdf_utils import unpack_hdf
-from general_utils import clean_axes, map_data
+from general_utils import clean_axes, map_data, merge
 from ei_balance import Model
 
 
@@ -799,6 +799,78 @@ def plot_tree_tuning(tuning_dict, net_idx, trial=None, dsi_size=True, dsi_mul=25
     fig.colorbar(scatter, ax=axes, orientation="horizontal", pad=0.1)
 
     return fig
+
+
+def tree_tuning(
+    fig,
+    ax,
+    locs,
+    theta,
+    dsi,
+    abstheta=True,
+    dsi_mul=250,
+    dsi_min=None,
+    dsi_max=None,
+    theta_min=None,
+    theta_max=None,
+    alpha=0.5,
+    cmap=None,
+    cbar=True,
+    cbar_kwargs={},
+    legend="fig",
+    legend_kwargs={},
+):
+    theta = np.abs(theta) if abstheta else theta
+    dsi_sz = dsi * dsi_mul
+
+    # range vars for size and colour legend
+    dsi_min = dsi.min() if dsi_min is None else dsi_min
+    dsi_max = dsi.max() if dsi_max is None else dsi_max
+    theta_min = theta.min() if theta_min is None else theta_min
+    theta_max = theta.max() if theta_max is None else theta_max
+    cmap = ("jet" if abstheta else "twilight_shifted") if cmap is None else cmap
+
+    scatter = ax.scatter(
+        locs[:, 0],
+        locs[:, 1],
+        s=dsi_sz,
+        alpha=alpha,
+        c=theta,
+        cmap=cmap,
+        vmin=theta_min,
+        vmax=theta_max,
+    )
+
+    if legend is not None:
+        # draw legend mapping DSi -> size with min/max examples.
+        mn = ax.scatter([], [], c="black", s=dsi_min * dsi_mul, edgecolors="none")
+        mx = ax.scatter([], [], c="black", s=dsi_max * dsi_mul, edgecolors="none")
+        labels = ["%.2f" % m for m in [dsi_min, dsi_max]]
+        legend_kwargs = merge(
+            dict(
+                ncol=2,
+                frameon=True,
+                fontsize=12,
+                handlelength=2,
+                loc="upper right",
+                borderpad=1,
+                handletextpad=1,
+                title="DSI Bounds",
+                title_fontsize=18,
+            ),
+            legend_kwargs,
+        )
+        place = fig if legend == "fig" else ax
+        legend = place.legend([mn, mx], labels, **legend_kwargs)
+
+    if cbar:
+        place = fig if legend == "fig" else ax
+        cbar_kwargs = merge(dict(orientation="vertical"), cbar_kwargs)
+        cbar = fig.colorbar(scatter, **cbar_kwargs)
+    else:
+        cbar = None
+
+    return scatter, cbar
 
 
 def ds_scatter(tuning_dict, x_max=None, avg=False, palette="black", **plot_kwargs):
