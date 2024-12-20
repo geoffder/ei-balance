@@ -869,7 +869,6 @@ def tree_tuning(
         legend = place.legend([mn, mx], labels, **legend_kwargs)
 
     if cbar:
-        place = fig if legend == "fig" else ax
         cbar_kwargs = merge(dict(orientation="vertical"), cbar_kwargs)
         cbar = fig.colorbar(scatter, **cbar_kwargs)
     else:
