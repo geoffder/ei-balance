@@ -253,3 +253,18 @@ def dummy_yaxis_label(ax, lbl, offset=-0.6, **ylabel_kwargs):
     lbl_ax.set_yticks([])
     lbl_ax.set_ylabel(lbl, ha="right", va="center", **ylabel_kwargs)
     return lbl_ax
+
+
+def helical_fragments(radius, fn=None, fa=None, fs=None):
+    if fn is None:
+        fa = (12.0 * np.pi / 180.0) if fa is None else fa
+        fs = 2.0 if fs is None else fs
+        return int(max(np.ceil(min(2.0 * np.pi / fa, radius * np.pi * 2.0 / fs)), 5.0))
+    else:
+        return int(max(3, fn))
+
+
+def circle(radius, fn=None, fa=None, fs=None):
+    fn = helical_fragments(radius, fn=fn, fa=fa, fs=fs)
+    angles = np.arange(fn) * (-2.0 * np.pi / fn)
+    return radius * np.array([np.cos(angles), np.sin(angles)])
