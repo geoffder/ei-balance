@@ -1507,9 +1507,12 @@ def plot_dends_overlay(
     syn_number_size=0,
     syn_number_color="black",
     incl_cbars=True,
+    legend=True,
     scaling_legend=True,
     show_ach=True,
     show_gaba=True,
+    base_zorder=None,
+    legend_kwargs={},
 ):
     # flip y-axis of image to match it up with coordinate system
     dsgc_img, extent = get_dsgc_img()
@@ -1569,12 +1572,26 @@ def plot_dends_overlay(
         )
     )
 
+    # avoid drawing underneath existing lines (zorder of scatter can be lower
+    # than existing plot lines particularly if they are numerous)
+    zorder = (
+        max([c.zorder for c in ax.get_children()])
+        if base_zorder is None
+        else base_zorder
+    )
+
+    def get_kwargs():
+        nonlocal zorder
+        ks = {"zorder": zorder}
+        zorder += 1
+        return ks
+
     def plot_stick(syn_x, syn_y, bp_x, bp_y, clr):
         if syn_x == bp_x and syn_y == bp_y:
             return  # don't plot if stick is zero length
         x = [syn_x, bp_x]
         y = [syn_y, bp_y]
-        ax.plot(x, y, c=clr, linewidth=sac_thickness, alpha=sac_alpha)
+        ax.plot(x, y, c=clr, linewidth=sac_thickness, alpha=sac_alpha, **get_kwargs())
 
     rng = np.random.default_rng(syn_choice_seed)
     idxs = rng.choice(
@@ -1600,11 +1617,20 @@ def plot_dends_overlay(
                     bp_locs["PLEX"][i], probs["PLEX"][i][angle_idx]
                 ):
                     clr = [ach_color if stim_angle is None else ach_cmap(prob)]
-                    ax.scatter(x, y, c=clr, edgecolors=ach_edge, s=sz(prob))
+                    ax.scatter(
+                        x, y, c=clr, edgecolors=ach_edge, s=sz(prob), **get_kwargs()
+                    )
 
             prob = probs["E"][i][angle_idx]
             clr = [ach_color if stim_angle is None else ach_cmap(prob)]
-            ax.scatter(ach_xs[i], ach_ys[i], c=clr, edgecolors=ach_edge, s=sz(prob))
+            ax.scatter(
+                ach_xs[i],
+                ach_ys[i],
+                c=clr,
+                edgecolors=ach_edge,
+                s=sz(prob),
+                **get_kwargs(),
+            )
 
         if show_gaba and not np.isnan(gaba_xs[i]):  # type: ignore
             prob = probs["I"][i][angle_idx]
@@ -1616,6 +1642,7 @@ def plot_dends_overlay(
                 c=clr,
                 edgecolors=gaba_edge,
                 s=sz(prob),
+                **get_kwargs(),
             )
         if syn_number_size > 0:
             ax.text(
@@ -1624,6 +1651,7 @@ def plot_dends_overlay(
                 str(i),
                 fontsize=syn_number_size,
                 c=syn_number_color,
+                **get_kwargs(),
             )
 
     if stim_angle is not None and incl_cbars:
@@ -1671,19 +1699,22 @@ def plot_dends_overlay(
             *("ACh %s" % str(pr) for pr in prs),
             *("GABA %s" % str(pr) for pr in prs),
         ]
-    ax.legend(
-        items,
-        lbls,
-        ncol=2,
-        frameon=False,
-        fontsize=12,
-        handlelength=2,
-        loc="upper right",
-        bbox_to_anchor=(0.35, 0.25),
-        borderpad=1,
-        handletextpad=1,
-        title_fontsize=12,
-    )
+    if legend:
+        legend_kwargs = merge(
+            dict(
+                ncol=2,
+                frameon=False,
+                fontsize=12,
+                handlelength=2,
+                loc="upper right",
+                bbox_to_anchor=(0.35, 0.25),
+                borderpad=1,
+                handletextpad=1,
+                title_fontsize=12,
+            ),
+            legend_kwargs,
+        )
+        ax.legend(items, lbls, **legend_kwargs)
 
     clean_axes(ax, remove_spines=["left", "right", "top", "bottom"])
 
