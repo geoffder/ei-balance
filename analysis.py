@@ -816,6 +816,7 @@ def tree_tuning(
     theta_max=None,
     alpha=0.5,
     cmap=None,
+    edgecolors=None,
     cbar=True,
     cbar_kwargs={},
     legend="fig",
@@ -840,6 +841,7 @@ def tree_tuning(
         cmap=cmap,
         vmin=theta_min,
         vmax=theta_max,
+        edgecolors=edgecolors,
     )
 
     if legend is not None:

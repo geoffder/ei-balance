@@ -51,10 +51,13 @@ class Rig:
                         self.recs["cai"].append(h.Vector())
                         self.recs["cai"][-1].record(dend(i * step)._ref_cai)
 
-            for n in range(self.model.n_syn):
-                for t in self.recs["g"].keys():
-                    self.recs["g"][t].append(h.Vector())
-                    self.recs["g"][t][-1].record(self.model.syns[t]["syn"][n]._ref_g)
+            if self.model.record_tree_g:
+                for n in range(self.model.n_syn):
+                    for t in self.recs["g"].keys():
+                        self.recs["g"][t].append(h.Vector())
+                        self.recs["g"][t][-1].record(
+                            self.model.syns[t]["syn"][n]._ref_g
+                        )
 
     def dump_recordings(self):
         vm, area, count = self.measure_response(self.soma_rec)
@@ -71,12 +74,15 @@ class Rig:
 
                     self.dend_data[r].append(np.round(self.recs[r], decimals=6))
 
-            for t in self.recs["g"].keys():
-                if self.model.downsample["g"] < 1:
-                    for rec in self.recs["g"][t]:
-                        rec.resample(rec, self.model.downsample["g"])
+            if self.model.record_tree_g:
+                for t in self.recs["g"].keys():
+                    if self.model.downsample["g"] < 1:
+                        for rec in self.recs["g"][t]:
+                            rec.resample(rec, self.model.downsample["g"])
 
-                self.dend_data["g"][t].append(np.round(self.recs["g"][t], decimals=6))
+                    self.dend_data["g"][t].append(
+                        np.round(self.recs["g"][t], decimals=6)
+                    )
 
     def clear_recordings(self):
         self.soma_rec.resize(0)
@@ -236,11 +242,12 @@ class Rig:
                 "Vm": self.stack_trials(n_trials, n_dirs, self.dend_data["Vm"]),
                 "iCa": self.stack_trials(n_trials, n_dirs, self.dend_data["iCa"]),
                 "cai": self.stack_trials(n_trials, n_dirs, self.dend_data["cai"]),
-                "g": {
+            }
+            if self.model.record_tree_g:
+                all_data["dendrites"]["g"] = {
                     k: self.stack_trials(n_trials, n_dirs, v)
                     for k, v in self.dend_data["g"].items()
-                },
-            }
+                }
 
         if self.model.sac_net is not None:
             all_data["sac_net"] = self.model.sac_net.get_wiring_dict()
