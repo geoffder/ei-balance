@@ -264,7 +264,29 @@ def helical_fragments(radius, fn=None, fa=None, fs=None):
         return int(max(3, fn))
 
 
-def circle(radius, fn=None, fa=None, fs=None):
+def arc(
+    radius,
+    start,
+    angle,
+    fn=None,
+    fa=None,
+    fs=None,
+    centre=None,
+    wedge=False,
+    closed=False,
+):
+    fn = helical_fragments(radius, fn=fn, fa=fa, fs=fs)
+    angles = np.arange(fn) * (angle / (fn - 1)) + start
+    pts = radius * np.array([np.cos(angles), np.sin(angles)])
+    c = np.zeros((2, 1)) if centre is None else np.array(centre).reshape(2, 1)
+    pts = pts if centre is None else pts + c
+    return np.concatenate([c, pts] + ([c] if closed else []), axis=1) if wedge else pts
+
+
+def circle(radius, fn=None, fa=None, fs=None, centre=None, closed=False):
     fn = helical_fragments(radius, fn=fn, fa=fa, fs=fs)
     angles = np.arange(fn) * (-2.0 * np.pi / fn)
-    return radius * np.array([np.cos(angles), np.sin(angles)])
+    c = np.zeros((2, 1)) if centre is None else np.array(centre).reshape(2, 1)
+    pts = radius * np.array([np.cos(angles), np.sin(angles)])
+    pts = pts if centre is None else pts + c
+    return np.concatenate([pts, pts[:, 0].reshape(2, 1)], axis=1) if closed else pts
