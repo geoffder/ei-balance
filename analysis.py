@@ -47,7 +47,7 @@ def spike_transform(vm, kernel_sz, kernel_std, thresh=0):
     be trials/locations/directions etc (e.g. data is just 1D time-series).
     Soma Vm is stored in shape (Trials, Directions, Time).
     """
-    kernel = signal.gaussian(kernel_sz, kernel_std)
+    kernel = signal.windows.gaussian(kernel_sz, kernel_std)
     og_shape = vm.shape
     vm = vm[:].reshape(-1, vm.shape[-1])
 
@@ -63,7 +63,7 @@ def spike_transform(vm, kernel_sz, kernel_std, thresh=0):
 
 def gauss_conv(vm, kernel_sz, kernel_var):
     """Gaussian convolution of input recordings (without spike detection step)."""
-    kernel = signal.gaussian(kernel_sz, kernel_var)
+    kernel = signal.windows.gaussian(kernel_sz, kernel_var)
     og_shape = vm.shape
     vm = vm.reshape(-1, vm.shape[-1])
     conv = np.array([np.convolve(rec, kernel, mode="same") for rec in vm])

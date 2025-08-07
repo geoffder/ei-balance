@@ -199,7 +199,7 @@ class MotionResponse:
         self.scat.set_array(self.tree[self.trial_idx, self.dir_idx, :, self.tree_t])
         self.line.set_ydata(self.soma[self.trial_idx, self.dir_idx])
         self.t_mark.set_data(
-            self.time[soma_t], self.soma[self.trial_idx, self.dir_idx, soma_t]
+            [self.time[soma_t]], [self.soma[self.trial_idx, self.dir_idx, soma_t]]
         )
         self.stim.set_xy(self.sweeps[self.dir_idx][soma_t])
         self.scat.axes.figure.canvas.draw()
