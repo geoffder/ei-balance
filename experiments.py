@@ -108,6 +108,14 @@ def sacnet_titration_run(
     global _sacnet_titration_repeat  # required to allow pickling for Pool
     param_paths = [param_paths] if type(param_paths[0]) != list else param_paths
 
+    # TODO: actually, to support scaling up AMPA I need to have a new experiment
+    # function built to allow setting the value of params directly, since AMPA
+    # starts from 0 at the "low contrast" condition
+    # support providing a shared list of float titration steps, otherwise a list
+    # of list of floats is expected (corresponding to the number of paths)
+    # if type(titration_steps[0]) != list:
+    #     titration_steps = [titration_steps for _ in param_paths]
+
     def new_params(factor):
         params = deepcopy(model_config)
         for pth in param_paths:
@@ -307,6 +315,100 @@ def sacnet_rho_run(
                 res = pool.map(f, [idx + i for i in range(n)])
                 for _ in range(n):
                     data = {idx: res[0]}
+                    pack_dataset(grp, data, compression=None)
+                    del data, res[0]  # delete head
+                    idx += 1
+    print("Done!")
+
+
+def sacnet_param_run(
+    save_path,
+    model_config,
+    param_paths,
+    params,
+    n_nets=3,
+    n_trials=3,
+    rho_steps=[0.0, 1.0],
+    pool_sz=8,
+    vc_mode=False,
+    vc_simul=True,
+    vc_isolate=True,
+    reset_seed_between_rho=False,
+):
+    """'Titration' of the parameters pointed to by param_paths (string list or
+    string list list) in the given model_config. titration_steps is still a
+    float list, so each parameter is scaled by the same multiplication factor at
+    each step. For context, this extension beyond the original gaba titration
+    script is mainly to enable scaling ACh probability which requires changing
+    'E' and 'PLEX' at the same time."""
+    global _sacnet_param_repeat  # required to allow pickling for Pool
+    param_paths = [param_paths] if type(param_paths[0]) != list else param_paths
+
+    # TODO: actually, to support scaling up AMPA I need to have a new experiment
+    # function built to allow setting the value of params directly, since AMPA
+    # starts from 0 at the "low contrast" condition
+    # support providing a shared list of float titration steps, otherwise a list
+    # of list of floats is expected (corresponding to the number of paths)
+    # if type(titration_steps[0]) != list:
+    #     titration_steps = [titration_steps for _ in param_paths]
+
+    def new_params(factor):
+        params = deepcopy(model_config)
+        for pth in param_paths:
+            param_ref = params
+            for p in pth[:-1]:
+                param_ref = param_ref[p]
+            param_ref[pth[-1]] *= factor
+        return params
+
+    lbls = map(lambda p: "/".join(p), param_paths)
+    lbl = " and ".join(lbls)
+
+    def _sacnet_param_repeat(step, i):
+        params = new_params(step)
+        params["seed"] = i
+        dsgc = Model(params)
+        runner = Rig(dsgc)
+
+        data = {}
+        for rho in rho_steps:
+            runner.model.nz_seed = 0
+            runner.model.build_sac_net(rho=rho, reset_rng=reset_seed_between_rho)
+            if vc_mode:
+                data[rho] = runner.vc_dir_run(
+                    n_trials,
+                    simultaneous=vc_simul,
+                    isolate_agonists=vc_isolate,
+                    save_name=None,
+                    quiet=True,
+                )
+            else:
+                data[rho] = runner.dir_run(
+                    n_trials, save_name=None, plot_summary=False, quiet=True
+                )
+
+        return data
+
+    with multiprocessing.Pool(pool_sz) as pool, h5.File(save_path, "w") as pckg:
+        # TODO: no longer a single factor, could be a list of different values
+        # or modifiers meant for different parameters. If sending a list of
+        # statically unknown length (# of parameters) is not going to work, I
+        # could stuff them into an indexed dict (captured by the closure) such
+        # that only the index needs to be passed to the parallel repeat function
+        for factor in titration_steps:
+            print("Running with %s scaled by factor of %.2f" % (lbl, factor))
+            grp = pckg.create_group(pack_key(factor))
+            f = partial(_sacnet_titration_repeat, factor)
+            idx = 0
+            while idx < n_nets:
+                n = min(pool_sz, n_nets - idx)
+                print(
+                    "  sac net trials %i to %i (of %i)..." % (idx + 1, idx + n, n_nets),
+                    flush=True,
+                )
+                res = pool.map(f, [idx + i for i in range(n)])
+                for _ in range(n):
+                    data = {r: {idx: res[0][r]} for r in res[0].keys()}
                     pack_dataset(grp, data, compression=None)
                     del data, res[0]  # delete head
                     idx += 1

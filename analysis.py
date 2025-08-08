@@ -1435,6 +1435,14 @@ def sac_angle_distribution(
     ticksize=12,
     ach_clr="green",
     gaba_clr="magenta",
+    ach_edgeclr=None,
+    gaba_edgeclr=None,
+    ach_faceclr=None,
+    gaba_faceclr=None,
+    ach_hatch=None,
+    gaba_hatch=None,
+    alpha=0.5,
+    hist_kwargs={},
     **plot_kwargs,
 ):
     """Plot SAC dendrite angle distribution histograms, aggregating over a
@@ -1458,13 +1466,29 @@ def sac_angle_distribution(
 
     for j, numBins in enumerate(bins):
         binAx = [i * 360 / numBins for i in range(numBins)]
-        for ts, clr, lbl in [(eThetas, ach_clr, "ACh"), (iThetas, gaba_clr, "GABA")]:
+        for ts, clr, edgeclr, faceclr, hatch, lbl in [
+            (eThetas, ach_clr, ach_edgeclr, ach_faceclr, ach_hatch, "ACh"),
+            (iThetas, gaba_clr, gaba_edgeclr, gaba_faceclr, gaba_hatch, "GABA"),
+        ]:
             lbl = lbl if not j else None
             counts, bins = np.histogram(ts, bins=binAx)  # type:ignore
             counts = np.concatenate([counts, [counts[0]]])
             bins = np.concatenate([bins, [360]])
+            kwargs = {**hist_kwargs}
+            if edgeclr is None and faceclr is None:
+                kwargs["color"] = clr
+            else:
+                kwargs["facecolor"] = faceclr
+                kwargs["edgecolor"] = edgeclr
+            kwargs["hatch"] = hatch
             axes[j].hist(
-                bins[:-1], bins, weights=counts, color=clr, alpha=0.5, label=lbl
+                bins[:-1],
+                bins,
+                weights=counts,
+                color=clr,
+                alpha=alpha,
+                label=lbl,
+                **kwargs,
             )
         if len(bins) > 1:
             axes[j].set_title("Bin Size: %.1f" % (360 / numBins))
