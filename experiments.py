@@ -326,6 +326,7 @@ def sacnet_param_run(
     model_config,
     param_paths,
     params,
+    step_lbls,
     n_nets=3,
     n_trials=3,
     rho_steps=[0.0, 1.0],
@@ -343,6 +344,18 @@ def sacnet_param_run(
     'E' and 'PLEX' at the same time."""
     global _sacnet_param_repeat  # required to allow pickling for Pool
     param_paths = [param_paths] if type(param_paths[0]) != list else param_paths
+    params = [params] if type(params[0]) != list else params
+    if len(params) == 1 and len(param_paths) > 1:
+        params = [params[0] for _ in range(len(param_paths))]
+    elif len(params) > 1 and len(params) != param_paths:
+        raise ValueError("Number of param step lists does not match number of param paths")
+    if len(set(map(len, params))) > 1:
+        raise ValueError("parameter step lists must be of the same length")
+
+    n_steps = len(params[0])
+
+    if len(step_lbls) != n_steps:
+        raise ValueError("Must provide labels for each parameter step.")
 
     # TODO: actually, to support scaling up AMPA I need to have a new experiment
     # function built to allow setting the value of params directly, since AMPA
@@ -395,7 +408,7 @@ def sacnet_param_run(
         # statically unknown length (# of parameters) is not going to work, I
         # could stuff them into an indexed dict (captured by the closure) such
         # that only the index needs to be passed to the parallel repeat function
-        for factor in titration_steps:
+        for step in range(n_steps):
             print("Running with %s scaled by factor of %.2f" % (lbl, factor))
             grp = pckg.create_group(pack_key(factor))
             f = partial(_sacnet_titration_repeat, factor)
