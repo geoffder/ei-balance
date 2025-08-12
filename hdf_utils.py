@@ -1,16 +1,21 @@
+import psutil
 import numpy as np
 import h5py as h5
 from typing import Optional, Union, Any
 
 INT_PREFIX = "packed_int_"
 FLOAT_PREFIX = "packed_float_"
+TUPLE_PREFIX = "packed_tuple_"
 
 
 def pack_key(k):
-    if isinstance(k, int):
+    if isinstance(k, int) or isinstance(k, np.int64):  # type:ignore
         return "%s%i" % (INT_PREFIX, k)
     elif isinstance(k, float):
         return "%s%f" % (FLOAT_PREFIX, k)
+    elif isinstance(k, tuple):
+        packed = map(pack_key, k)
+        return "%s(%s)" % (TUPLE_PREFIX, ",".join(packed))
     else:
         return k
 
@@ -21,6 +26,9 @@ def unpack_key(k):
             return int(k[len(INT_PREFIX) :])
         if k.startswith(FLOAT_PREFIX):
             return float(k[len(FLOAT_PREFIX) :])
+        if k.startswith(TUPLE_PREFIX):
+            stripped = k[len(TUPLE_PREFIX) + 1 : -1]
+            return tuple(map(unpack_key, stripped.split(",")))
         return k
     else:
         return k
@@ -83,7 +91,7 @@ def unpack_hdf_rec(group):
     }
 
 
-def unpack_hdf(h5_group):
+def unpack_hdf(h5_group, decode_bytes=True):
     """Unpack an hdf5 of nested Groups (and Datasets) to dict."""
     d = {}
     items = [list(h5_group.items())]
@@ -94,6 +102,14 @@ def unpack_hdf(h5_group):
             k = unpack_key(k)
             if type(v) is h5.Dataset:
                 grps[-1][k] = v[()]
+                if decode_bytes and type(grps[-1][k]) is bytes:
+                    grps[-1][k] = grps[-1][k].decode()
+                elif (
+                    decode_bytes
+                    and type(grps[-1][k]) is np.ndarray
+                    and type(grps[-1][k][0]) is bytes
+                ):
+                    grps[-1][k] = [bs.decode() for bs in grps[-1][k]]
             else:
                 grps[-1][k] = {}
                 grps.append(grps[-1][k])
@@ -165,8 +181,7 @@ class Workspace:
         return iter(self._data)
 
     def has_key(self, k):
-        k = pack_key(k) if self.is_hdf else k
-        return k in self._data
+        return self.__contains__(k)
 
     def keys(self):
         if self.is_hdf:
@@ -197,8 +212,27 @@ class Workspace:
             self._data[key] = {}
             return self._data[key]
 
+    def get(self, key, default):
+        return self.__getitem__(key) if self.has_key(key) else default
+
+    def unpack(self):
+        return unpack_hdf(self._data) if self.is_hdf else self._data
+
     def close(self):
         if self.is_hdf:
             self._data.close()  # type:ignore
         else:
             print("Workspace is backed by a dict, nothing to close.")
+
+
+def has_handle(fpath):
+    """Check if file is already in use (avoid writing to open h5)."""
+    for proc in psutil.process_iter():
+        try:
+            for item in proc.open_files():
+                if fpath == item.path:
+                    return True
+        except Exception:
+            pass
+
+    return False

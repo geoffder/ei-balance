@@ -22,7 +22,6 @@ from modelUtils import (
 from SacNetwork import SacNetwork
 from NetQuanta import NetQuanta
 from Rig import Rig
-import balance_configs as configs
 
 
 class Model:
@@ -1123,9 +1122,7 @@ class Model:
             # scale correlation of E and I by prox of their dend angles
             if sac.gaba_here[idx]:
                 syn_rho = rho - rho * sac.deltas[idx] / 180
-                picks["E"] = picks["I"] * syn_rho + picks["E"] * np.sqrt(
-                    1 - syn_rho**2
-                )
+                picks["E"] = picks["I"] * syn_rho + picks["E"] * np.sqrt(1 - syn_rho**2)
 
         probs = {}
         for t, props in self.synprops.items():
