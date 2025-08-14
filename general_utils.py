@@ -1,5 +1,6 @@
 from typing import Callable
 import numpy as np
+from hdf_utils import Workspace
 
 
 def merge(old, new):
@@ -170,12 +171,27 @@ def map_data(f, data):
     arrays and they are a shape that the given function can operate on."""
 
     def applyer(val):
-        if type(val) == dict:
+        if type(val) == dict or type(val) == Workspace:
             return {k: applyer(v) for k, v in val.items()}
         else:
             return f(val)
 
     return {k: applyer(v) for k, v in data.items()}
+
+
+def mapi_data(f, data):
+    """Recursively apply the same operation to all ndarrays stored in the given
+    dictionary. It may have arbitary levels of nesting, as long as the leaves are
+    arrays and they are a shape that the given function can operate on. Same as
+    `map_data` except `f` takes the key as well as the val."""
+
+    def applyer(key, val):
+        if type(val) == dict or type(val) == Workspace:
+            return {k: applyer(k, v) for k, v in val.items()}
+        else:
+            return f(key, val)
+
+    return {k: applyer(k, v) for k, v in data.items()}
 
 
 def map2_data(f, d1, d2):
