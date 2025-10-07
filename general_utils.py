@@ -315,7 +315,7 @@ def rainbow_text(ax, x, y, tokens, colours, **text_kwargs):
     renderer = ax.figure.canvas.get_renderer()
     t = ax.transData
 
-    for i, (s, c) in enumerate(zip(tokens, colours)):
+    for s, c in zip(tokens, colours):
         text_obj = ax.text(x, y, s, color=c, transform=t, **text_kwargs)
         text_obj.draw(renderer)
         ex = text_obj.get_window_extent()
