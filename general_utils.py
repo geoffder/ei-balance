@@ -1,7 +1,7 @@
 from typing import Callable
 import numpy as np
 from hdf_utils import Workspace
-
+from matplotlib import transforms
 
 def merge(old, new):
     """Recursively merge nested dictionaries. Used to updating parameter
@@ -306,3 +306,18 @@ def circle(radius, fn=None, fa=None, fs=None, centre=None, closed=False):
     pts = radius * np.array([np.cos(angles), np.sin(angles)])
     pts = pts if centre is None else pts + c
     return np.concatenate([pts, pts[:, 0].reshape(2, 1)], axis=1) if closed else pts
+
+def rainbow_text(ax, x, y, tokens, colours, **text_kwargs):
+    """
+    Places a list of strings next to each other, with each string in a specified color.
+    No padding is added, so include desired whitespace in the tokens.
+    """
+    renderer = ax.figure.canvas.get_renderer()
+    t = ax.transData
+
+    for i, (s, c) in enumerate(zip(tokens, colours)):
+        text_obj = ax.text(x, y, s, color=c, transform=t, **text_kwargs)
+        text_obj.draw(renderer)
+        ex = text_obj.get_window_extent()
+        # offset transform for the next text segment
+        t = transforms.offset_copy(text_obj._transform, x=ex.width, units='dots')

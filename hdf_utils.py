@@ -107,6 +107,7 @@ def unpack_hdf(h5_group, decode_bytes=True):
                 elif (
                     decode_bytes
                     and type(grps[-1][k]) is np.ndarray
+                    and len(grps[-1][k])
                     and type(grps[-1][k][0]) is bytes
                 ):
                     grps[-1][k] = [bs.decode() for bs in grps[-1][k]]
